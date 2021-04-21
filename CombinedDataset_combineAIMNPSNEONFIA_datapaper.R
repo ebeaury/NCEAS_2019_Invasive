@@ -15,7 +15,7 @@
 library(tidyverse)
 theme_set(theme_classic())
 
-setwd('/home/shares/neon-inv/data_paper/data_by_dataset')
+setwd('/home/shares/neon-inv/data_paper')
 
 
 ###   Columns to carry forward in combined dataset
@@ -32,7 +32,7 @@ DesiredColumns <- c("Dataset", "Site", "Plot", "Long", "Lat", "Year",
 ####   NEON   ####
 ###
 
-NEON <- read.csv("NEONdata_flatted20210225traits.csv")
+NEON <- read.csv("data_by_dataset/NEONdata_flatted20210225traits.csv")
 glimpse(NEON) 
 # Accepted.Symbol has NA where code couldn't be matched to an accepted one; neon_sp_code has the original (can be synonym)
 
@@ -61,7 +61,7 @@ setdiff(names(NEON), DesiredColumns)
 #####   FIA    ####
 ###
 
-FIA <- read_csv("FIA Veg data Latest Traits 8-4-20.csv")
+FIA <- read_csv("data_by_dataset/FIA Veg data Latest Traits 8-4-20.csv")
 glimpse(FIA)
 
 # all.equal(FIA$SciName, FIA$bestname)
@@ -96,11 +96,14 @@ setdiff(names(FIA), DesiredColumns)
 ####   AIM data    ####
 ###
 
-AIM <- read_rds("C:/Users/hsofaer/Documents/HelenProjects/AI_AIM/AIM_AllSpTax_24June2020.rds")
+AIM <- read_rds("data_by_dataset/AIM_AllSpTax_24June2020.rds") #LP: we don't have this file yet
 glimpse(AIM)
 
 # earlier visits of resampled plots:
-AIMdrop <- read_csv("J:/Projects/PAINLES/SAC_AIM/RepeatedPlots/excludeAIM_11Sept2020.csv")
+AIMdrop <- read_csv("/code_by_dataset/extra_csv_AIM/excludeAIM_11Sept2020.csv") 
+                                 #LP: we don't have this file yet
+                                 #LP: what I have is "excludeFINAL.csv" & "exclude_doubts.csv"
+                                 #LP: but Helen created a final version with the ones that should be excluded.
 
 AIM <- AIM  %>%
   # drop earlier visits for resampled plots:
@@ -114,7 +117,8 @@ AIM <- AIM  %>%
          Year = VisitYear, 
          SpCode = code,
          ExoticStatus = inv_L48,
-         TraitNRows = N.Rows) %>%
+         #TraitNRows = N.Rows
+         ) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(AIM)) # Site
@@ -126,7 +130,7 @@ AIM %>% select(Plot) %>% distinct() %>% nrow()
 ####   NPS    ####
 ###
 
-NPS <- read.csv("C:/Users/hsofaer/Documents/HelenProjects/AI_WorkingGroup/PAINLES/Combine/NPS.AllSpTraits_4Aug2020.csv", 
+NPS <- read.csv("data_by_dataset/NPS.AllSpTraits_4Aug2020.csv", 
                 na = c('', 'NA'))
 glimpse(NPS)
 
@@ -135,14 +139,15 @@ NPS <- NPS %>%
   rename(ExoticStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
-         TraitNRows = N_Rows,
-         Leaf.area = Leaf_area,
-         Leaf.N.mass = Leaf_N_mass,
-         Leaf.P.mass = Leaf_P_mass,
-         Plant.height = Plant_height,
-         Seed.dry.mass = Seed_dry_mass,
-         StemSpecificDensity = Stem_specific_density_,
-         C3.C4 = C3C4) %>%
+         # TraitNRows = N_Rows,
+         # Leaf.area = Leaf_area,
+         # Leaf.N.mass = Leaf_N_mass,
+         # Leaf.P.mass = Leaf_P_mass,
+         # Plant.height = Plant_height,
+         # Seed.dry.mass = Seed_dry_mass,
+         # StemSpecificDensity = Stem_specific_density_,
+         # C3.C4 = C3C4
+         ) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(NPS))
@@ -156,6 +161,30 @@ setdiff(names(NPS), DesiredColumns)
 AllSpTrait <- bind_rows(AIM, NPS, FIA, NEON)
 glimpse(AllSpTrait)
 
+
+###
+####   VEGBANK    ####
+###
+
+VEGBANK <- read.csv("data_by_dataset/All_VegBank_KPEACH_reduced.csv", 
+                na = c('', 'NA'))
+glimpse(VEGBANK)
+
+VEGBANK <- VEGBANK %>% #LP: stopped here!!!!!!
+  mutate(Year = max(c(year_div, year_vegstr), na.rm = TRUE),
+         SpCode = ifelse(is.na(Accepted.Symbol), neon_sp_code, Accepted.Symbol)) %>%
+  rename(Dataset = dataset,
+         Site = siteID,
+         Plot = plotID,
+         Long = decimalLongitude,
+         Lat = decimalLatitude,
+         ExoticStatus = Native.Status,
+         PctCov = totalcover_sum,
+         NEONbasalarea = basalarea,
+         NEONcanopycover = canopycover,
+         NEONvst_status = vst_status,
+  ) %>%
+  select(one_of(DesiredColumns), contains("NEON", ignore.case = FALSE))
 
 ###
 ####   Update exotic status to be consistent    ####
