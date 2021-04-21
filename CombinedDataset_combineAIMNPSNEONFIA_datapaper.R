@@ -19,7 +19,8 @@ setwd('/home/shares/neon-inv/data_paper')
 
 
 ###   Columns to carry forward in combined dataset
-DesiredColumns <- c("Dataset", "Site", "Plot", "Long", "Lat", "Year", 
+DesiredColumns <- c("Dataset", "Site", #AIM data does not have Site
+                    "Plot", "Long", "Lat", "Year", 
                     "SpCode", "bestname", "ExoticStatus", "PctCov",
                     "GrowthForm", "Duration"#, 
                     #LP: removing traits for the data paper
@@ -35,6 +36,9 @@ DesiredColumns <- c("Dataset", "Site", "Plot", "Long", "Lat", "Year",
 NEON <- read.csv("data_by_dataset/NEONdata_flatted20210225traits.csv")
 glimpse(NEON) 
 # Accepted.Symbol has NA where code couldn't be matched to an accepted one; neon_sp_code has the original (can be synonym)
+
+# total of unique plots = 1413
+# length(table(NEON$plotID))
 
 NEON <- NEON %>%
   mutate(Year = max(c(year_div, year_vegstr), na.rm = TRUE),
@@ -61,7 +65,7 @@ setdiff(names(NEON), DesiredColumns)
 #####   FIA    ####
 ###
 
-FIA <- read_csv("data_by_dataset/FIA Veg data Latest Traits 8-4-20.csv")
+FIA <- read_csv("data_by_dataset/FIA Veg data Latest Traits 8-4-20.csv") #ALL data including repeated samples (3207 plots)
 glimpse(FIA)
 
 # all.equal(FIA$SciName, FIA$bestname)
@@ -70,6 +74,10 @@ glimpse(FIA)
 #   distinct() %>%
 #   filter(SciName != bestname) %>%
 #   head() # looks like SciName has ssp and var info, so I'll go with bestname
+
+# total of unique plots = 2715
+# length(table(FIA$PLT_CN))
+
 
 FIA <- FIA %>%
   rename(Site = PLOT,
@@ -96,14 +104,11 @@ setdiff(names(FIA), DesiredColumns)
 ####   AIM data    ####
 ###
 
-AIM <- read_rds("data_by_dataset/AIM_AllSpTax_24June2020.rds") #LP: we don't have this file yet
+AIM <- read_csv("data_by_dataset/AIM_AllSpTax_24June2020.csv") 
 glimpse(AIM)
 
 # earlier visits of resampled plots:
-AIMdrop <- read_csv("/code_by_dataset/extra_csv_AIM/excludeAIM_11Sept2020.csv") 
-                                 #LP: we don't have this file yet
-                                 #LP: what I have is "excludeFINAL.csv" & "exclude_doubts.csv"
-                                 #LP: but Helen created a final version with the ones that should be excluded.
+AIMdrop <- read_csv("code_by_dataset/extra_csv_AIM/excludeAIM_11Sept2020.csv") 
 
 AIM <- AIM  %>%
   # drop earlier visits for resampled plots:
@@ -130,15 +135,21 @@ AIM %>% select(Plot) %>% distinct() %>% nrow()
 ####   NPS    ####
 ###
 
-NPS <- read.csv("data_by_dataset/NPS.AllSpTraits_4Aug2020.csv", 
+NPS <- read.csv("data_by_dataset/NPS.AllSpTraits_21April2021.csv", 
                 na = c('', 'NA'))
 glimpse(NPS)
 
+# total of unique plots = 24150
+# length(table(NPS$UniqueID))
+# multiple years of data for a single plot?
+# NPS2 <- NPS %>% group_by(UniqueID) %>% filter(Year == max(Year))
 
 NPS <- NPS %>%
   rename(ExoticStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
+         Plot1 = Plot,
+         Plot = UniqueID,
          # TraitNRows = N_Rows,
          # Leaf.area = Leaf_area,
          # Leaf.N.mass = Leaf_N_mass,
@@ -154,48 +165,50 @@ setdiff(DesiredColumns, names(NPS))
 setdiff(names(NPS), DesiredColumns)
 
 ###
-#####    Join    ####
-###
-
-
-AllSpTrait <- bind_rows(AIM, NPS, FIA, NEON)
-glimpse(AllSpTrait)
-
-
-###
 ####   VEGBANK    ####
 ###
 
 VEGBANK <- read.csv("data_by_dataset/All_VegBank_KPEACH_reduced.csv", 
-                na = c('', 'NA'))
+                    na = c('', 'NA')) # this data includes repeated samples
 glimpse(VEGBANK)
 
+# finds only the last year of data 
+# total of unique plots = 9318
+# VEGBANK2 <- VEGBANK %>% group_by(VegBankUniqueID) %>% slice(which.max(Year))
+
 VEGBANK <- VEGBANK %>% #LP: stopped here!!!!!!
-  mutate(Year = max(c(year_div, year_vegstr), na.rm = TRUE),
-         SpCode = ifelse(is.na(Accepted.Symbol), neon_sp_code, Accepted.Symbol)) %>%
-  rename(Dataset = dataset,
-         Site = siteID,
-         Plot = plotID,
-         Long = decimalLongitude,
-         Lat = decimalLatitude,
-         ExoticStatus = Native.Status,
-         PctCov = totalcover_sum,
-         NEONbasalarea = basalarea,
-         NEONcanopycover = canopycover,
-         NEONvst_status = vst_status,
-  ) %>%
+  rename(Site = Dataset,
+         Plot = VegBankUniqueID,
+         ExoticStatus = NEW_ExoticStatus,
+         GrowthForm = NEW_GrowthForm) %>%
+  mutate(Dataset = "VEGBANK") %>%
   select(one_of(DesiredColumns), contains("NEON", ignore.case = FALSE))
+
+setdiff(DesiredColumns, names(VEGBANK))
+setdiff(names(VEGBANK), DesiredColumns)
+
+###
+#####    Join    ####
+###
+
+
+AllSpTrait <- bind_rows(AIM, NPS, FIA, NEON, VEGBANK)
+glimpse(AllSpTrait)
+
+
+
 
 ###
 ####   Update exotic status to be consistent    ####
 ###
 # Some legit variation in exotic status for plots in AK and HI, but fix w/in L48
 
-status <- read_csv("multStatusSpL48.csv")
+status <- read_csv("code_by_dataset/taxonomy/multStatusSpL48.csv")
 head(status)
 
 status <- status %>%
-  select(SpCode, L48status = `FINAL DECISION (L48)`)
+  select(SpCode, L48status = `FINAL DECISION (L48)`) %>%
+  filter(!is.na(SpCode))
 anyDuplicated(status$SpCode)
 
 AllSpTrait <- AllSpTrait %>%
@@ -211,7 +224,7 @@ AllSpTrait <- AllSpTrait %>%
 AllSpTrait %>%
   select(Dataset, Site, Plot, Zone) %>%
   distinct() %>%
-  count(Zone)
+  count(Zone) #number of entries per zone 
 
 AllSpTrait %>%
   filter(Zone == "MissingCoords",
@@ -229,25 +242,25 @@ AllSpTrait %>%
 ###
 ####   Check that sp traits are consistent within zones  ####
 ###
-
-checkTraits <- AllSpTrait %>%
-  select(Zone, SpCode, bestname, ExoticStatus, 
-         GrowthForm, Duration, SLA, LDMC, contains("Leaf"),
-         Plant.height, Seed.dry.mass, 
-         StemSpecificDensity, C3.C4, Woodiness) %>%
-  distinct()
-
-# First make sure code and sciname are consistent:
-checkTraits %>%
-  select(SpCode, bestname) %>%
-  distinct() %>%
-  group_by(SpCode) %>%
-  count() %>%
-  filter(n > 1) 
-
-checkTraits %>%
-  filter(SpCode %in% c("ANROC", "NODE3", "PYUNU")) %>%
-  select(SpCode, bestname, ExoticStatus, GrowthForm, Duration)
+# 
+# checkTraits <- AllSpTrait %>%
+#   select(Zone, SpCode, bestname, ExoticStatus, 
+#          GrowthForm, Duration, SLA, LDMC, contains("Leaf"),
+#          Plant.height, Seed.dry.mass, 
+#          StemSpecificDensity, C3.C4, Woodiness) %>%
+#   distinct()
+# 
+# # First make sure code and sciname are consistent:
+# checkTraits %>%
+#   select(SpCode, bestname) %>%
+#   distinct() %>%
+#   group_by(SpCode) %>%
+#   count() %>%
+#   filter(n > 1) 
+# 
+# checkTraits %>%
+#   filter(SpCode %in% c("ANROC", "NODE3", "PYUNU")) %>%
+#   select(SpCode, bestname, ExoticStatus, GrowthForm, Duration)
 
 ## FIX:
 AllSpTrait <- AllSpTrait %>%
@@ -258,42 +271,42 @@ AllSpTrait <- AllSpTrait %>%
 
 
 ## rerun checkTraits creation:
-checkTraits <- AllSpTrait %>%
-  select(Zone, SpCode, bestname, ExoticStatus, 
-         GrowthForm, Duration, SLA, LDMC, contains("Leaf"),
-         Plant.height, Seed.dry.mass, 
-         StemSpecificDensity, C3.C4, Woodiness) %>%
-  distinct()
+# checkTraits <- AllSpTrait %>%
+#   select(Zone, SpCode, bestname, ExoticStatus, 
+#          GrowthForm, Duration, SLA, LDMC, contains("Leaf"),
+#          Plant.height, Seed.dry.mass, 
+#          StemSpecificDensity, C3.C4, Woodiness) %>%
+#   distinct()
 
 ##  Is there ever disagreement on traits w/in a species, excluding NAs:
-traitCounts <- checkTraits %>%
-  group_by(SpCode, Zone) %>%
-  # non-numeric variables:
-  summarise(across(one_of("bestname", "ExoticStatus", "GrowthForm", "Duration", "C3.C4", "Woodiness"), 
-                   ~ n_distinct(.x[!is.na(.x)])),
-            # round the numeric ones:
-            across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))) 
-multiples <- traitCounts %>%
-  pivot_longer(!one_of("SpCode", "Zone"), names_to = "variable", values_to = "value") %>%
-  filter(value > 1)
-multiples
-
-# look at and fix these last few manually:
-checkTraits %>% 
-  filter(SpCode %in% multiples$SpCode) %>% 
-  select(SpCode, Zone, bestname, ExoticStatus, Leaf.area) %>%
-  arrange(SpCode)
-
-# leaf areas don't look different:
-checkTraits %>%
-  filter(SpCode %in% c("OXAR", "CAPA")) %>%
-  select(SpCode, Leaf.area) %>%
-  mutate(Leaf.area = round(Leaf.area, 2)) %>%
-  distinct() # yeah, same to 2 decimals - just round the full dataset
+# traitCounts <- checkTraits %>%
+#   group_by(SpCode, Zone) %>%
+#   # non-numeric variables:
+#   summarise(across(one_of("bestname", "ExoticStatus", "GrowthForm", "Duration", "C3.C4", "Woodiness"), 
+#                    ~ n_distinct(.x[!is.na(.x)])),
+#             # round the numeric ones:
+#             across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))) 
+# multiples <- traitCounts %>%
+#   pivot_longer(!one_of("SpCode", "Zone"), names_to = "variable", values_to = "value") %>%
+#   filter(value > 1)
+# multiples
+# 
+# # look at and fix these last few manually:
+# checkTraits %>% 
+#   filter(SpCode %in% multiples$SpCode) %>% 
+#   select(SpCode, Zone, bestname, ExoticStatus, Leaf.area) %>%
+#   arrange(SpCode)
+# 
+# # leaf areas don't look different:
+# checkTraits %>%
+#   filter(SpCode %in% c("OXAR", "CAPA")) %>%
+#   select(SpCode, Leaf.area) %>%
+#   mutate(Leaf.area = round(Leaf.area, 2)) %>%
+#   distinct() # yeah, same to 2 decimals - just round the full dataset
 
 
 AllSpTrait <- AllSpTrait %>%
-  mutate(Leaf.area = round(Leaf.area, 2),
+  mutate(#Leaf.area = round(Leaf.area, 2),
          ExoticStatus = ifelse(SpCode == "RHYNC3" & Zone == "L48",
                                "NI",
                                ExoticStatus),
@@ -315,34 +328,63 @@ AllSpTrait %>%
 
 ## before filling, check how many species have only missing values:
 # redo not by zone:
-traitCounts.noZone <- checkTraits %>%
-  group_by(SpCode) %>%
-  # non-numeric variables:
-  summarise(across(one_of("bestname", "ExoticStatus", "GrowthForm", "Duration", "C3.C4", "Woodiness"), 
-                   ~ n_distinct(.x[!is.na(.x)])),
-            # round the numeric ones:
-            across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))) 
-apply(traitCounts.noZone, 2, function(x) sum(x == 0))
-
-AllSpTrait.fill <- AllSpTrait %>%
-  group_by(SpCode, bestname) %>%
-  fill(GrowthForm:Woodiness, .direction = "downup") 
+# traitCounts.noZone <- checkTraits %>%
+#   group_by(SpCode) %>%
+#   # non-numeric variables:
+#   summarise(across(one_of("bestname", "ExoticStatus", "GrowthForm", "Duration", "C3.C4", "Woodiness"),
+#                    ~ n_distinct(.x[!is.na(.x)])),
+#             # round the numeric ones:
+#             across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4))))
+# apply(traitCounts.noZone, 2, function(x) sum(x == 0))
+# 
+# AllSpTrait.fill <- AllSpTrait %>%
+#   group_by(SpCode, bestname) %>%
+#   fill(GrowthForm:Woodiness, .direction = "downup")
 
 # Now for species codes (by zone, where above was for whole dataset)
-AllSpTrait.fill <- AllSpTrait.fill %>%
+AllSpTrait.fill <- AllSpTrait %>%
   group_by(SpCode, bestname, Zone) %>%
   fill(ExoticStatus, .direction = "downup") 
 
 # check that have same number with only missing values:
+# LP: creates a summarized table in which identifies whether a species code has 
+# more than a particular "bestname", "ExoticStatus", "GrowthForm", "Duration" attributed to it.
+# I see inconsistencies when adding the VEGBANK data. 
 countFilled <- AllSpTrait.fill %>%
   group_by(SpCode) %>%
   # non-numeric variables:
-  summarise(across(one_of("bestname", "ExoticStatus", "GrowthForm", "Duration", "C3.C4", "Woodiness"), 
+  summarise(across(one_of("bestname", "ExoticStatus", "GrowthForm", "Duration"#, "C3.C4", "Woodiness"
+                          ), 
                    ~ n_distinct(.x[!is.na(.x)])),
             # round the numeric ones:
-            across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4))))
+            #across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))
+            ) %>%
+  filter(bestname>1) # filter species codes with more than one matching bestname
 head(countFilled)
-all.equal(apply(countFilled, 2, function(x) sum(x == 0)), apply(traitCounts.noZone, 2, function(x) sum(x == 0)))
+ 
+## species codes with different bestname associated to them. Issue is within VegBank
+UnmatchData <- AllSpTrait.fill %>% 
+  ungroup() %>%
+  filter(SpCode %in% countFilled$SpCode) %>%
+  select(Dataset, SpCode, bestname, ExoticStatus, GrowthForm, Duration) %>%
+  distinct()
+
+# species codes present in VegBank with distinct bestname compared to the other datasets
+UnmatchData_VB_CD <- UnmatchData %>% #VB= VegBank; CD= All others
+  group_by(SpCode) %>%
+  mutate(code_fix = ifelse(Dataset == "VEGBANK", 1, NA)) %>%
+  filter(any(is.na(code_fix)))
+
+# species codes present in VegBank with distinct bestname associated to them; 
+# these codes did not show up in the other datasets
+UnmatchData_VB <- anti_join(UnmatchData, UnmatchData_VB_CD)
+# number of species within vegbank only with inconsistencies
+length(table(UnmatchData_VB$SpCode))
+
+
+
+
+#all.equal(apply(countFilled, 2, function(x) sum(x == 0)), apply(traitCounts.noZone, 2, function(x) sum(x == 0)))
 # good; so same number of species are all NA (confirms filling was done correctly within species)
 
 ##  Update few species/genera following suggestion from Jeff Corbin:
