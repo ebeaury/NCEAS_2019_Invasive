@@ -179,9 +179,14 @@ glimpse(VEGBANK)
 VEGBANK <- VEGBANK %>% #LP: stopped here!!!!!!
   rename(Site = Dataset,
          Plot = VegBankUniqueID,
+         Lat_Original = Lat,
+         Long_Original = Long,
          ExoticStatus = NEW_ExoticStatus,
          GrowthForm = NEW_GrowthForm) %>%
-  mutate(Dataset = "VEGBANK") %>%
+  mutate(Dataset = "VEGBANK",
+         Lat = Public.Latitude, # for datapaper: only public coordinates
+         Long = Public.Longitude # for datapaper: only public coordinates
+         ) %>%
   select(one_of(DesiredColumns), contains("NEON", ignore.case = FALSE))
 
 setdiff(DesiredColumns, names(VEGBANK))
