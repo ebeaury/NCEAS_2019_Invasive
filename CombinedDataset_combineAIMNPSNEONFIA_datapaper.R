@@ -381,7 +381,9 @@ UnmatchData_VB <- anti_join(UnmatchData, UnmatchData_VB_CD)
 # number of species within vegbank only with inconsistencies
 length(table(UnmatchData_VB$SpCode))
 
-
+### Rcode run until here
+## next steps add data from EVE
+## force SpCode to have the same bestname across datasets
 
 
 #all.equal(apply(countFilled, 2, function(x) sum(x == 0)), apply(traitCounts.noZone, 2, function(x) sum(x == 0)))
