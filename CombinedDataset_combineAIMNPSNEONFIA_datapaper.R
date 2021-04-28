@@ -56,7 +56,11 @@ NEON <- NEON %>%
          #TraitNRows = N.Rows,
          #StemSpecificDensity = Stem.specific.density..SSD..or.wood.density..stem.dry.mass.per.stem.fresh.volume.
         ) %>%
-  select(one_of(DesiredColumns), contains("NEON", ignore.case = FALSE))
+  select(one_of(DesiredColumns), 
+         #next line of code carries whether cover of a particular species in a plot was based on basal areas and/or canopy cover
+         # if 0 in both, it came from the 1m2 plots
+         # NEONvst_status = if a plot should have veg structure data, but it was not collected yet
+         contains("NEON", ignore.case = FALSE))
 
 setdiff(DesiredColumns, names(NEON))
 setdiff(names(NEON), DesiredColumns)
