@@ -239,7 +239,8 @@ AllSpTrait %>%
   filter(Zone == "MissingCoords",
          !is.na(Long),
          !is.na(Lat)) %>%
-  nrow() # yes, all missing coords
+  nrow() # yes, all missing coords 
+table(AllSpTrait$Zone) #missing coordinates = 50196 records #LP: should we drop them?
 
 AllSpTrait %>%
   filter(Zone == "PR") %>%
@@ -247,6 +248,18 @@ AllSpTrait %>%
   distinct() %>%
   count(Dataset)
 
+###
+####checking missing data for Year column####
+AllSpTrait %>% 
+  filter(is.na(Year)) %>% 
+  nrow() # missing Year = 65368 records # LP: should we drop them?
+
+table(AllSpTrait$Year)
+AllSpTrait%>%
+  filter(Year == 1195) %>%
+  select(Dataset, Plot) %>%
+  distinct()
+###
 
 ###
 ####   Check that sp traits are consistent within zones  ####
@@ -390,26 +403,13 @@ UnmatchData_VB <- anti_join(UnmatchData, UnmatchData_VB_CD)
 # number of species within vegbank only with inconsistencies
 length(table(UnmatchData_VB$SpCode))
 
-### Rcode run until here
-## next steps add data from EVE
-## force SpCode to have the same bestname across datasets
-
-### Fixing Duration column
-## LP: there are equivalent categories in column Duration with different descriptions:
-
-AllSpTrait.fill$Duration <- gsub("Perennial, AN", "Annual, Perennial", AllSpTrait.fill$Duration)
-AllSpTrait.fill$Duration <- gsub("Biennial, Perennial, AN", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
-AllSpTrait.fill$Duration <- gsub("Perennial, Biennial", "Biennial, Perennial", AllSpTrait.fill$Duration)
-AllSpTrait.fill$Duration <- gsub("Biennial, AN", "Annual, Biennial", AllSpTrait.fill$Duration)
-AllSpTrait.fill$Duration <- gsub("Perennial, Biennial, AN", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
-AllSpTrait.fill$Duration <- gsub("Annual, Perennial, Biennial", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
-AllSpTrait.fill$Duration <- gsub("Biennial, Annual, Perennial", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
-
-#replace empty cells for NA
-AllSpTrait.fill$Duration <- gsub("^$", NA, AllSpTrait.fill$Duration)
-
 #all.equal(apply(countFilled, 2, function(x) sum(x == 0)), apply(traitCounts.noZone, 2, function(x) sum(x == 0)))
 # good; so same number of species are all NA (confirms filling was done correctly within species)
+
+
+### LP Rcode run until here
+## next steps add data from EVE
+## force SpCode to have the same bestname across datasets
 
 ##  Update few species/genera following suggestion from Jeff Corbin:
 AllSpTrait.fill %>%
@@ -428,6 +428,19 @@ AllSpTrait.fill <- AllSpTrait.fill %>%
                                "NI", ExoticStatus),
          ExoticStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
                                "NI", ExoticStatus))
+
+### Fixing Duration column
+table(AllSpTrait.fill$Duration)
+## there are equivalent categories in column Duration with different descriptions:
+AllSpTrait.fill$Duration <- gsub("Perennial, AN", "Annual, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Biennial, Perennial, AN", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Perennial, Biennial", "Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Biennial, AN", "Annual, Biennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Perennial, Biennial, AN", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Annual, Perennial, Biennial", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Biennial, Annual, Perennial", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+#replace empty cells for NA
+AllSpTrait.fill$Duration <- gsub("^$", NA, AllSpTrait.fill$Duration)
 
 ##  Check that all datasets are percent cover, not proportion:
 AllSpTrait.fill %>%
