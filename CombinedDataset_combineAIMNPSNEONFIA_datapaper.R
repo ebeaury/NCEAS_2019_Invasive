@@ -475,4 +475,72 @@ write_rds(AllSpTrait.fill, "J:/Projects/PAINLES/DataPrep/AllSpTrait_11March2021.
 ##### Summaries #####
 
 # number of records #
-dim(AllSpTrait.fill) #
+dim(AllSpTrait.fill) #1322137 records
+
+# number of plots #
+AllSpTrait.fill %>%
+  ungroup() %>%
+  select(Plot) %>%
+  distinct() %>%
+  nrow() #64011 plots
+
+# number of plots  per Dataset#
+AllSpTrait.fill %>%
+  ungroup() %>%
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset) 
+#BLM_LMF = 12295 plots
+#BLM_TerrADat = 14120 plots
+#FIA = 2715 plots
+#NEON = 1413 plots
+#NPS = 24150 plots
+#VEGBANK = 9318 plots
+
+#number of species##
+AllSpTrait.fill %>%
+  ungroup() %>%
+  select(SpCode) %>%
+  distinct() %>%
+  nrow()
+# 44629 species codes
+
+#number of species per exotic status##
+AllSpTrait.fill %>%
+  ungroup() %>%
+  select(SpCode, ExoticStatus) %>%
+  distinct() %>%
+  count(ExoticStatus) 
+#I = 1130 sp
+#N = 10499 sp
+#NI = 344 sp
+#NA = 32797 sp  # I am impressed with the number of NAs, let's check it
+#sum = 44770 (which is different from above because some species with the same code have different exotic status, the issue is in VegBank)
+
+#species with NA exotic status per Dataset#
+AllSpTrait.fill %>%
+  ungroup() %>%
+  select(Dataset, SpCode, ExoticStatus) %>%
+  filter(is.na(ExoticStatus)) %>%
+  distinct() %>%
+  count(Dataset, ExoticStatus) %>%
+  arrange(n) 
+# number of distinct species with NA per dataset (so, the same species can show up in more than one dataset)
+# Dataset      ExoticStatus     n  
+# 1 BLM_LMF      NA             183
+# 2 NEON         NA             256
+# 3 FIA          NA             569
+# 4 NPS          NA             811
+# 5 BLM_TerrADat NA            1681
+# 6 VEGBANK      NA           29479 
+
+##number of species per dataset##
+#should we include this table in the manuscript?
+DatasetNA<-AllSpTrait.fill %>%
+  ungroup() %>%
+  select(Dataset, SpCode, ExoticStatus) %>%
+  distinct() %>%
+  count(Dataset, ExoticStatus) %>%
+  group_by(Dataset) %>%
+  mutate(pct = (n/sum(n))*100) 
+#for VegBank, species with associated NAs for exotic status are around 88% of all species id for VegBank
