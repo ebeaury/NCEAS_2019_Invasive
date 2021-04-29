@@ -57,7 +57,7 @@ NEON <- NEON %>%
          #StemSpecificDensity = Stem.specific.density..SSD..or.wood.density..stem.dry.mass.per.stem.fresh.volume.
         ) %>%
   select(one_of(DesiredColumns), 
-         #next line of code carries whether cover of a particular species in a plot was based on basal areas and/or canopy cover
+         #next line of code carries whether cover of a particular species in a plot was based on basal areas and/or canopy cover (sum)
          # if 0 in both, it came from the 1m2 plots
          # NEONvst_status = if a plot should have veg structure data, but it was not collected yet
          contains("NEON", ignore.case = FALSE))
@@ -176,11 +176,21 @@ VEGBANK <- read.csv("data_by_dataset/All_VegBank_KPEACH_reduced.csv",
                     na = c('', 'NA')) # this data includes repeated samples
 glimpse(VEGBANK)
 
+# to fill Growth forms that were not carried out
+## there are missing GrowthForm in VEGBANK for lichens and moss, KP filtered the L48 species, but those showed up as NA (nativeness are defined at the level of North America)
+## other datasets carry the GrowthForm for them
+usdaKP <- read_csv("/home/shares/neon-inv/raw_VegBank_data/USDA_Plant_List_020821.txt")
+usdaKP <- usdaKP %>% 
+  filter(!is.na(`Native Status`)) %>% 
+  select(`Accepted Symbol`, `Growth Habit`) %>% 
+  distinct() %>% 
+  rename(SpCode = `Accepted Symbol`)
+
 # finds only the last year of data 
 # total of unique plots = 9318
 # VEGBANK2 <- VEGBANK %>% group_by(VegBankUniqueID) %>% slice(which.max(Year))
 
-VEGBANK <- VEGBANK %>% #LP: stopped here!!!!!!
+VEGBANK <- VEGBANK %>% 
   rename(Site = Dataset,
          Plot = VegBankUniqueID,
          Lat_Original = Lat,
@@ -191,6 +201,10 @@ VEGBANK <- VEGBANK %>% #LP: stopped here!!!!!!
          Lat = Public.Latitude, # for datapaper: only public coordinates
          Long = Public.Longitude # for datapaper: only public coordinates
          ) %>%
+  left_join(usdaKP) %>%
+  mutate(GrowthForm = ifelse(Dataset == "VEGBANK" & is.na(GrowthForm), 
+                             `Growth Habit`, GrowthForm)) %>%
+  select(-`Growth Habit`) %>%
   select(one_of(DesiredColumns), contains("NEON", ignore.case = FALSE))
 
 setdiff(DesiredColumns, names(VEGBANK))
@@ -203,7 +217,6 @@ setdiff(names(VEGBANK), DesiredColumns)
 
 AllSpTrait <- bind_rows(AIM, NPS, FIA, NEON, VEGBANK)
 glimpse(AllSpTrait)
-
 
 
 
@@ -429,7 +442,7 @@ AllSpTrait.fill <- AllSpTrait.fill %>%
          ExoticStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
                                "NI", ExoticStatus))
 
-### Fixing Duration column
+#### Fixing Duration column ####
 table(AllSpTrait.fill$Duration)
 ## there are equivalent categories in column Duration with different descriptions:
 AllSpTrait.fill$Duration <- gsub("Perennial, AN", "Annual, Perennial", AllSpTrait.fill$Duration)
@@ -442,6 +455,7 @@ AllSpTrait.fill$Duration <- gsub("Biennial, Annual, Perennial", "Annual, Biennia
 #replace empty cells for NA
 AllSpTrait.fill$Duration <- gsub("^$", NA, AllSpTrait.fill$Duration)
 
+#### Checks PctCover column and drop plot with missing info ####
 ##  Check that all datasets are percent cover, not proportion:
 AllSpTrait.fill %>%
   group_by(Dataset) %>%
@@ -515,7 +529,7 @@ AllSpTrait.fill %>%
 #N = 10499 sp
 #NI = 344 sp
 #NA = 32797 sp  # I am impressed with the number of NAs, let's check it
-#sum = 44770 (which is different from above because some species with the same code have different exotic status, the issue is in VegBank)
+#sum = 44770 (which is different from above because some species with the same SpCode have different exotic status and/or bestname, the issue is in VegBank - LP still neds to fix it)
 
 #species with NA exotic status per Dataset#
 AllSpTrait.fill %>%
@@ -536,7 +550,7 @@ AllSpTrait.fill %>%
 
 ##number of species per dataset##
 #should we include this table in the manuscript?
-DatasetNA<-AllSpTrait.fill %>%
+DatasetNA <- AllSpTrait.fill %>%
   ungroup() %>%
   select(Dataset, SpCode, ExoticStatus) %>%
   distinct() %>%
