@@ -394,6 +394,19 @@ length(table(UnmatchData_VB$SpCode))
 ## next steps add data from EVE
 ## force SpCode to have the same bestname across datasets
 
+### Fixing Duration column
+## LP: there are equivalent categories in column Duration with different descriptions:
+
+AllSpTrait.fill$Duration <- gsub("Perennial, AN", "Annual, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Biennial, Perennial, AN", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Perennial, Biennial", "Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Biennial, AN", "Annual, Biennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Perennial, Biennial, AN", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Annual, Perennial, Biennial", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+AllSpTrait.fill$Duration <- gsub("Biennial, Annual, Perennial", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
+
+#replace empty cells for NA
+AllSpTrait.fill$Duration <- gsub("^$", NA, AllSpTrait.fill$Duration)
 
 #all.equal(apply(countFilled, 2, function(x) sum(x == 0)), apply(traitCounts.noZone, 2, function(x) sum(x == 0)))
 # good; so same number of species are all NA (confirms filling was done correctly within species)
@@ -445,3 +458,8 @@ AllSpTrait.fill %>%
 write_rds(AllSpTrait.fill, "AllSpTrait.fill.rds")
 write_rds(AllSpTrait.fill, "J:/Projects/PAINLES/DataPrep/AllSpTrait_11March2021.rds")
 
+
+##### Summaries #####
+
+# number of records #
+dim(AllSpTrait.fill) #
