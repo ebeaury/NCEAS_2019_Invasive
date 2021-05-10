@@ -172,7 +172,7 @@ setdiff(names(NPS), DesiredColumns)
 ####   VEGBANK    ####
 ###
 
-VEGBANK <- read.csv("data_by_dataset/All_VegBank_KPEACH_reduced.csv", 
+VEGBANK <- read.csv("data_by_dataset/All_VegBank_KPEACH_EB_reduced.csv", 
                     na = c('', 'NA')) # this data includes repeated samples
 glimpse(VEGBANK)
 
@@ -192,20 +192,19 @@ usdaKP <- usdaKP %>%
 
 VEGBANK <- VEGBANK %>% 
   rename(Site = Dataset,
-         Plot = VegBankUniqueID,
+         Plot = UniqueID,
          Lat_Original = Lat,
-         Long_Original = Long,
-         ExoticStatus = NEW_ExoticStatus,
-         GrowthForm = NEW_GrowthForm) %>%
-  mutate(Dataset = "VEGBANK",
-         Lat = Public.Latitude, # for datapaper: only public coordinates
-         Long = Public.Longitude # for datapaper: only public coordinates
+         Long_Original = Long) %>%
+  mutate(Dataset = ifelse(grepl("VEGBANK", Site), "VEGBANK", "NCVS"),
+         Lat = ifelse(grepl("VEGBANK", Site), Public.Latitude, Lat_Original), # for datapaper: only public coordinates
+         Long = ifelse(grepl("VEGBANK", Site), Public.Longitude, Long_Original)  # for datapaper: only public coordinates
          ) %>%
-  left_join(usdaKP) %>%
-  mutate(GrowthForm = ifelse(Dataset == "VEGBANK" & is.na(GrowthForm), 
-                             `Growth Habit`, GrowthForm)) %>%
-  select(-`Growth Habit`) %>%
-  select(one_of(DesiredColumns), contains("NEON", ignore.case = FALSE))
+  dplyr::select(one_of(DesiredColumns))
+  # left_join(usdaKP) %>%
+  # mutate(GrowthForm = ifelse(Dataset == "VEGBANK" & is.na(GrowthForm), 
+  #                            `Growth Habit`, GrowthForm)) %>%
+  # select(-`Growth Habit`) %>%
+  
 
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
@@ -246,7 +245,7 @@ AllSpTrait <- AllSpTrait %>%
 AllSpTrait %>%
   select(Dataset, Site, Plot, Zone) %>%
   distinct() %>%
-  count(Zone) #number of entries per zone 
+  count(Zone) #number of plots per zone ##3502, being NPS(3495), VEGBANK(7)
 
 AllSpTrait %>%
   filter(Zone == "MissingCoords",
@@ -267,11 +266,22 @@ AllSpTrait %>%
   filter(is.na(Year)) %>% 
   nrow() # missing Year = 65368 records # LP: should we drop them?
 
-table(AllSpTrait$Year)
+table(AllSpTrait$Year) # checks the range of years
+
 AllSpTrait%>%
   filter(Year == 1195) %>%
   select(Dataset, Plot) %>%
-  distinct()
+  distinct() # ASIS_2
+
+AllSpTrait%>%
+  filter(Year == 2063) %>%
+  select(Dataset, Plot) %>%
+  distinct() # ROBI.XX = 10 plots
+
+AllSpTrait%>%
+  filter(Year == 2064) %>%
+  select(Dataset, Plot) %>%
+  distinct() # ROBI.XX = 24 plots
 ###
 
 ###
@@ -404,17 +414,45 @@ UnmatchData <- AllSpTrait.fill %>%
   select(Dataset, SpCode, bestname, ExoticStatus, GrowthForm, Duration) %>%
   distinct()
 
-# species codes present in VegBank with distinct bestname compared to the other datasets
-UnmatchData_VB_CD <- UnmatchData %>% #VB= VegBank; CD= All others
-  group_by(SpCode) %>%
-  mutate(code_fix = ifelse(Dataset == "VEGBANK", 1, NA)) %>%
-  filter(any(is.na(code_fix)))
+AllSpTrait.fill <- AllSpTrait.fill %>%
+  mutate(bestname = ifelse(SpCode == "ACFL", "Acer saccharum",
+                    ifelse(SpCode == "CEPU10", "Celtis tenuifolia",
+                    ifelse(SpCode == "CRMIE", "Croton michauxii",
+                    ifelse(SpCode == "DRGO3", "Dryopteris goldiana",
+                    ifelse(SpCode == "ERHIH2", "Erechtites hieraciifolius",
+                    ifelse(SpCode == "EUATA2", "Euonymus atropurpureus",
+                    ifelse(SpCode == "EUMAM4", "Eutrochium maculatum",
+                    ifelse(SpCode == "EURE18", "Eubotrys recurva",
+                    ifelse(SpCode == "LIPUM2", "Liatris punctata",
+                    ifelse(SpCode == "MOFIB", "Monarda fistulosa",
+                    ifelse(SpCode == "NEAR5", "Ampelopsis arborea",
+                    ifelse(SpCode == "OSAM", "Cartrema americana",
+                    ifelse(SpCode == "PIASA", "Pityopsis aspera",
+                    ifelse(SpCode == "VEHY", "Veratrum latifolium",
+                           bestname)))))))))))))),
+         GrowthForm = ifelse(SpCode == "ACFL" | SpCode == "CEPU10" | SpCode == "CRMIE" | SpCode == "DRGO3" |
+                             SpCode == "ERHIH2" | SpCode == "EUATA2" | SpCode == "EUMAM4" | SpCode == "EURE18" |
+                             SpCode == "LIPUM2" | SpCode == "MOFIB" | SpCode == "NEAR5" | SpCode == "OSAM" | 
+                             SpCode == "PIASA" | SpCode == "VEHY" 
+                               & !is.na(GrowthForm), NA, GrowthForm),
+         Duration = ifelse(SpCode == "ACFL" | SpCode == "CEPU10" | SpCode == "CRMIE" | SpCode == "DRGO3" |
+                               SpCode == "ERHIH2" | SpCode == "EUATA2" | SpCode == "EUMAM4" | SpCode == "EURE18" |
+                               SpCode == "LIPUM2" | SpCode == "MOFIB" | SpCode == "NEAR5" | SpCode == "OSAM" | 
+                               SpCode == "PIASA" | SpCode == "VEHY" 
+                             & !is.na(Duration), NA, Duration))
 
-# species codes present in VegBank with distinct bestname associated to them; 
-# these codes did not show up in the other datasets
-UnmatchData_VB <- anti_join(UnmatchData, UnmatchData_VB_CD)
-# number of species within vegbank only with inconsistencies
-length(table(UnmatchData_VB$SpCode))
+# checking if the code worked:
+countFilled <- AllSpTrait.fill %>%
+  group_by(SpCode) %>%
+  # non-numeric variables:
+  summarise(across(one_of("bestname", "ExoticStatus", "GrowthForm", "Duration"#, "C3.C4", "Woodiness"
+  ), 
+  ~ n_distinct(.x[!is.na(.x)])),
+  # round the numeric ones:
+  #across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))
+  ) %>%
+  filter(bestname>1) # filter species codes with more than one matching bestname
+nrow(countFilled) # the issues were fixed!
 
 #all.equal(apply(countFilled, 2, function(x) sum(x == 0)), apply(traitCounts.noZone, 2, function(x) sum(x == 0)))
 # good; so same number of species are all NA (confirms filling was done correctly within species)
@@ -454,6 +492,8 @@ AllSpTrait.fill$Duration <- gsub("Annual, Perennial, Biennial", "Annual, Biennia
 AllSpTrait.fill$Duration <- gsub("Biennial, Annual, Perennial", "Annual, Biennial, Perennial", AllSpTrait.fill$Duration)
 #replace empty cells for NA
 AllSpTrait.fill$Duration <- gsub("^$", NA, AllSpTrait.fill$Duration)
+## checking whether the code above worked:
+table(AllSpTrait.fill$Duration)
 
 #### Checks PctCover column and drop plot with missing info ####
 ##  Check that all datasets are percent cover, not proportion:
@@ -482,79 +522,152 @@ AllSpTrait.fill %>%
   filter(is.na(PctCov)) %>%
   nrow()
 
-write_rds(AllSpTrait.fill, "AllSpTrait.fill.rds")
-write_rds(AllSpTrait.fill, "J:/Projects/PAINLES/DataPrep/AllSpTrait_11March2021.rds")
+write_rds(AllSpTrait.fill, "AllSpTrait.fill_datapaper.rds")
+#write_rds(AllSpTrait.fill, "J:/Projects/PAINLES/DataPrep/AllSpTrait_11March2021.rds")
 
 
 ##### Summaries #####
 
 # number of records #
-dim(AllSpTrait.fill) #1322137 records
+dim(AllSpTrait.fill) #1444977 records
+
+AllSpTrait.fill %>%
+  ungroup() %>%
+  filter(Zone!="MissingCoords", # no coordinates
+         !is.na(Year)) %>% # no year
+  nrow() #1374053 plots
 
 # number of plots #
 AllSpTrait.fill %>%
   ungroup() %>%
+  filter(!is.na(Long), # no coordinates
+         !is.na(Year)) %>% # no year
   select(Plot) %>%
   distinct() %>%
-  nrow() #64011 plots
+  nrow() #64601 plots
+#69430 plots with no filtering
+
+# number of invaded plots #
+AllSpTrait.fill %>%
+  ungroup() %>%
+  filter(ExoticStatus=="I",
+         !is.na(Long), # no coordinates
+         !is.na(Year)) %>% # no year
+  select(Plot) %>%
+  distinct() %>%
+  nrow() #33850 plots (~52% of the total)
 
 # number of plots  per Dataset#
 AllSpTrait.fill %>%
   ungroup() %>%
+  filter(!is.na(Long), # no coordinates
+         !is.na(Year)) %>% # no year
   select(Dataset, Plot) %>%
   distinct() %>%
   count(Dataset) 
-#BLM_LMF = 12295 plots
-#BLM_TerrADat = 14120 plots
-#FIA = 2715 plots
-#NEON = 1413 plots
-#NPS = 24150 plots
-#VEGBANK = 9318 plots
+# Dataset          n
+# 1 BLM_LMF      12295
+# 2 BLM_TerrADat 14120
+# 3 FIA           2714
+# 4 NCVS          4628
+# 5 NEON          1413
+# 6 NPS          19328
+# 7 VEGBANK      10103
+
+# number of invaded plots per dataset#
+AllSpTrait.fill %>%
+  ungroup() %>%
+  filter(ExoticStatus=="I",
+         !is.na(Long), # no coordinates
+         !is.na(Year)) %>% # no year
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset) 
+# Dataset          n
+# 1 BLM_LMF       7374
+# 2 BLM_TerrADat  9743
+# 3 FIA           1904
+# 4 NCVS          1727
+# 5 NEON           803
+# 6 NPS           8995
+# 7 VEGBANK       3304
+
+# number of plots outside L48 #
+AllSpTrait.fill %>%
+  ungroup() %>%
+  filter(Zone!="L48",
+         Zone!="MissingCoords",
+         !is.na(Year)) %>% # no year
+  select(Plot) %>%
+  distinct() %>%
+  nrow() #530 plots (~0.82% of the total)
+
+AllSpTrait.fill %>%
+  ungroup() %>%
+  filter(Zone!="L48",
+         Zone!="MissingCoords",
+         !is.na(Year)) %>% # no year
+  select(Dataset,Plot) %>%
+  distinct() %>%
+  count(Dataset)
+# Dataset     n
+#   1 FIA       104
+# 2 NEON      228
+# 3 NPS       198
 
 #number of species##
 AllSpTrait.fill %>%
   ungroup() %>%
+  filter(!is.na(Long), # no coordinates
+         !is.na(Year)) %>% # no year
   select(SpCode) %>%
   distinct() %>%
   nrow()
-# 44629 species codes
+# 44728 species codes
 
 #number of species per exotic status##
 AllSpTrait.fill %>%
   ungroup() %>%
+  filter(!is.na(Long), # no coordinates
+         !is.na(Year)) %>% # no year
   select(SpCode, ExoticStatus) %>%
   distinct() %>%
   count(ExoticStatus) 
-#I = 1130 sp
-#N = 10499 sp
-#NI = 344 sp
-#NA = 32797 sp  # I am impressed with the number of NAs, let's check it
-#sum = 44770 (which is different from above because some species with the same SpCode have different exotic status and/or bestname, the issue is in VegBank - LP still neds to fix it)
+#I = 1152 sp
+#N = 10567 sp
+#NI = 346 sp
+#NA = 32819 sp  # Large number of NAs, let's check it
+#sum = 44884 (which is different from above because some species with the same SpCode have different exotic status and/or bestname given where they are located)
 
 #species with NA exotic status per Dataset#
 AllSpTrait.fill %>%
   ungroup() %>%
   select(Dataset, SpCode, ExoticStatus) %>%
-  filter(is.na(ExoticStatus)) %>%
+  filter(is.na(ExoticStatus),
+         !is.na(Long), # no coordinates
+                !is.na(Year)) %>% # no year
   distinct() %>%
   count(Dataset, ExoticStatus) %>%
   arrange(n) 
 # number of distinct species with NA per dataset (so, the same species can show up in more than one dataset)
-# Dataset      ExoticStatus     n  
-# 1 BLM_LMF      NA             183
-# 2 NEON         NA             256
-# 3 FIA          NA             569
-# 4 NPS          NA             811
-# 5 BLM_TerrADat NA            1681
-# 6 VEGBANK      NA           29479 
+# Dataset        ExoticStatus     n  
+# 1 NCVS         NA              27
+# 2 BLM_LMF      NA             178
+# 3 NEON         NA             254
+# 4 FIA          NA             567
+# 5 NPS          NA             807
+# 6 BLM_TerrADat NA            1680
+# 7 VEGBANK      NA           29484
 
-##number of species per dataset##
-#should we include this table in the manuscript?
+##percent of species number of species per dataset##
 DatasetNA <- AllSpTrait.fill %>%
   ungroup() %>%
+  filter(!is.na(Long), # no coordinates
+         !is.na(Year)) %>% # no year
   select(Dataset, SpCode, ExoticStatus) %>%
   distinct() %>%
   count(Dataset, ExoticStatus) %>%
   group_by(Dataset) %>%
-  mutate(pct = (n/sum(n))*100) 
+  mutate(pct = round((n/sum(n))*100,2))
 #for VegBank, species with associated NAs for exotic status are around 88% of all species id for VegBank
+
