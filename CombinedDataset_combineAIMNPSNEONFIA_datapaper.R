@@ -536,7 +536,7 @@ AllSpTrait.fill %>%
   ungroup() %>%
   filter(Zone!="MissingCoords", # no coordinates
          !is.na(Year)) %>% # no year
-  nrow() #1374053 plots
+  nrow() #1374053 records
 
 # number of plots #
 AllSpTrait.fill %>%
@@ -612,7 +612,7 @@ AllSpTrait.fill %>%
   distinct() %>%
   count(Dataset)
 # Dataset     n
-#   1 FIA       104
+# 1 FIA       104
 # 2 NEON      228
 # 3 NPS       198
 
@@ -624,7 +624,7 @@ AllSpTrait.fill %>%
   select(SpCode) %>%
   distinct() %>%
   nrow()
-# 44728 species codes
+# 44300 species codes
 
 #number of species per exotic status##
 AllSpTrait.fill %>%
@@ -634,10 +634,12 @@ AllSpTrait.fill %>%
   select(SpCode, ExoticStatus) %>%
   distinct() %>%
   count(ExoticStatus) 
-#I = 1152 sp
-#N = 10567 sp
-#NI = 346 sp
-#NA = 32819 sp  # Large number of NAs, let's check it
+# ExoticStatus     n
+# 1 I             1093
+# 2 N            10227
+# 3 NI             345
+# 4 NA           32755 
+# Large number of NAs, let's check it
 #sum = 44884 (which is different from above because some species with the same SpCode have different exotic status and/or bestname given where they are located)
 
 #species with NA exotic status per Dataset#
