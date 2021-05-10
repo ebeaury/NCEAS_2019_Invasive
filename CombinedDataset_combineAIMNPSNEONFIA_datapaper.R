@@ -522,7 +522,8 @@ AllSpTrait.fill %>%
   filter(is.na(PctCov)) %>%
   nrow()
 
-write_rds(AllSpTrait.fill, "AllSpTrait.fill_datapaper.rds")
+write_rds(AllSpTrait.fill, "final_data/AllSpTrait.fill_datapaper.rds")
+write_csv(AllSpTrait.fill, "final_data/AllSpTrait.fill_datapaper.csv")
 #write_rds(AllSpTrait.fill, "J:/Projects/PAINLES/DataPrep/AllSpTrait_11March2021.rds")
 
 
