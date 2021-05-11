@@ -559,13 +559,14 @@ AllSpTrait.fill %>%
   nrow() #33850 plots (~52% of the total)
 
 # number of plots  per Dataset#
-AllSpTrait.fill %>%
+x<-AllSpTrait.fill %>%
   ungroup() %>%
   filter(!is.na(Long), # no coordinates
          !is.na(Year)) %>% # no year
   select(Dataset, Plot) %>%
   distinct() %>%
-  count(Dataset) 
+  count(Dataset) %>%
+  mutate(status = "All")
 # Dataset          n
 # 1 BLM_LMF      12295
 # 2 BLM_TerrADat 14120
@@ -575,15 +576,25 @@ AllSpTrait.fill %>%
 # 6 NPS          19328
 # 7 VEGBANK      10103
 
+ggplot(x, aes(x=Dataset, y=n, fill=Dataset)) +
+  geom_bar(stat="identity", width=1) +
+ # coord_polar("y", start=0)+ 
+  scale_fill_viridis_d(option="B") +
+  theme_minimal() +
+  ylab("number of plots per dataset") + 
+  theme(axis.title.x = element_blank()) + 
+  theme(legend.position = "none")
+
 # number of invaded plots per dataset#
-AllSpTrait.fill %>%
+y<- AllSpTrait.fill %>%
   ungroup() %>%
   filter(ExoticStatus=="I",
          !is.na(Long), # no coordinates
          !is.na(Year)) %>% # no year
   select(Dataset, Plot) %>%
   distinct() %>%
-  count(Dataset) 
+  count(Dataset) %>%
+  rename(invaded = n)
 # Dataset          n
 # 1 BLM_LMF       7374
 # 2 BLM_TerrADat  9743
@@ -592,6 +603,18 @@ AllSpTrait.fill %>%
 # 5 NEON           803
 # 6 NPS           8995
 # 7 VEGBANK       3304
+
+xx<-x %>%
+  left_join(y) %>%
+  mutate(uninvaded = n-invaded) %>%
+  select(-n, -status) %>%
+  gather("status", "n", 2:3)
+
+ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
+  geom_bar(stat="identity")+
+  geom_col() +
+  scale_fill_viridis_d(option="B") + theme_minimal() +
+  ylab("number of plots") + theme(axis.title.x = element_blank())
 
 # number of plots outside L48 #
 AllSpTrait.fill %>%
@@ -662,7 +685,7 @@ AllSpTrait.fill %>%
 # 6 BLM_TerrADat NA            1680
 # 7 VEGBANK      NA           29484
 
-##percent of species number of species per dataset##
+##percent of species exotic status per dataset##
 DatasetNA <- AllSpTrait.fill %>%
   ungroup() %>%
   filter(!is.na(Long), # no coordinates
@@ -671,6 +694,12 @@ DatasetNA <- AllSpTrait.fill %>%
   distinct() %>%
   count(Dataset, ExoticStatus) %>%
   group_by(Dataset) %>%
-  mutate(pct = round((n/sum(n))*100,2))
+  mutate(pct = round((n/sum(n))*100,2),
+         ExoticStatus = ifelse(is.na(ExoticStatus), "NA", ExoticStatus))
 #for VegBank, species with associated NAs for exotic status are around 88% of all species id for VegBank
 
+ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=ExoticStatus)) +
+       geom_bar(stat="identity")+
+       geom_col() +
+       scale_fill_viridis_d(option="B") + theme_minimal() +
+  ylab("% of species exotic status per dataset") + theme(axis.title.x = element_blank())
