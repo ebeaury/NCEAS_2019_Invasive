@@ -206,8 +206,18 @@ for (s in shp) {
 # dat.safe <- dat
 # dat <- spCbind(dat, a)
 
-##### write data #####
-write.csv(dat, paste0(out.wd, "/env_plots18Mar21_nlcd.csv"), row.names = F)
+##### NEON domains - requested by Ines #####
+# dat <- read.csv(paste0(out.wd, "/env_plots18Mar21_nlcd.csv"))
+dom <- read.csv("E:/NON_PROJECT/NCEAS2/LOCATION_DATA/NEON_Field_Site_Metadata_20210226_0.csv")
+dat$field_site_id <- substr(dat$plot, 1, 4)
 
-writeOGR(dat, dsn=out.wd, layer="env_plots18Mar21_nlcd", driver="ESRI Shapefile") ## Note that NAs are converted to 0.
+dat <- merge(dat, dom[,c("field_site_id", "field_domain_id")],
+              by.x="field_site_id", by.y="field_site_id",
+              all.x=T)
+
+dat$field_site_id <- NULL
+##### write data #####
+write.csv(dat, paste0(out.wd, "/env_plots8Jun21_nlcd.csv"), row.names = F)
+
+writeOGR(dat, dsn=out.wd, layer="env_plots8Jun21_nlcd", driver="ESRI Shapefile") ## Note that NAs are converted to 0.
 
