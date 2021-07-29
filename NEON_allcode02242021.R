@@ -25,18 +25,18 @@ library(lubridate)
 ####Taxonomy table import and processing
 
 ###Read morphs table for updating unknown plant species
-morphs <- read.csv('D:/Arquivos_pessoais/Área de Trabalho/NCEAS/morphospecies/neonUnknowns.csv', 
+morphs <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NEON/neonUnknowns.csv', 
                    header = T, stringsAsFactors = F)
 
 #morphs <- read.csv('H:/NCEAS_invasive/code/neonUnknowns.csv', 
 #                    header = T, stringsAsFactors = F)
 
 ###Read Ian's taxonomy table
-tax <- read.csv('D:/Arquivos_pessoais/Área de Trabalho/NCEAS/IanTaxonomy/taxonomy_temp10_traits_completeModified2.csv', 
+tax <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxonomy_temp10_traits_complete.csv', 
                 header = T, stringsAsFactors = F)
-names(tax)[names(tax) == "ï..Accepted.Symbol"] <- "Accepted.Symbol"
+# names(tax)[names(tax) == "?..Accepted.Symbol"] <- "Accepted.Symbol"
 
-taxModifications <- read.csv('D:/Arquivos_pessoais/Área de Trabalho/NCEAS/IanTaxonomy/multStatusSpL4802162021.csv', 
+taxModifications <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv', 
                  header = T, stringsAsFactors = F)
 
 taxModifications <- taxModifications %>%
@@ -55,7 +55,7 @@ tax2 <- tax %>%
   rename(inv_L48Original = inv_L48) %>%
   mutate(inv_L48 = ifelse(is.na(FinalDecisionL48), inv_L48Original, FinalDecisionL48))
 
-# Laís variation
+# La?s variation
 # all sites besides AK and HI
 taxSelect_ALL <- select(tax2, 'Accepted.Symbol', 'Synonym.Symbol', 'Symbol', 'neon_code', 'Scientific.Name', 'AccSpeciesName', 
                         'bestname', 'Duration','GrowthForm', 'inv_L48') # inv_L48 reports the native status for all sites besides the AK and HI ones.
@@ -66,7 +66,7 @@ taxSelect_AK <- select(tax2, 'Accepted.Symbol', 'Synonym.Symbol', 'Symbol', 'neo
 taxSelect_HI <- select(tax2, 'Accepted.Symbol', 'Synonym.Symbol', 'Symbol', 'neon_code', 'Scientific.Name', 'AccSpeciesName', 
                        'bestname', 'Duration','GrowthForm', 'inv_HI') # inv_HI reports the native status for Hawaii site
 
-#Laís: removes the rows with NAs and select unique NEON codes
+#La?s: removes the rows with NAs and select unique NEON codes
 # all sites besides AK and HI
 taxSelect_ALL <- taxSelect_ALL[!is.na(taxSelect_ALL$neon_code),]
 taxSelect_ALL <- distinct(taxSelect_ALL, neon_code, .keep_all = TRUE)
@@ -85,12 +85,12 @@ taxSelect_HI <- distinct(taxSelect_HI, neon_code, .keep_all = TRUE)
 #specify data product identification
 presDataProductID <- as.character('DP1.10058.001')
 
-#allDiv <- loadByProduct(dpID = presDataProductID, 
-#                        site = if(exists('sitesSpecified')){
-#                          sitesSpecified} else {
-#                            'all'},
-#                        package = 'basic', 
-#                        check.size = FALSE)
+allDiv <- loadByProduct(dpID = presDataProductID,
+                       site = if(exists('sitesSpecified')){
+                         sitesSpecified} else {
+                           'all'},
+                       package = 'basic',
+                       check.size = FALSE)
 
 ###extract 1m2 data from list of lists and some processing
 data_1m2 <- allDiv[["div_1m2Data"]]
@@ -126,11 +126,11 @@ data_1m2 <- dplyr::select(data_1m2, -c(otherVariablesPresent, identificationRefe
 data <- data_1m2
 
 #this crashes my memory, I suggest we identify columns we want and run this one more time
-#Laís: in my computer it worked
+#La?s: in my computer it worked
 data <- unique(data)
 
 ####handling the taxonomy for the 1m2 herbaceous or plant presence and percent cover data
-#Laís: selecting the sites by state, so the Ian's taxonomy can be incorporated separately for AK and HI sites
+#La?s: selecting the sites by state, so the Ian's taxonomy can be incorporated separately for AK and HI sites
 # all sites besides AK and HI
 data_L48 <- filter(data, siteID != "BONA" & siteID != "DEJU" & siteID != "HEAL" & siteID != "TOOL" 
                    & siteID != "BARR" & siteID != "PUUM")
@@ -139,10 +139,10 @@ data_AK <- filter(data, siteID == "BONA" | siteID == "DEJU" | siteID == "HEAL" |
 # HI sites
 data_HI <- filter(data, siteID == "PUUM")
 
-#Laís: checking if the slice is right
+#La?s: checking if the slice is right
 nrow(data_L48) + nrow(data_HI) + nrow(data_AK) == nrow(data)
 
-#Laís: incorporates Ian's taxonomy
+#La?s: incorporates Ian's taxonomy
 # all sites besides AK and HI # deu ruim
 data_L48 <- dplyr::left_join(data_L48, taxSelect_ALL, by = c("taxonID" = "neon_code"))
 # AK sites
@@ -150,23 +150,24 @@ data_AK <- dplyr::left_join(data_AK, taxSelect_AK, by = c("taxonID" = "neon_code
 # HI sites
 data_HI <- dplyr::left_join(data_HI, taxSelect_HI, by = c("taxonID" = "neon_code"))
 
-#Laís: checking if the join is correct
+#La?s: checking if the join is correct
 nrow(data_L48) + nrow(data_HI) + nrow(data_AK) == nrow(data)
 
-#Laís: renames the invasive status column
+#La?s: renames the invasive status column
 names(data_L48)[names(data_L48) == "inv_L48"] <- "Native.Status"
 names(data_AK)[names(data_AK) == "inv_AK"] <- "Native.Status"
 names(data_HI)[names(data_HI) == "inv_HI"] <- "Native.Status"
 
-#Laís: combining all the 3 separate tables
+#La?s: combining all the 3 separate tables
 herb_data_ALL <- rbind(data_L48, data_AK, data_HI)
 
 #removes a few columns
 herb_data_ALL <- dplyr::select(herb_data_ALL, -c(otherVariables, divDataType, targetTaxaPresent, 
                                                  #taxonID, 
-                                                 scientificName, taxonRank, family, nativeStatusCode))
+                                                 #scientificName, 
+                                                 taxonRank, family, nativeStatusCode))
 
-#Laís: checking if the binding is correct
+#La?s: checking if the binding is correct
 nrow(herb_data_ALL) == nrow(data)
 
 #add site year
@@ -227,7 +228,10 @@ data_10m2Build <- dplyr::select(data_10m2Build, namedLocation, domainID,	siteID,
                                 nlcdClass, plotID,	subplotID,	endDate,	boutNumber,	targetTaxaPresent,	taxonID,	scientificName,	taxonRank,	family,	nativeStatusCode,
                                 identificationQualifier,	taxonIDRemarks,	morphospeciesID,	morphospeciesIDRemarks,	additionalSpecies)  
 
-data_10m2 <- dplyr::select (data_10m2, -c(samplingProtocolVersion, identificationReferences, remarks, measuredBy,	recordedBy, publicationDate)) ##, publicationDate - this column disappearred  
+data_10m2 <- dplyr::select (data_10m2, -c(samplingProtocolVersion, identificationReferences, remarks, 
+                                          plotType, eventID, samplingImpractical, samplingImpracticalRemarks,
+                                          biophysicalCriteria, release,
+                                          measuredBy,	recordedBy, publicationDate)) ##, publicationDate - this column disappearred  
 
 #combine what was the nested 1m2 subplot data with the 10m2 data to get the complete list of species in each 10m2 subplot 
 data_10m2 <- rbind(data_10m2, data_10m2Build)
@@ -245,7 +249,10 @@ data_100m2Build$subplotID[data_100m2Build$subplotID == "40.3.10"] <- 40
 data_100m2Build$subplotID[data_100m2Build$subplotID == "41.1.10"] <- 41
 data_100m2Build$subplotID[data_100m2Build$subplotID == "41.4.10"] <- 41
 
-data_100m2 <- dplyr::select (data_100m2, -c(samplingProtocolVersion, identificationReferences, remarks, measuredBy,	recordedBy, publicationDate))##, publicationDate - this column disappearred
+data_100m2 <- dplyr::select (data_100m2, -c(samplingProtocolVersion, identificationReferences, remarks, 
+                                            plotType, eventID, samplingImpractical, samplingImpracticalRemarks,
+                                            biophysicalCriteria, release,
+                                            measuredBy,	recordedBy, publicationDate))##, publicationDate - this column disappearred
 
 data_100m2 <- rbind(data_100m2, data_100m2Build)
 
@@ -296,8 +303,8 @@ data10_100_400_3$divDataType <- "plantSpecies"
 data10_100_400_3$divDataType <- as.factor(data10_100_400_3$divDataType)
 
 #Join all scales in a single dataframe
-data_1m2 <- dplyr::select(data_1m2, -c(#samplingImpractical, samplingImpracticalRemarks, biophysicalCriteria, 
-                                       publicationDate))
+columnsnames <- colnames(data10_100_400_3) #creates a vector with the desired column names
+data_1m2 <- data_1m2[, columnsnames] #selects the columns based on the vector created above
 
 data2 <- rbind(data_1m2, data10_100_400_3)
 #removing a couple of columns
@@ -306,7 +313,7 @@ data2 <- dplyr::select(data2, -c(divDataType, targetTaxaPresent))
 data2 <- unique(data2) 
 ## ^^ CANNOT CHANGE THIS ONEEE
 
-#Laís: selecting the sites by state, so the Ian's taxonomy can be incorporated separately for AK and HI sites
+#La?s: selecting the sites by state, so the Ian's taxonomy can be incorporated separately for AK and HI sites
 # all sites besides AK and HI
 data_L48 <- filter(data2, siteID != "BONA" & siteID != "DEJU" & siteID != "HEAL" & siteID != "TOOL" 
                    & siteID != "BARR" & siteID != "PUUM")
@@ -315,10 +322,10 @@ data_AK <- filter(data2, siteID == "BONA" | siteID == "DEJU" | siteID == "HEAL" 
 # HI sites
 data_HI <- filter(data2, siteID == "PUUM")
 
-#Laís: checking if the slice is right
+#La?s: checking if the slice is right
 nrow(data_L48) + nrow(data_HI) + nrow(data_AK) == nrow(data2)
 
-#Laís: incorporates Ian's taxonomy
+#La?s: incorporates Ian's taxonomy
 # all sites besides AK and HI
 data_L48X <- data_L48 %>%
   mutate(taxonID2 = str_remove(taxonID, "SPP$")) %>% #removes the SPP when by the end of a string
@@ -496,24 +503,25 @@ data_HI2tempcountgenus <- data_HI2tempcountgenus %>%
   group_by(taxonID2, scientificName, nativeStatusCode) %>%
   tally()
 
-#Laís: checking if the join is correct
+#La?s: checking if the join is correct
 nrow(data_L484) + nrow(data_HI4) + nrow(data_AK4) == nrow(data2)
 
-#Laís: renames the invasive status column
+#La?s: renames the invasive status column
 names(data_L484)[names(data_L484) == "inv_L48"] <- "Native.Status"
 names(data_AK4)[names(data_AK4) == "inv_AK"] <- "Native.Status"
 names(data_HI4)[names(data_HI4) == "inv_HI"] <- "Native.Status"
 
-#Laís: combining all the 3 separate tables
+#La?s: combining all the 3 separate tables
 allscales_data_ALL <- rbind(data_L484, data_AK4, data_HI4)
 
 #removes a few columns
 allscales_data_ALL <- dplyr::select(allscales_data_ALL, -c(otherVariables, 
                                                            #taxonID, 
-                                                           scientificName, taxonRank, family, nativeStatusCode))
+                                                           #scientificName, 
+                                                           taxonRank, family, nativeStatusCode))
 
 
-#Laís: checking if the binding is correct
+#La?s: checking if the binding is correct
 nrow(allscales_data_ALL) == nrow(data2)
 
 #add site year
@@ -522,14 +530,14 @@ allscales_data_ALL$siteYear <- paste(allscales_data_ALL$siteID, allscales_data_A
 ####################################################################################################################################################################################
 ####Woody vegetation structure data
 
-#vstDataProductID=as.character('DP1.10098.001')
+vstDataProductID=as.character('DP1.10098.001')
 
-#df <- loadByProduct(dpID=vstDataProductID,
-#                    site = if(exists('sitesSpecified')){
-#                      sitesSpecified} else {
-#                        'all'},
-#                    package = "basic",
-#                    check.size = FALSE)
+df <- loadByProduct(dpID=vstDataProductID,
+                   site = if(exists('sitesSpecified')){
+                     sitesSpecified} else {
+                       'all'},
+                   package = "basic",
+                   check.size = FALSE)
 
 ##unlist to create separate dataframes
 perplot <- df$vst_perplotperyear
@@ -572,15 +580,15 @@ sh_df <-  select(shrub, siteID, eventID, plotID, individualID=groupID, taxonID, 
 
 ####Pull in the non woody data
 
-#vst_nonWoodDataProductID=as.character('DP1.10045.001')
+vst_nonWoodDataProductID=as.character('DP1.10045.001')
 
 
-#nonWood <- loadByProduct(dpID=vst_nonWoodDataProductID,
-#                         site = if(exists('sitesSpecified')){
-#                           sitesSpecified} else {
-#                             'all'},
-#                         package = "basic",
-#                         check.size = FALSE)
+nonWood <- loadByProduct(dpID=vst_nonWoodDataProductID,
+                        site = if(exists('sitesSpecified')){
+                          sitesSpecified} else {
+                            'all'},
+                        package = "basic",
+                        check.size = FALSE)
 
 ##unlist to create separate dataframes
 nonWoodyPerPlot <- nonWood$vst_perplotperyear
@@ -667,9 +675,9 @@ countTax$stemDensity <- countTax$indCount/countTax$plotAreaSampled
 #create year col
 countTax$year <- substr(countTax$eventID, start = 10, stop = 13)
 #countTax
-## ^^ CANNOT CHANGE THIS ONEEE
+## ^^ CANNOT CHANGE THIS ONEEE [in Lais' computer]
 
-#Laís: selecting the sites by state, so the Ian's taxonomy can be incorporated separately for AK and HI sites
+#La?s: selecting the sites by state, so the Ian's taxonomy can be incorporated separately for AK and HI sites
 # all sites besides AK and HI
 vst_data_L48 <- filter(countTax, siteID != "BONA" & siteID != "DEJU" & siteID != "HEAL" & siteID != "TOOL" 
                        & siteID != "BARR" & siteID != "PUUM")
@@ -678,10 +686,10 @@ vst_data_AK <- filter(countTax, siteID == "BONA" | siteID == "DEJU" | siteID == 
 # HI sites
 vst_data_HI <- filter(countTax, siteID == "PUUM")
 
-#Laís: checking if the slice is right
+#La?s: checking if the slice is right
 nrow(vst_data_L48) + nrow(vst_data_HI) + nrow(vst_data_AK) == nrow(countTax)
 
-#Laís: incorporates Ian's taxonomy
+#La?s: incorporates Ian's taxonomy
 # all sites besides AK and HI 
 vst_data_L48X <- vst_data_L48 %>%
   mutate(taxonID2 = str_remove(taxonID, "SPP$")) %>% #removes the SPP when by the end of a string
@@ -861,18 +869,18 @@ vst_data_HI2tempcountgenus <- vst_data_HI2tempcountgenus %>%
 #none
 
 
-#Laís: checking if the join is correct
+#La?s: checking if the join is correct
 nrow(vst_data_L484) + nrow(vst_data_HI4) + nrow(vst_data_AK4) == nrow(countTax)
 
-#Laís: renames the invasive status column
+#La?s: renames the invasive status column
 names(vst_data_L484)[names(vst_data_L484) == "inv_L48"] <- "Native.Status"
 names(vst_data_AK4)[names(vst_data_AK4) == "inv_AK"] <- "Native.Status"
 names(vst_data_HI4)[names(vst_data_HI4) == "inv_HI"] <- "Native.Status"
 
-#Laís: combining all the 3 separate tables
+#La?s: combining all the 3 separate tables
 vst_data_ALL <- rbind(vst_data_L484, vst_data_AK4, vst_data_HI4)
 
-#Laís: checking if the binding is correct
+#La?s: checking if the binding is correct
 nrow(vst_data_ALL) == nrow(countTax)
 
 #add site year
@@ -885,14 +893,14 @@ vst_data_ALL$siteYear <- substr(vst_data_ALL$eventID, start = 5, stop = 13)
 
 ## code for merging datasets ##
 
-filterSites <- read.csv('D:/Arquivos_pessoais/Área de Trabalho/NCEAS/2020codes/bestVSTDIV_modified.csv', header = T, stringsAsFactors = F ) 
+filterSites <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NEON/bestVSTDIV_modified.csv', header = T, stringsAsFactors = F ) 
 
 #codes in vst_status indicate if a site is supposed to have or not vst data, and if this info is available
 vstStatus <- filterSites %>%
   select(siteID, vst_status)
 
 #adds the plot type: distributed or tower plot
-plotType <- read.csv('D:/Arquivos_pessoais/Área de Trabalho/NCEAS/2020codes/All_NEON_TOS_Plot_Centroids_V8.csv', 
+plotType <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NEON/All_NEON_TOS_Plot_Centroids_V8.csv', 
                    header = T, stringsAsFactors = F)
 
 plotType <- plotType %>%
@@ -905,11 +913,12 @@ NEONdiv_allscalesX <- allscales_data_ALL %>%
   unite(siteYear, siteID, year, sep = "_", remove = FALSE) %>%
   select(siteID, plotID, subplotID, nlcdClass, decimalLongitude, decimalLatitude, year, 
          taxonID2, 
+         scientificName, #Original species names from NEON
          Accepted.Symbol, 
          bestname, Scientific.Name, AccSpeciesName, Duration, GrowthForm, percentCover, Native.Status, siteYear) %>%
   left_join(plotType, by = "plotID") 
 
-#selecting only the 1m² subplots
+#selecting only the 1m? subplots
 plots1m2 <- c("31.1.1", "40.1.1", "41.1.1", "40.3.1", "31.4.1", "32.2.1", "32.4.1", "41.4.1")
 NEONdiv_1m2X <- NEONdiv_allscalesX %>%
   filter(subplotID %in% plots1m2) %>%
@@ -939,7 +948,8 @@ NEONvegstrX <- NEONvegstrX %>%
   unite(siteYear, siteID, year, sep = "_", remove = FALSE) %>%
   left_join(plotType, by = "plotID") %>%
   select(siteID, plotID, plotType, decimalLongitude, decimalLatitude, year, 
-         taxonID2,
+         taxonID2, 
+         scientificName, #Original species names from NEON
          AccSpeciesName, bestname, Accepted.Symbol, growthForm.NEON, GrowthForm.IAN, Native.Status, 
          indCount, totalCrownArea, totalBasalArea, plotAreaSampled, percentCoverCanopy, 
          percentCoverBasal, stemDensity, siteYear) 
@@ -982,6 +992,7 @@ NEON_vegstr_merg <- NEONvegstr_best %>%
   filter(!is.na(percentCover)) %>%
   select(dataset, siteID, plotID, plotType, subplotID, decimalLongitude, decimalLatitude, year, 
          taxonID2, 
+         scientificName, #Original species names from NEON
          AccSpeciesName, Accepted.Symbol, 
          bestname, Native.Status, GrowthForm, percentCover, metric, layer, plotAreaSampled, code)
 
@@ -996,6 +1007,7 @@ NEON_div_merg <- NEONdiv_1m2_best %>%
   #left_join(NEON_temp2, by = "plotID") %>%
   select(dataset, siteID, plotID, plotType, subplotID, decimalLongitude, decimalLatitude, year, 
          taxonID2,
+         scientificName, #Original species names from NEON
          AccSpeciesName, Accepted.Symbol, 
          bestname, Native.Status, GrowthForm, percentCover, metric, layer, plotAreaSampled, code)
 
@@ -1041,16 +1053,16 @@ NEONdata_flatted <- NEON_temp %>%
               values_from = plotAreaSampled,
               values_fill = list(plotAreaSampled = 0)) %>%
   dplyr::select(-row, -metric) %>% 
-  dplyr::rename(small_tree = 23,
-         single_bole_tree = 26,
-         single_shrub = 21,
-         small_shrub = 24, 
-         multi_bole_tree = 27) %>%
+  dplyr::rename(small_tree = 24,
+         single_bole_tree = 27,
+         single_shrub = 22,
+         small_shrub = 25, 
+         multi_bole_tree = 28) %>%
   #creates a dummy variable for vegetation structure to count in how many plots that data was collected from. Although for the veg str they differ in size
   dplyr::mutate(total.vegstr = ifelse(year_vegstr == 0, 0, 1)) %>%
   #mutate(subplotID = if_else(is.na(subplotID), 0, 1))
   dplyr::group_by(dataset, siteID, plotID, decimalLongitude, decimalLatitude, 
-                  taxonID2,
+                  taxonID2, scientificName, plotType,
                   Accepted.Symbol, 
            bestname, Native.Status, GrowthForm, AccSpeciesName) %>%
   dplyr::summarize(#if basal area is used to estimate this particular species cover
@@ -1091,19 +1103,21 @@ NEONdata_flatted <- NEON_temp %>%
          yucca_area = replace(yucca_area, yucca_area == 0, NA),
          year_div = replace(year_div, year_div == 0, NA),
          year_vegstr = replace(year_vegstr, year_vegstr == 0, NA),
-         Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol)) %>%
+         Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol),
+         SampledArea = ifelse(plotType == "distributed", 400, 800)) %>%
   ungroup() %>%
   dplyr::select(-herbaceoustemp_area, -herbaceous_area_temp) %>%
   #dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
   #dplyr::rename(Accepted.Symbol = taxonID) %>%
   dplyr::select(dataset, siteID, plotID, decimalLongitude, decimalLatitude, 
          year_div, year_vegstr, 
-         #neon_sp_code,
-         Accepted.Symbol, Native.Status, GrowthForm, AccSpeciesName, bestname, 
-         #totalcover_mean, 
-         #taxonID2,
-         totalcover_sum, 
+         Accepted.Symbol, Native.Status, GrowthForm, AccSpeciesName, bestname,
+         scientificName, #Original species names from NEON
+         taxonID2,
+         totalcover_sum,
+         SampledArea,
          herbaceous_area, herbaceous_total_area, everything()) %>%
+  dplyr::select(-plotType) %>%
   ungroup() %>%
   left_join(vstStatus, by = "siteID")
 
@@ -1139,53 +1153,58 @@ NEONdata_flatted <- NEONdata_flatted %>%
 
 
 #exporting final file
-#write.csv(NEONdata_flatted, file.path('nceas_data_entiregroup/FINAL_CorrectSppMatch/NEONdata_flatted20210225.csv'))
+write.csv(NEONdata_flatted,
+          file.path('/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210729.csv'),
+          row.names = FALSE)
+
+
+###### END ######
 
 ######Attaching TRAIT data######
 
-taxIan <- tax %>%
-  select(Accepted.Symbol, 
-         #AccSpeciesID, AccSpeciesName, GrowthForm, inv_L48, inv_AK, inv_HI, Duration, bestname,
-         N.Rows, SLA, LDMC, Leaf.area, 
-         Leaf.N.mass, Leaf.P.mass, Plant.height, Seed.dry.mass, 
-         Stem.specific.density..SSD..or.wood.density..stem.dry.mass.per.stem.fresh.volume., C3.C4, Woodiness) %>%
-  distinct(Accepted.Symbol, .keep_all = T)
-
-NEONdata_flatted2 <- NEONdata_flatted %>%
-  left_join(taxIan, by = c("Accepted.Symbol" = "Accepted.Symbol")) 
+# taxIan <- tax %>%
+#   select(Accepted.Symbol, 
+#          #AccSpeciesID, AccSpeciesName, GrowthForm, inv_L48, inv_AK, inv_HI, Duration, bestname,
+#          N.Rows, SLA, LDMC, Leaf.area, 
+#          Leaf.N.mass, Leaf.P.mass, Plant.height, Seed.dry.mass, 
+#          Stem.specific.density..SSD..or.wood.density..stem.dry.mass.per.stem.fresh.volume., C3.C4, Woodiness) %>%
+#   distinct(Accepted.Symbol, .keep_all = T)
+# 
+# NEONdata_flatted2 <- NEONdata_flatted %>%
+#   left_join(taxIan, by = c("Accepted.Symbol" = "Accepted.Symbol")) 
 
 #exporting final file
 #write.csv(NEONdata_flatted_ALL2, file.path('nceas_data_entiregroup/FINAL_CorrectSppMatch/NEONdata_flatted20210225traits.csv'))
 
-#####SECOND DATA SET: ONLY DIVERSITY DATA 1m² WITH THE BEST MATCH YEARS#####
-
-NEONdata_div1m2 <- NEON_div_merg %>%
-    dplyr::group_by(dataset, siteID, plotID, decimalLongitude, decimalLatitude, year, 
-                  taxonID2,
-                  Accepted.Symbol, 
-           bestname, Native.Status, GrowthForm, AccSpeciesName) %>%
-  dplyr::summarize(sumcover = sum(percentCover),
-            #here it counts the area per layer a species was sampled AND present
-            herbaceous_area = length(unique(subplotID))) %>%
-  dplyr::mutate(herbaceous_area = replace(herbaceous_area, herbaceous_area == 0, NA),
-         herbaceous_total_area = ifelse(year == 2019, 6, 8),
-         totalcover = sumcover/herbaceous_total_area,
-         Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol)) %>%
-  ungroup() %>%
-  #dplyr::select(-Accepted.Symbol, -taxonID) %>%
-  #dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
-  dplyr::select(-sumcover, -taxonID2) %>%
-  left_join(vstStatus, by = "siteID")
-
-
-NEONdata_flattedmissing2 <- NEONdata_div1m2 %>%
-  filter(is.na(Native.Status)) %>%
-  group_by(taxonID2) %>%
-  summarise(totalcover_sum = round(sum(totalcover), 2),
-            number = n()) %>%
-  #excludes codes that return NA as native status from Ian's taxonomy table
-  anti_join(taxneoncode, by = c("taxonID2" = "neon_code")) %>%
-  left_join(uniquespp, by = c("taxonID2" = "taxonID2"))
+#####SECOND DATA SET: ONLY DIVERSITY DATA 1m? WITH THE BEST MATCH YEARS#####
+# 
+# NEONdata_div1m2 <- NEON_div_merg %>%
+#     dplyr::group_by(dataset, siteID, plotID, decimalLongitude, decimalLatitude, year, 
+#                   taxonID2,
+#                   Accepted.Symbol, 
+#            bestname, Native.Status, GrowthForm, AccSpeciesName) %>%
+#   dplyr::summarize(sumcover = sum(percentCover),
+#             #here it counts the area per layer a species was sampled AND present
+#             herbaceous_area = length(unique(subplotID))) %>%
+#   dplyr::mutate(herbaceous_area = replace(herbaceous_area, herbaceous_area == 0, NA),
+#          herbaceous_total_area = ifelse(year == 2019, 6, 8),
+#          totalcover = sumcover/herbaceous_total_area,
+#          Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol)) %>%
+#   ungroup() %>%
+#   #dplyr::select(-Accepted.Symbol, -taxonID) %>%
+#   #dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
+#   dplyr::select(-sumcover, -taxonID2) %>%
+#   left_join(vstStatus, by = "siteID")
+# 
+# 
+# NEONdata_flattedmissing2 <- NEONdata_div1m2 %>%
+#   filter(is.na(Native.Status)) %>%
+#   group_by(taxonID2) %>%
+#   summarise(totalcover_sum = round(sum(totalcover), 2),
+#             number = n()) %>%
+#   #excludes codes that return NA as native status from Ian's taxonomy table
+#   anti_join(taxneoncode, by = c("taxonID2" = "neon_code")) %>%
+#   left_join(uniquespp, by = c("taxonID2" = "taxonID2"))
 ##from those, the ones id to spp:
 ## TRDA = do not worry, the entry is accurate
 ## LESE17, HOTR = have equivalents. LESE17 is in accepted.symbol, but it has
@@ -1195,184 +1214,6 @@ NEONdata_flattedmissing2 <- NEONdata_div1m2 %>%
 
 #exporting final file
 #write.csv(NEONdata_div1m2, file.path('nceas_data_entiregroup/FINAL_CorrectSppMatch/NEONdata_div1m20210225.csv'))
-
-#####THIRD DATA SET: ONLY DIVERSITY DATA ALL SCALES WITH THE BEST MATCH YEARS#####
-
-NEONdata_divallscales <- NEONdiv_allscalesX %>% 
-  dplyr::filter(siteYear %in% filterSites$divAllScalesSiteYear) %>%
-  dplyr::mutate(dataset = "NEON",
-         metric = if_else(is.na(percentCover), "occurence", "percentCover"), 
-         Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol)) %>%
-  ungroup() %>%
-  #dplyr::select(-Accepted.Symbol, -taxonID) %>%
-  #dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>% #,
-  #layer = if_else(is.na(percentCover), "count", "herbaceous")
-  #dplyr::rename(neon_sp_code = taxonID) %>%
-  dplyr::select(dataset, siteID, plotID, subplotID, decimalLongitude, decimalLatitude, year, 
-                #neon_sp_code, 
-                #taxonID2,
-                Accepted.Symbol, Native.Status, GrowthForm, AccSpeciesName, bestname,
-                percentCover, metric) %>% #, layer) 
-  left_join(vstStatus, by = "siteID")
-
-NEONdata_flattedmissing3 <- NEONdata_divallscales %>%
-  filter(is.na(Native.Status)) %>%
-  group_by(taxonID2) %>%
-  summarize(totalcover_sum = sum(percentCover, na.rm=TRUE),
-            number = n()) %>%
-  #excludes codes that return NA as native status from Ian's taxonomy table
-  anti_join(taxneoncode, by = c("taxonID2" = "neon_code")) %>%
-  left_join(uniquespp, by = c("taxonID2" = "taxonID2"))
-
-#exporting final file
-#write.csv(NEONdata_divallscales, file.path('nceas_data_entiregroup/FINAL_CorrectSppMatch/NEONdata_divallscales20210525.csv'))
-
-
-##### WAIT THESE DATSETS BECAUSE OF UNMATCH SPECIES #####
-#####FORTH DATA SET: ONLY DIVERSITY DATA 1M² OF THE LAST YEAR OF DATA COLLECTION PER SITE#####
-
-NEONdiv_1m2_lstyear <- NEONdiv_1m2 %>%
-  dplyr::group_by(siteID) %>%
-  dplyr::filter(year == max(year)) %>%
-  dplyr::mutate(dataset = "NEON") %>% 
-  dplyr::filter(!is.na(percentCover)) %>%
-  dplyr::group_by(dataset, siteID, plotID, decimalLongitude, decimalLatitude, year, 
-                  taxonID,
-                  Accepted.Symbol, 
-           bestname, Native.Status, GrowthForm, AccSpeciesName) %>%
-  dplyr::summarize(sumcover = sum(percentCover),
-            herbaceous_area = length(unique(subplotID)))%>%
-  dplyr::mutate(herbaceous_area = replace(herbaceous_area, herbaceous_area == 0, NA),
-         herbaceous_total_area = ifelse(year == 2019, 6, 8),
-         totalcover = sumcover/herbaceous_total_area, 
-         Accepted.Symbol2 = replace(Accepted.Symbol, is.na(Accepted.Symbol), taxonID)) %>%
-  ungroup() %>%
-  dplyr::select(-Accepted.Symbol, -taxonID) %>%
-  dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
-  #dplyr::rename(neon_sp_code = taxonID) %>%
-  dplyr::select(-sumcover) %>%
-  left_join(vstStatus, by = "siteID")
-
-#exporting final file
-#write.csv(NEONdiv_1m2_lstyear, file.path('nceas_data_entiregroup/NEONdiv_1m2_lstyear20201021.csv'))
-
-#####FIFTH DATA SET: ONLY DIVERSITY DATA 1M² OF THE ALL YEARS OF DATA COLLECTION WITH COMMON PLOTS#####
-
-NEONdiv_1m2_allyears <- NEONdiv_1m2 %>%
-  dplyr::mutate(dataset = "NEON") %>% 
-  dplyr::filter(!is.na(percentCover)) %>%
-  dplyr::group_by(dataset, siteID, plotID, decimalLongitude, decimalLatitude, year, 
-                  taxonID,
-                  Accepted.Symbol, 
-           bestname, Native.Status, GrowthForm, AccSpeciesName) %>%
-  dplyr::summarize(sumcover = sum(percentCover),
-            herbaceous_area = length(unique(subplotID)))%>%
-  dplyr::mutate(herbaceous_area = replace(herbaceous_area, herbaceous_area == 0, NA),
-         herbaceous_total_area = ifelse(year == 2019, 6, 8),
-         totalcover = sumcover/herbaceous_total_area, 
-         Accepted.Symbol2 = replace(Accepted.Symbol, is.na(Accepted.Symbol), taxonID)) %>%
-  ungroup() %>%
-  dplyr::select(-Accepted.Symbol, -taxonID) %>%
-  dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
-  #dplyr::rename(neon_sp_code = taxonID) %>%
-  dplyr::select(-sumcover) 
-
-plotID_notsingleyr <- NEONdiv_1m2_allyears %>% 
-  dplyr::group_by(siteID, year) %>% 
-  dplyr::count(plotID) %>% 
-  dplyr::group_by(plotID) %>%
-  dplyr::count(plotID) %>%
-  dplyr::filter(n!=1)
-
-plotID_notsingleyr <- plotID_notsingleyr$plotID
-
-NEONdiv_1m2_allyears <- NEONdiv_1m2_allyears %>%
-  filter(plotID %in% plotID_notsingleyr) %>%
-  left_join(vstStatus, by = "siteID")
-
-#exporting final file
-#write.csv(NEONdiv_1m2_allyears, file.path('nceas_data_entiregroup/NEONdiv_1m2_allyears20201021.csv'))
-
-#####EXTRA DATA SET: ONLY VEGETATION STRUCTURE WITH THE BEST MATCH YEARS#####
-
-NEONdata_vegstr <- NEON_vegstr_merg %>%
-  dplyr::mutate(metric1 = if_else(metric == "percentCoverBasal", 1, 0),
-         metric2 = if_else(metric == "percentCoverCanopy", 1, 0),
-         row = row_number()) %>%
-  tidyr::pivot_wider(names_from = layer, 
-              values_from = plotAreaSampled,
-              values_fill = list(plotAreaSampled = 0)) %>%
-  dplyr::select(-row, -metric) %>%  
-  dplyr::rename(small_tree = 20,
-         single_bole_tree = 23,
-         single_shrub = 22,
-         small_shrub = 24, 
-         multi_bole_tree = 21) %>%
-  dplyr::group_by(dataset, siteID, plotID, decimalLongitude, decimalLatitude, year, 
-                  taxonID,
-                  Accepted.Symbol, 
-           bestname, Native.Status, GrowthForm, AccSpeciesName) %>%
-  dplyr::summarize(totalcover_sum = sum(percentCover),
-            #if basal area is used to estimate this particular species cover
-            basalarea = if_else(sum(metric1)>0, 1, 0),
-            canopycover = if_else(sum(metric2)>0, 1, 0),
-            small_tree_area = sum(small_tree),
-            sapling_area = sum(sapling),
-            single_bole_tree_area = sum(single_bole_tree),
-            liana_area = sum(liana),
-            single_shrub_area = sum(single_shrub),
-            small_shrub_area = sum(small_shrub),
-            multi_bole_tree_area = sum(multi_bole_tree),
-            palm_area = sum(palm),
-            yucca_area = sum(yucca)) %>%
-  dplyr::mutate(small_tree_area = replace(small_tree_area, small_tree_area == 0, NA),
-         sapling_area = replace(sapling_area, sapling_area == 0, NA),
-         single_bole_tree_area = replace(single_bole_tree_area, single_bole_tree_area == 0, NA),
-         liana_area = replace(liana_area, liana_area == 0, NA),
-         single_shrub_area = replace(single_shrub_area, single_shrub_area == 0, NA),
-         small_shrub_area = replace(small_shrub_area, small_shrub_area == 0, NA),
-         multi_bole_tree_area = replace(multi_bole_tree_area, multi_bole_tree_area == 0, NA),
-         palm_area = replace(palm_area, palm_area == 0, NA),
-         yucca_area = replace(yucca_area, yucca_area == 0, NA), 
-         Accepted.Symbol2 = replace(Accepted.Symbol, is.na(Accepted.Symbol), taxonID)) %>%
-  ungroup() %>%
-  dplyr::select(-Accepted.Symbol, -taxonID) %>%
-  dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
-  #dplyr::rename(neon_sp_code = taxonID) %>%
-  left_join(vstStatus, by = "siteID")
-
-#exporting final file
-#write.csv(NEONdata_vegstr, file.path('nceas_data_entiregroup/NEONdata_vegstr20201021.csv'))
-
-##########Finding # of distributed plots where vegetation structure was surveyed in 2019##########
-
-#veg structure
-sitesTochooseVeg2019 <- NEONvegstr %>%
-  filter (year == 2019) %>%
-  select(siteID, plotID, year, plotType) %>%
-  distinct(year, plotID, .keep_all = TRUE) %>%
-  group_by(siteID, year, plotType) %>%
-  summarize(N_plotID=n())
-
-#diversity
-sitesTochooseDiv2019 <- NEONdiv_allscales %>%
-  filter (year == 2019) %>%
-  select(siteID, plotID, year, plotType) %>%
-  distinct(year, plotID, .keep_all = TRUE) %>%
-  group_by(siteID, year, plotType) %>%
-  summarize(N_plotID=n())
-
-#finds plotID with no associated information about plotType
-plotIDNAplotType <- NEONdata_flatted %>%
-  left_join(plotType, by = "plotID") %>%
-  select(plotID, plotType) %>%
-  distinct(plotID, .keep_all = TRUE) %>%
-  filter(is.na(plotType))
-
-#exporting final file
-#write.csv(sitesTochooseVeg2019, file.path('sitesTochooseVeg2019_20200901.csv'))
-#write.csv(sitesTochooseDiv2019, file.path('sitesTochooseDiv2019_20200901.csv'))
-#write.csv(plotIDNAplotType, file.path('plotIDNAplotType_20200901.csv'))
 
 ##########Number of plots of diversity and vegetation structure per site in the flatted version##########
 
@@ -1420,142 +1261,6 @@ NEON_NIspp <- NEONdata_flattedAbund %>%
 
 #exporting final file
 #write.csv(NEON_NIspp, file.path('NEON_NIspp_20200901.csv'))
-
-##########Check if all the 3 main datasets have unmatching plots ########
-NEONdata_div1m2_plots <- NEONdata_div1m2 %>%
-  ungroup() %>%
-  select(plotID, siteID) %>%
-  distinct(plotID, .keep_all = TRUE)
-
-NEONdata_divallscales_plots <- NEONdata_divallscales %>%
-  ungroup() %>%
-  select(plotID, siteID) %>%
-  distinct(plotID, .keep_all = TRUE)
-
-#run in case the dataset is unsorted by plotID
-newdata <- NEONdata_divallscales_plots[order(NEONdata_divallscales_plots$plotID),]
-
-NEONdata_flatted_plots <- NEONdata_flatted %>%
-  select(plotID, siteID) %>%
-  distinct(plotID, .keep_all = TRUE)
-
-#the result from these code lines may not be "TRUE" depending on sorting
-all.equal(NEONdata_div1m2_plots, NEONdata_flatted_plots)
-all.equal(NEONdata_div1m2_plots, newdata)
-all.equal(newdata, NEONdata_flatted_plots)
-
-#alternative ways of checking it
-nrow(NEONdata_divallscales_plots) == nrow(NEONdata_div1m2_plots) # OR NEONdata_flatted_plots
-test <- cbind(NEONdata_divallscales_plots, NEONdata_div1m2_plots) # OR NEONdata_flatted_plots
-
-
-##########PROBABLY DELETE: Finding years that SOAP, TEAK, YELL, and PUUM were surveyed and number of plots########## 
-
-sitesTochooseDiv <- NEONdiv_allscales %>%
-  filter(siteID == "YELL" | siteID == "SOAP" | siteID == "TEAK") %>%
-  select(siteID, plotID, year) %>%
-  distinct(year, plotID, .keep_all = TRUE) 
-
-sitesTochooseDiv2 <- sitesTochooseDiv%>%
-  group_by(siteID, year) %>%
-  summarize(N_plotID=n())
-
-sitesTochooseVeg <- NEONvegstr %>%
-  filter(siteID == "YELL" | siteID == "SOAP" | siteID == "TEAK" | siteID == "SRER" |
-           siteID == "WREF" | siteID == "WREF" | siteID == "DELA" | siteID == "JERC" |
-           siteID == "UNDE") %>%
-  select(siteID, plotID, year) %>%
-  distinct(year, plotID, .keep_all = TRUE)
-
-sitesTochooseVeg2 <- sitesTochooseVeg %>%
-  group_by(siteID, year) %>%
-  summarize(N_plotID=n())
-
-matchplots <- inner_join(sitesTochooseDiv, sitesTochooseVeg, by = c("plotID"))
-matchplots <- matchplots %>%
-  select (-siteID.y) %>%
-  rename(yearDiv = year.x,
-         yearVeg = year.y,
-         siteID = siteID.x)
-matchplots_sum <- matchplots %>%
-  select(-yearDiv,-yearVeg) %>%
-  group_by(siteID) %>%
-  distinct(plotID, .keep_all = TRUE) %>%
-  summarize(N_plotID=n())
-
-
-######Inés summaries by plot ######
-
-NEONdata_CoverByPlot_vst <- NEONdata_flatted %>%
-  group_by(siteID, plotID, decimalLongitude, decimalLatitude, Native.Status) %>%
-  summarise(TotalPctCover = sum(totalcover_sum),
-            # get 'richness' of unk sp codes too:
-            Richness = n()) %>%
-  # reshape to calculate and separate info on unknown species:
-  pivot_longer(c(TotalPctCover, Richness), names_to = "variable", values_to = "value") %>%
-  unite(Var_SpType, variable, Native.Status, sep = "_") %>%
-  pivot_wider(names_from = Var_SpType, names_sep = "_",
-              values_from = value, values_fill = list(value = 0)) %>%
-  mutate(AbsUnkCover = TotalPctCover_NA + TotalPctCover_NI,
-         RelUnkCover = AbsUnkCover / (AbsUnkCover + TotalPctCover_I + TotalPctCover_N),
-         AbsUnkRich = Richness_NA + Richness_NI,
-         RelUnkRich = AbsUnkRich/(AbsUnkRich + Richness_I + Richness_N),
-         RelCover_N = TotalPctCover_N / (TotalPctCover_N + TotalPctCover_I + AbsUnkCover),
-         RelCover_I = TotalPctCover_I / (TotalPctCover_N + TotalPctCover_I + AbsUnkCover)) %>%
-  # leave NA and NI info wide, gather I and N for joining:
-  #pivot_longer(c(TotalPctCover_I, Richness_I, TotalPctCover_N, Richness_N),
-  #            names_to = c("variable", "Exotic"), names_sep = "_", values_to = "value") %>%
-  #pivot_wider(names_from = variable, values_from = value, values_fill = list(value = 0)) %>%
-  select(siteID, plotID, decimalLongitude, decimalLatitude, TotalPctCover_I, TotalPctCover_N, 
-         AbsUnkCover, RelCover_N, RelCover_I, RelUnkCover, Richness_N, Richness_I, AbsUnkRich) %>%
-  left_join(vstStatus, by = "siteID")
-
-#write.csv(NEONdata_CoverByPlot_vst, file.path("nceas_data_entiregroup/FINAL_CorrectSppMatch/NEONdata_CoverByPlot_vst20210225.csv"))
-
-## checking new plots: plot < 0.1 RelUnkCover 
-PAINLES_25Oct2020NEON <- PAINLES_25Oct2020 %>%
-  filter(Dataset == "NEON") %>%
-  distinct(Plot) %>%
-  mutate(PlotPAINLES = Plot)
-
-NEONdata_CoverByPlot_vstPLOTS <- NEONdata_CoverByPlot_vst %>%
-  ungroup() %>%
-  filter(RelUnkCover < 0.1) %>%
-  distinct(plotID) %>%
-  mutate(plotIDNEON = plotID)
-
-NewPlotToAdd <- anti_join(NEONdata_CoverByPlot_vstPLOTS, PAINLES_25Oct2020NEON, by = c("plotID" = "Plot"))
-dim(NewPlotToAdd)
-#71 new plots
-
-NEONdata_CoverByPlot <- NEONdata_div1m2 %>%
-  group_by(siteID, plotID, decimalLongitude, decimalLatitude, Native.Status) %>%
-  summarise(TotalPctCover = sum(totalcover),
-            # get 'richness' of unk sp codes too:
-            Richness = n()) %>%
-  # reshape to calculate and separate info on unknown species:
-  pivot_longer(c(TotalPctCover, Richness), names_to = "variable", values_to = "value") %>%
-  unite(Var_SpType, variable, Native.Status, sep = "_") %>%
-  pivot_wider(names_from = Var_SpType, names_sep = "_",
-              values_from = value, values_fill = list(value = 0)) %>%
-  mutate(AbsUnkCover = TotalPctCover_NA + TotalPctCover_NI,
-         RelUnkCover = AbsUnkCover / (AbsUnkCover + TotalPctCover_I + TotalPctCover_N),
-         AbsUnkRich = Richness_NA + Richness_NI,
-         RelUnkRich = AbsUnkRich/(AbsUnkRich + Richness_I + Richness_N),
-         RelCover_N = TotalPctCover_N / (TotalPctCover_N + TotalPctCover_I + AbsUnkCover),
-         RelCover_I = TotalPctCover_I / (TotalPctCover_N + TotalPctCover_I + AbsUnkCover)) %>%
-  # leave NA and NI info wide, gather I and N for joining:
-  #pivot_longer(c(TotalPctCover_I, Richness_I, TotalPctCover_N, Richness_N),
-  #            names_to = c("variable", "Exotic"), names_sep = "_", values_to = "value") %>%
-  #pivot_wider(names_from = variable, values_from = value, values_fill = list(value = 0)) %>%
-  select(siteID, plotID, decimalLongitude, decimalLatitude, TotalPctCover_I, TotalPctCover_N, 
-         AbsUnkCover, RelCover_N, RelCover_I, RelUnkCover, Richness_N, Richness_I, AbsUnkRich) %>%
-  left_join(vstStatus, by = "siteID")
-
-#write.csv(NEONdata_CoverByPlot, file.path("nceas_data_entiregroup/FINAL_CorrectSppMatch/NEONdata_CoverByPlot20210225.csv"))
-
-
-
 
 ##### 02-24-2021 checking missing species codes from taxonomy table  ####
 
