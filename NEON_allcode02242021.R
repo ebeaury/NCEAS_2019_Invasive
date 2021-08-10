@@ -1088,7 +1088,7 @@ NEONdata_flatted <- NEON_temp %>%
                                      year_div == 2018, 8, ifelse(year_div == 0, 0, 6)),
     #totalcover_mean = ifelse(herbaceous_total_area>0, sum(percentCover)/herbaceous_total_area,
     #                    mean(percentCover)),
-    totalcover_sum = ifelse(herbaceous_total_area>0, sum(percentCover)/herbaceous_total_area,
+    plotCover = ifelse(herbaceous_total_area>0, sum(percentCover)/herbaceous_total_area,
                              sum(percentCover))) %>%
   #I checked the number of subplots per plot for the herbaceous layer
   dplyr::mutate(herbaceous_area = replace(herbaceous_area, is.na(herbaceous_area), 0),
@@ -1104,20 +1104,20 @@ NEONdata_flatted <- NEON_temp %>%
          year_div = replace(year_div, year_div == 0, NA),
          year_vegstr = replace(year_vegstr, year_vegstr == 0, NA),
          Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol),
-         SampledArea = ifelse(plotType == "distributed", 400, 800)) %>%
+         SampledArea = ifelse(plotType == "distributed", 400, 800),
+         year = ifelse(is.na(year_vegstr), year_div, year_vegstr)) %>%
   ungroup() %>%
   dplyr::select(-herbaceoustemp_area, -herbaceous_area_temp) %>%
   #dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
   #dplyr::rename(Accepted.Symbol = taxonID) %>%
   dplyr::select(dataset, siteID, plotID, decimalLongitude, decimalLatitude, 
-         year_div, year_vegstr, 
+         year, 
          Accepted.Symbol, Native.Status, GrowthForm, AccSpeciesName, bestname,
          scientificName, #Original species names from NEON
          taxonID2,
-         totalcover_sum,
-         SampledArea,
-         herbaceous_area, herbaceous_total_area, everything()) %>%
-  dplyr::select(-plotType) %>%
+         plotCover,
+         SampledArea) %>%
+  #dplyr::select(-taxonID2) %>%
   ungroup() %>%
   left_join(vstStatus, by = "siteID")
 
@@ -1149,12 +1149,12 @@ NEONdata_flattedmissing <- NEONdata_flatted %>%
 ## all the other codes are species with no id. They should be NA.
 
 NEONdata_flatted <- NEONdata_flatted %>%
+  #fixes the year column 
   select(-taxonID2)
-
 
 #exporting final file
 write.csv(NEONdata_flatted,
-          file.path('/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210729.csv'),
+          '/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210810.csv',
           row.names = FALSE)
 
 
