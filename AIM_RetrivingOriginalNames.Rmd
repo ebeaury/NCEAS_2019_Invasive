@@ -1,0 +1,66 @@
+---
+title: "AIMdata_OriginalSppNames"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages
+```{r}
+library(tidyverse)
+```
+
+
+Paths to data
+```{r}
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "data_paper/data_by_dataset/archived")
+data_outpput <- file.path(shared_data_dir,"data_paper/data_by_dataset")
+
+```
+
+Importing files
+```{r}
+
+AIMdata <- read.csv(file.path(data_raw, "AIM_AllSpTax_24June2020.csv"))
+glimpse(AIMdata)
+codes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+head(codes)
+
+```
+
+Matching AIM data "code" column to PLANTS scientific name
+```{r}
+
+codes <- codes %>% select(Accepted.Symbol, Scientific.Name) %>%
+  distinct(Accepted.Symbol, .keep_all = TRUE) %>% rename(code = Accepted.Symbol)
+
+codes2 <- codes %>% select(Synonym.Symbol, Scientific.Name) %>%
+  distinct(Synonym.Symbol, .keep_all = TRUE) %>% rename(code = Synonym.Symbol,
+                                                        synonym.Scientific.Name = Scientific.Name)
+
+AIMdata2 <- AIMdata %>%
+  left_join(codes) %>%
+  left_join(codes2) %>%
+  mutate(Scientific.Name = ifelse(is.na(Scientific.Name), synonym.Scientific.Name, Scientific.Name)) %>%
+  select(-synonym.Scientific.Name, -Woodiness, -C3.C4, -StemSpecificDensity, -Seed.dry.mass,
+         -Plant.height, -Leaf.P.mass, -Leaf.N.mass, -Leaf.area, -LDMC, -SLA, -N.Rows, 
+         -FIA_DRYWT_TO_GREENWT_CONVERSION) %>%
+  rename(OriginalName = Scientific.Name)
+glimpse(AIMdata2)
+
+```
+
+Finding and checking unmatched species to species codes
+```{r}
+unmatch <- AIMdata2 %>%
+  filter(is.na(Scientific.Name)) %>%
+  select(code, bestname) %>%
+  distinct()
+#the unmatched symbols are not in USDA PLANTS, I've checked several of them manually
+```
+
