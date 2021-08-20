@@ -1,0 +1,140 @@
+---
+title: "NWCA_code_datapaper"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+notes: the raw file of 2011 data was given to Laís from Ian Pearse via email. The 2016 data Laís downloaded from the website and included in the database. https://www.epa.gov/national-aquatic-resource-surveys/data-national-aquatic-resource-surveys
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+Paths to data
+```{r}
+shared_data_dir <- "/home/shares/neon-inv/data_paper"
+data_raw <- file.path(shared_data_dir, "data_by_dataset/archived")
+data_output <- file.path(shared_data_dir,"data_by_dataset")
+
+```
+
+Importing dataset 2011
+```{r}
+NWCA2011 <- read.delim(file.path(data_raw, "epa wetland surveys.txt"), header = TRUE)
+glimpse(NWCA2011)
+
+NWCA2011 <- NWCA2011 %>%
+  mutate(Date = as.Date(DATE_COL, format = "%d-%B-%Y"),
+         Year = 2011) %>%
+  select(UID, PLOT, Date, Year, SITE_ID, COVER, SPECIES) %>%
+  rename(OriginalName = SPECIES) %>%
+  group_by(UID, PLOT) %>%
+  mutate(UniquePlotID = paste0("NWCA_", cur_group_id()),
+         #https://www.epa.gov/sites/default/files/2013-11/documents/fom_with_errata.pdf
+         PlotArea_m2 = 100)
+```
+
+Importing dataset 2016
+```{r}
+NWCA2016 <- read.csv(file.path(data_raw, "nwca_2016_plant_species_cover_height_-_data_csv.csv"), header = TRUE)
+glimpse(NWCA2016)
+
+NWCA2016 <- NWCA2016 %>%
+  mutate(Date = as.Date(DATE_COL, format = "%m/%d/%Y"),
+         Year = 2016) %>%
+  select(UID, PLOT, Date, Year, SITE_ID, COVER, SPECIES) %>%
+  rename(OriginalName = SPECIES) %>%
+  group_by(UID, PLOT) %>%
+  mutate(UniquePlotID = paste0("NWCA_", cur_group_id()),
+         #https://www.epa.gov/sites/default/files/2013-11/documents/fom_with_errata.pdf
+         PlotArea_m2 = 100)
+glimpse(NWCA2016)
+```
+
+
+Merging the two datasets
+```{r}
+
+NWCA <- bind_rows(NWCA2011, NWCA2016)
+glimpse(NWCA)
+
+```
+
+Importing information on site lat/long
+```{r}
+
+NWCAsiteID <- unique(NWCA$SITE_ID)
+
+latlong2011 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2011_siteinfo.csv"))
+
+latlong2011 <- latlong2011 %>% select(SITE_ID, AA_CENTER_LAT, AA_CENTER_LON) %>%
+  rename(Lat = AA_CENTER_LAT,
+         Long = AA_CENTER_LON)
+
+latlong2016 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2016_siteinfo.csv"))
+latlong2016 <- latlong2016 %>% select(SITE_ID, VEG_PLOT_LAT, VEG_PLOT_LON) %>%
+  rename(Lat = VEG_PLOT_LAT,
+         Long = VEG_PLOT_LON)
+
+latlong <- bind_rows(latlong2016, latlong2011)
+glimpse(latlong)
+
+latlong <- latlong %>%
+  filter(SITE_ID %in% NWCAsiteID) %>%
+  distinct(SITE_ID, .keep_all = T)
+
+```
+
+Adding lat/long info
+```{r}
+NWCA <- left_join(NWCA, latlong)
+glimpse(NWCA)
+```
+
+Matching species names
+```{r}
+tax <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/taxonomy_temp10_revised.csv"))
+tax <- tax %>%
+  select(Accepted.Symbol, Scientific.Name, bestname, inv_L48) %>%
+  filter(!is.na(inv_L48))
+glimpse(tax)
+
+sppcodes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+head(sppcodes) 
+sppcodes <- sppcodes %>% select(-Synonym.Symbol)
+
+NWCAspp <- data.frame(unique(NWCA$OriginalName))
+NWCAspp <- NWCAspp %>%
+  rename(OriginalName = 1) %>%
+  mutate(OriginalName = ifelse(OriginalName=="ACER ?<f9>FREEMANII", "Acer freemanii", OriginalName)) %>%
+  mutate(Scientific.Name = str_to_lower(OriginalName),
+         Scientific.Name = str_to_sentence(Scientific.Name)) %>%
+  left_join(tax) %>%
+  mutate(Accepted.Symbol = ifelse(Accepted.Symbol=="7-Feb", "FEBR7", Accepted.Symbol)) %>%
+  left_join(sppcodes, by = "Scientific.Name") %>%
+  mutate(Accepted.Symbol = ifelse(is.na(Accepted.Symbol.x), Accepted.Symbol.y, Accepted.Symbol.x)) %>%
+  select(-Accepted.Symbol.x, -Accepted.Symbol.y) %>%
+  distinct(OriginalName, .keep_all = T)
+
+```
+
+Joining the fixed species table to the main database
+```{r}
+NWCA2 <- left_join(NWCA, NWCAspp)
+glimpse(NWCA2)
+is.na(NWCA2) <- NWCA2==''
+
+NWCA2 %>% group_by(inv_L48) %>% tally()
+```
+
+Exporting final dataset
+```{r}
+write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_08202021.csv"))
+```
+
