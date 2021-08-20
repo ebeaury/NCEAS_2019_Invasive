@@ -53,6 +53,8 @@ AIMdata2 <- AIMdata %>%
   rename(OriginalName = Scientific.Name)
 glimpse(AIMdata2)
 
+write.csv(AIMdata2,"/home/shares/neon-inv/data_paper/data_by_dataset/AIM_AllSpTax_LP_20Aug2021.csv")
+
 ```
 
 Finding and checking unmatched species to species codes
