@@ -133,6 +133,25 @@ is.na(NWCA2) <- NWCA2==''
 NWCA2 %>% group_by(inv_L48) %>% tally()
 ```
 
+Including/fixing Exotic status hand correct 
+```{r}
+hand_exo <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/multStatusSpL48.csv"))
+head(hand_exo)
+
+hand_exo <- hand_exo %>%
+  rename(Accepted.Symbol = SpCode) %>%
+  select(Accepted.Symbol, 'FINAL DECISION (L48)') %>%
+  distinct
+
+NWCA2 <- NWCA2 %>% left_join(hand_exo)
+NWCA2 <- NWCA2 %>% mutate(inv_L48 = ifelse(is.na(`FINAL DECISION (L48)`), inv_L48, `FINAL DECISION (L48)`)) %>% select(-`FINAL DECISION (L48)`)
+
+#check one that was NA and should now be NI
+NWCA2 %>% filter(Accepted.Symbol=="BRIN2")
+
+```
+
+
 Exporting final dataset
 ```{r}
 write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_08202021.csv"))
