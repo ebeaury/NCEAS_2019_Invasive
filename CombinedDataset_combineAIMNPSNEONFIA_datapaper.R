@@ -112,11 +112,11 @@ AIM <- read_csv("data_by_dataset/AIM_AllSpTax_LP_20Aug2021.csv")
 glimpse(AIM)
 
 # earlier visits of resampled plots:
-AIMdrop <- read_csv("code_by_dataset/extra_csv_AIM/excludeAIM_11Sept2020.csv") 
+# AIMdrop <- read_csv("code_by_dataset/extra_csv_AIM/excludeAIM_11Sept2020.csv") 
 
 AIM <- AIM  %>%
   # drop earlier visits for resampled plots:
-  filter(!PLOTKEY %in% AIMdrop$PLOTKEY) %>%
+  # filter(!PLOTKEY %in% AIMdrop$PLOTKEY) %>%
   # convert from proportion to percent cover:
   mutate(PctCov = 100*prop.cover,
          FuzzedCoord = "N",
@@ -801,3 +801,45 @@ ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=ExoticStatus)) +
        geom_col() +
        scale_fill_viridis_d(option="B") + theme_minimal() +
   ylab("% of species exotic status per dataset") + theme(axis.title.x = element_blank())
+
+### WORLD MAP ###
+
+## The World Map
+
+# coord objt
+
+sites_coord <- DataBase.fill %>%
+  #filter(invasive.response.mean.control > 0) %>% # removes all the presence/absence of invasives
+  select(Dataset, Latitude, Longitude, Country) %>% #selects just a few of the columns
+  distinct(StudyID, .keep_all = TRUE) %>% #removes duplicates due to several data entries for the same
+  filter(!is.na(Latitude)) # removes studies that the coordinates were not entered
+
+sites_coord <- st_as_sf(sites_coord, coords = c("Longitude", "Latitude"), remove = FALSE, 
+                        crs = 4326, agr = "constant")
+
+# world map
+
+world <- ne_countries(scale = "medium", returnclass = "sf") #creates the object with the map
+class(world) #gives you the category of the object
+
+ggplot(data = world) + #plot the object as a map
+  geom_sf() + 
+  coord_sf(expand = FALSE) + #this makes the coordinates to show up
+  geom_point(data = sites_coord, aes(x = Longitude, y = Latitude), size = 4, #specifies the data
+             shape = 21, fill = "darkred") + #specifies how the dots will show
+  theme(panel.border = element_blank()) +
+  theme(plot.margin = unit(c(0,0.5,0,0.5), "cm")) +
+  # theme (axis.ticks.length = unit(2, "cm")) +
+  # annotation_scale(location = "bl", width_hint = 0.5) +
+  annotation_north_arrow(location = "bl", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_fancy_orienteering) +
+  xlab("Longitude") + ylab("Latitude") +
+  ylim(-60,NA) + #defining the limits in the yaxis, NA to indicate that automatic upper limit
+  ggtitle("World map of study sites included in the meta-analysis", 
+          subtitle = paste0("(", length(unique(sites_coord$StudyID)), " studies from ", length(unique(sites_coord$Country)), " countries)")) #+ # I will probably modify this line
+#theme_map()
+
+ggsave("maptitle_final.pdf", dpi = 300, scale = 2) # saves the last generated plot 
+ggsave("maptitle_final.png", dpi = 300, scale = 2) # saves the last generated plot 
+
