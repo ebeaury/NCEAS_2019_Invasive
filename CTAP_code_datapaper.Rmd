@@ -1,0 +1,73 @@
+---
+title: "CTAP_code_datapaper"
+author: "Lais Petri"
+date: "10/21/2021"
+output: html_document
+notes: David Zaya sent Laís the data via email on Sep 30 2021.
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+Paths to data
+```{r}
+shared_data_dir <- "/home/shares/neon-inv/data_paper"
+data_raw <- file.path(shared_data_dir, "data_by_dataset/archived")
+data_output <- file.path(shared_data_dir,"data_by_dataset")
+data_extra <- file.path(shared_data_dir, "code_by_dataset/extra_csv_CTAP")
+
+```
+
+Importing site information
+```{r}
+site_info <- read.csv(file.path(data_extra, "tableOfSiteVisitsFinal.csv"), header = TRUE)
+glimpse(site_info)
+
+```
+
+Importing dataset information
+```{r}
+load(file.path(data_raw, "rawVegData2.RData"))
+##file names: g, gshr, gtree, w, wshr, wtree, f, fshr, ftree
+glimpse(g)
+glimpse(gshr)
+glimpse(gtree)
+glimpse(w)
+glimpse(wshr)
+glimpse(wtree)
+glimpse(f)
+glimpse(fshr)
+glimpse(ftree)
+
+# NEXT STEPS: select common columns among g, f, w and then bind them below
+
+CTAP <- rbind(g, w, f)
+
+##I am going to use only the cover class from the ground cover data, meaning objects 'g', 'w', 'f'
+
+```
+
+Adding the coordinates
+```{r}
+latlong <- site_info %>% 
+  select(SiteID, PYear, Lat, Lon) %>% 
+  rename(Long = Lon)
+
+CTAP <- left_join(CTAP, latlong)
+glimpse(CTAP)
+```
+
+Next steps:
+* column with full species names has two spaces in between the generic and the specific name
+* join taxonomy --> use code from "NWCA-code_datapaper"
+* select and rename columns to match to the final database
+* quadrat area = .25m²
