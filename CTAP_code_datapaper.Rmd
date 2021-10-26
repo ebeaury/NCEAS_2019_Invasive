@@ -48,13 +48,330 @@ glimpse(f)
 glimpse(fshr)
 glimpse(ftree)
 
-# NEXT STEPS: select common columns among g, f, w and then bind them below
+```
 
-CTAP <- rbind(g, w, f)
+Organizing Wetlands data
 
-##I am going to use only the cover class from the ground cover data, meaning objects 'g', 'w', 'f'
+```{r}
+# files w, wshr, wtree
+
+wet <- w %>% 
+  select(SiteID, Genus, Species, PYear, 35:54) %>% 
+  gather(Median1:Median20, key = "Class", value = "PctCov") %>% 
+  mutate(PctCov = ifelse(is.na(PctCov), 0, PctCov),
+        OriginalSpeciesName =paste0(Genus, " ", Species),
+        #removes any space after the end of any column containing characters
+        across(where(is.character), str_trim)) %>% 
+  select(-Genus, -Species, -Class) %>% 
+  filter(OriginalSpeciesName != "None") %>% 
+  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  mutate(SampledArea = .25, 
+         PctCov = mean(PctCov)/SampledArea, 
+         code = 0, 
+         layer = "herbaceous") %>% 
+  distinct() %>% 
+  ungroup() %>% 
+  filter(PctCov > 0)
+
+wettree <- wtree %>% 
+  select(SiteID, PYear, Squmetr, Genus, Species, SzclassM, PCount) %>% 
+  mutate(OriginalSpeciesName =paste0(Genus, " ", Species),
+        #removes any space after the end of any column containing characters
+        across(where(is.character), str_trim),
+        dbh = SzclassM*PCount) %>% 
+  select(-Genus, -Species, -SzclassM, -PCount) %>% 
+  filter(OriginalSpeciesName != "None") %>% 
+  group_by(SiteID, PYear, OriginalSpeciesName) %>%
+  rename(SampledArea = Squmetr) %>% 
+  mutate(PctCov = sum(dbh)/SampledArea, 
+         code = 1,
+         layer = "tree") %>% 
+  select(-dbh) %>% 
+  distinct() %>% 
+  ungroup() %>% 
+  filter(PctCov > 0)
+
+wetfinal <- wet %>% 
+  rbind(wettree) %>% 
+  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  filter(if (sum(code)>=1) layer=="tree" else layer=="herbaceous") %>% 
+  select(-code)
+  
+```
+
+Organizing Grasslands data
+
+```{r}
+# files g, gshr, gtree
+
+g <- g %>% 
+  select(SiteID, Genus, Species, PYear, 35:54) %>% 
+  gather(Median1:Median20, key = "Class", value = "PctCov") %>% 
+  mutate(PctCov = ifelse(is.na(PctCov), 0, PctCov),
+        OriginalSpeciesName =paste0(Genus, " ", Species),
+        #removes any space after the end of any column containing characters
+        across(where(is.character), str_trim)) %>% 
+  select(-Genus, -Species, -Class) %>% 
+  filter(OriginalSpeciesName != "None") %>% 
+  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  mutate(SampledArea = .25, 
+         PctCov = mean(PctCov)/SampledArea, 
+         code = 0, 
+         layer = "herbaceous") %>% 
+  distinct() %>% 
+  ungroup() %>% 
+  filter(PctCov > 0)
+
+gtree <- gtree %>% 
+  select(SiteID, PYear, Squrmetrs, Genus, Species, SzclassM, PCount) %>% 
+  mutate(OriginalSpeciesName =paste0(Genus, " ", Species),
+        #removes any space after the end of any column containing characters
+        across(where(is.character), str_trim),
+        dbh = SzclassM*PCount) %>% 
+  select(-Genus, -Species, -SzclassM, -PCount) %>% 
+  filter(OriginalSpeciesName != "None") %>% 
+  group_by(SiteID, PYear, OriginalSpeciesName) %>%
+  rename(SampledArea = Squrmetrs) %>% 
+  mutate(PctCov = sum(dbh)/SampledArea, 
+         code = 1,
+         layer = "tree") %>% 
+  select(-dbh) %>% 
+  distinct() %>% 
+  ungroup() %>% 
+  filter(PctCov > 0)
+
+grassfinal <- g %>% 
+  rbind(gtree) %>% 
+  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  filter(if (sum(code)>=1) layer=="tree" else layer=="herbaceous") %>% 
+  select(-code)
 
 ```
+
+Organizing Forests data
+
+```{r}
+# files f, fshr, ftree
+
+forest <- f %>% 
+  select(SiteID, Transect, Genus, Species, PYear, 26:35) %>% 
+  gather(Median1:Median10, key = "Class", value = "PctCov") %>% 
+  mutate(PctCov = ifelse(is.na(PctCov), 0, PctCov),
+        OriginalSpeciesName =paste0(Genus, " ", Species),
+        #removes any space after the end of any column containing characters
+        across(where(is.character), str_trim)) %>% 
+  select(-Genus, -Species, -Class) %>% 
+  filter(OriginalSpeciesName != "None") %>% 
+  group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>% 
+  mutate(SampledArea = .25, 
+         PctCov = mean(PctCov)/SampledArea, 
+         code = 0, 
+         layer = "herbaceous") %>% 
+  distinct() %>% 
+  ungroup() %>% 
+  filter(PctCov > 0)
+
+fortree <- ftree %>% 
+  select(SiteID, PYear, Transect, Genus, Species, SzclassM, PCount) %>% 
+  mutate(OriginalSpeciesName =paste0(Genus, " ", Species),
+        #removes any space after the end of any column containing characters
+        across(where(is.character), str_trim),
+        dbh = SzclassM*PCount,
+         SampledArea = 500) %>% 
+  select(-Genus, -Species, -SzclassM, -PCount) %>% 
+  filter(OriginalSpeciesName != "None") %>% 
+  group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>%
+  mutate(PctCov = sum(dbh)/SampledArea, 
+         code = 1,
+         layer = "tree") %>% 
+  select(-dbh) %>% 
+  distinct() %>% 
+  ungroup() %>% 
+  filter(PctCov > 0)
+
+forestfinal <- forest %>% 
+  rbind(fortree) %>% 
+  group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>% 
+  filter(if (sum(code)>=1) layer=="tree" else layer=="herbaceous") %>% 
+  select(-code)
+
+```
+
+Joining all ecosystems together
+
+```{r}
+
+IL_CTAP <- forestfinal %>% 
+  rbind(grassfinal) %>% 
+  rbind(wetfinal) %>% 
+  mutate(Dataset = "IL_CTAP",
+         Transect = ifelse(is.na(Transect), 1, Transect)) %>% 
+  select(Dataset, everything())
+```
+
+Matching species names
+```{r}
+tax <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/taxonomy_temp10_revised.csv"))
+tax <- tax %>%
+  select(Accepted.Symbol, Scientific.Name, bestname, inv_L48) %>% 
+  distinct() %>% 
+  filter(!is.na(Accepted.Symbol))
+glimpse(tax)
+
+sppcodes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+head(sppcodes) 
+sppcodes <- sppcodes %>% select(-Synonym.Symbol)
+
+sppfixed <- read_csv(file.path(data_extra, "IL_CTAPsppFixed.csv"))
+
+IL_CTAPspp <- data.frame(unique(IL_CTAP$OriginalSpeciesName))
+IL_CTAPspp <- IL_CTAPspp %>%
+  rename(OriginalSpeciesName = 1) %>%
+  separate(OriginalSpeciesName, c("Genus", "Species", "Extra"), remove = F) %>% 
+  mutate(Species = ifelse(Species == "sp", "", 
+                   ifelse(is.na(Species), "", Species)),
+         Scientific.Name = paste0(Genus, " ", Species),
+         Scientific.Name = ifelse(Scientific.Name == "NA NA", "", Scientific.Name),
+         #removes any space after the end of any column containing characters
+         across(where(is.character), str_trim)) %>% 
+  select(-Genus, -Species, -Extra) 
+
+## fixing typos on species names
+IL_CTAPspp$Scientific.Name <- gsub("Amphicarpa bracteata", "Amphicarpaea bracteata", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Arisaema tryphyllum", "Arisaema triphyllum", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Carex pennsylvanicus", "Carex pensylvanica", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Carya illinoensis", "Carya illinoinensis", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Desmodium canadensis", "Desmodium canadense", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Echinochloa crusgalli", "Echinochloa crus-galli", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Eupatorium rugusom", "Eupatorium rugosum", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Hibiscus lasiocarpus", "Hibiscus lasiocarpos", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Lysimachia numeralia", "Lysimachia nummularia", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Quercus muhlenbergii", "Quercus muehlenbergii", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Rubus pensylvanicus", "Rubus pensilvanicus", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Samolus valerandii", "Samolus valerandi", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Smilax lasioneuron", "Smilax lasioneura", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Viburnum rafinesquianum", "Viburnum rafinesqueanum", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Viola sororis", "Viola sororia", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Acer saccarum", "Acer saccharum", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Lonicera mackii", "Lonicera maackii", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Gleditsia tricanthos", "Gleditsia triacanthos", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Maclura pomfera", "Maclura pomifera", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Wolffia braziliensis", "Wolffia brasiliensis", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Scirpus tabernaemontanii", "Scirpus tabernaemontani", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Polygonum sagitatum", "Polygonum sagittatum", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Polygonum sogitatum", "Polygonum sagittatum", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Plantago ruelli", "Plantago rugelii", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Nuphar luteum", "Nuphar lutea", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Carex strica", "Carex stricta", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Carex ovales", "Carex ovalis", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Aster symplex", "Aster simplex", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Aster lateriflora", "Aster lateriflorus", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Trifolium pretense", "Trifolium pratense", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Trifolium reptans", "Trifolium repens", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Tridens flavis", "Tridens flavus", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Solidago memoralis", "Solidago nemoralis", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Setaria pumil", "Setaria pumila", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Plantago lugelii", "Plantago rugelii", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Opuntia humifisa", "Opuntia humifusa", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Liparis lilifolia", "Liparis liliifolia", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Helianthus maximilianii", "Helianthus maximiliani", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Erysimum hieracifolium", "Erysimum hieraciifolium", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Cyperus grayioides", "Cyperus grayoides", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Cirsium canadense", "Cirsium canescens", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Robinia NA", "Robinia", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Acer rubra", "Acer rubrum", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Achillea milliflora", "Achillea multiflora", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Carex muhlenbergii", "Carex muehlenbergii", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Setaria pumilaa", "Setaria pumila", IL_CTAPspp$Scientific.Name)
+IL_CTAPspp$Scientific.Name <- gsub("Aster punicens", "Aster puniceus", IL_CTAPspp$Scientific.Name)
+
+IL_CTAPspp <- IL_CTAPspp %>%
+#dataframe below fixes scientific names to match Ian's taxonomy
+  left_join(select(sppfixed, OriginalSpeciesName, Scientific.Name), by = "OriginalSpeciesName") %>% 
+  mutate(Scientific.Name = ifelse(is.na(Scientific.Name.y), Scientific.Name.x, Scientific.Name.y)) %>% 
+  select(-Scientific.Name.x, -Scientific.Name.y) %>% 
+  # I might need to add the IL_CTAPspp2Fixed.csv' here, before Ian
+  # left join Ian's taxonomy
+  left_join(tax, by = "Scientific.Name") %>%
+  mutate(Accepted.Symbol = ifelse(Accepted.Symbol=="7-Feb", "FEBR7", Accepted.Symbol)) %>% 
+  group_by(OriginalSpeciesName) %>% 
+  add_tally() %>% 
+  filter(!(is.na(inv_L48) & n==2),
+         is.na(Accepted.Symbol)|Accepted.Symbol != "LEFR5") %>% 
+  select(-n) 
+
+#Synonym.Symbol
+codesremove <- c("ASSA13", "CRCO18", "PALA30", "PAMI9", "OERH2", "ASVI5", "SCAM2", "WOPU")
+
+tax2 <- tax %>% select(Accepted.Symbol, bestname, inv_L48) %>% distinct() 
+tax3 <- tax %>% select(Scientific.Name, inv_L48) %>% distinct() 
+
+
+IL_CTAPspp2 <- IL_CTAPspp %>%  filter(is.na(Accepted.Symbol) & is.na(inv_L48)) %>% 
+  left_join(sppcodes, by = "Scientific.Name") %>%
+  distinct(Accepted.Symbol.y, .keep_all = T) %>% 
+  filter(!Synonym.Symbol %in% codesremove) %>% 
+  mutate(Accepted.Symbol = ifelse(is.na(Accepted.Symbol.x), Accepted.Symbol.y, Accepted.Symbol.x)) %>% 
+  select(-Accepted.Symbol.x, -Accepted.Symbol.y, -Synonym.Symbol) %>% 
+  left_join(filter(sppcodes, is.na(Synonym.Symbol)) , by = "Accepted.Symbol") %>% 
+  mutate(bestname = ifelse(is.na(bestname), Scientific.Name.y, bestname)) %>% 
+  rename(Scientific.Name = Scientific.Name.x) %>% 
+  select(-Scientific.Name.y, -Synonym.Symbol) %>% 
+  mutate(bestname = sub(" var.*", "", bestname),
+         bestname = sub(" ssp.*", "", bestname),
+         #removes any space after the end of any column containing characters
+         across(where(is.character), str_trim)) %>% 
+    # left join Ian's taxonomy
+  left_join(tax2, by = c("bestname", "Accepted.Symbol")) %>% 
+  mutate(inv_L48 = ifelse(is.na(inv_L48.x), inv_L48.y, inv_L48.x)) %>% 
+  select(-inv_L48.x, -inv_L48.y) %>% 
+  left_join(tax3, by = c("bestname" = "Scientific.Name")) %>% 
+  mutate(inv_L48 = ifelse(is.na(inv_L48.x), inv_L48.y, inv_L48.x)) %>% 
+  select(-inv_L48.x, -inv_L48.y)
+
+sppfixed2 <- read_csv(file.path(data_extra, "IL_CTAPspp3Fixed.csv"))
+sppfixed3 <- read_csv(file.path(data_extra, "IL_CTAPspp4Fixed.csv"))
+
+IL_CTAPsppfinal <- IL_CTAPspp %>% 
+  filter(!(is.na(Accepted.Symbol) & is.na(inv_L48))) %>% 
+  rbind(IL_CTAPspp2) %>% 
+  left_join(sppfixed2, by = c("OriginalSpeciesName", "Scientific.Name", "bestname", "Accepted.Symbol")) %>% 
+  mutate(inv_L48 = ifelse(is.na(inv_L48.x), inv_L48.y, inv_L48.x)) %>% 
+  select(-inv_L48.x, -inv_L48.y) %>% 
+  left_join(sppfixed3, by = c("OriginalSpeciesName", "Scientific.Name", "bestname", "Accepted.Symbol")) %>% 
+  mutate(inv_L48 = ifelse(is.na(inv_L48.x), inv_L48.y, inv_L48.x)) %>% 
+  select(-inv_L48.x, -inv_L48.y)
+
+```
+
+Joining the fixed species table to the main database
+```{r}
+IL_CTAP2 <- left_join(IL_CTAP, IL_CTAPsppfinal, by = "OriginalSpeciesName")
+glimpse(IL_CTAP2)
+is.na(IL_CTAP2) <- IL_CTAP2==''
+
+IL_CTAP2 %>% group_by(inv_L48) %>% tally()
+
+```
+
+Including/fixing Exotic status hand correct 
+```{r}
+hand_exo <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/multStatusSpL48.csv"))
+head(hand_exo)
+
+hand_exo <- hand_exo %>%
+  rename(Accepted.Symbol = SpCode) %>%
+  select(Accepted.Symbol, 'FINAL DECISION (L48)') %>%
+  distinct()
+
+IL_CTAP2 <- IL_CTAP2 %>% left_join(hand_exo)
+IL_CTAP2 <- IL_CTAP2 %>% mutate(inv_L48 = ifelse(is.na(`FINAL DECISION (L48)`), inv_L48, `FINAL DECISION (L48)`)) %>% select(-`FINAL DECISION (L48)`)
+
+#check one that was NI and should now be N
+IL_CTAP2 %>% filter(Accepted.Symbol=="AMBRO")
+
+```
+
 
 Adding the coordinates
 ```{r}
@@ -62,12 +379,13 @@ latlong <- site_info %>%
   select(SiteID, PYear, Lat, Lon) %>% 
   rename(Long = Lon)
 
-CTAP <- left_join(CTAP, latlong)
-glimpse(CTAP)
+IL_CTAP2 <- left_join(IL_CTAP2, latlong, by = c("SiteID", "PYear"))
+glimpse(IL_CTAP2)
 ```
 
-Next steps:
-* column with full species names has two spaces in between the generic and the specific name
-* join taxonomy --> use code from "NWCA-code_datapaper"
-* select and rename columns to match to the final database
-* quadrat area = .25m²
+
+Exporting final file
+```{r}
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper10262021.csv"))
+```
+
