@@ -227,8 +227,10 @@ VANHP <- read.csv("data_by_dataset/VANHP_datapaper_06_16_21_EB.csv",
 glimpse(VANHP)
 
 VANHP <- VANHP %>%
-  mutate(FuzzedCoord = "N", 
-         Site = "NA") %>%
+  mutate(FuzzedCoord = "Y", 
+         Site = "NA", 
+         Long = round(Long, 1),
+         Lat = round(Lat, 1)) %>%
   rename(OriginalSpeciesName = VASpeciesName,
          AcceptedSpeciesName = bestname,
          SampledArea = Plot.Size,
@@ -261,6 +263,27 @@ NWCA <- NWCA %>%
 
 setdiff(DesiredColumns, names(NWCA))
 setdiff(names(NWCA), DesiredColumns)
+
+###
+####   IL_CTAP    ####
+###
+
+IL_CTAP <- read.csv("data_by_dataset/IL_CTAP_DataPaper10262021.csv", 
+                 na = c('', 'NA')) 
+glimpse(IL_CTAP)
+
+IL_CTAP <- IL_CTAP %>%
+  mutate(FuzzedCoord = "N",
+         Plot = paste0(SiteID, "_", Transect)) %>%
+  rename(Site = SiteID,
+         AcceptedSpeciesName = bestname,
+         ExoticStatus = inv_L48,
+         SpCode = Accepted.Symbol,
+         Year = PYear) %>%
+  select(one_of(DesiredColumns))
+
+setdiff(DesiredColumns, names(IL_CTAP))
+setdiff(names(IL_CTAP), DesiredColumns)
 
 ###
 #####    Join    ####
