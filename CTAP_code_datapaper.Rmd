@@ -104,7 +104,7 @@ Organizing Grasslands data
 ```{r}
 # files g, gshr, gtree
 
-g <- g %>% 
+grass <- g %>% 
   select(SiteID, Genus, Species, PYear, 35:54) %>% 
   gather(Median1:Median20, key = "Class", value = "PctCov") %>% 
   mutate(PctCov = ifelse(is.na(PctCov), 0, PctCov),
@@ -122,7 +122,7 @@ g <- g %>%
   ungroup() %>% 
   filter(PctCov > 0)
 
-gtree <- gtree %>% 
+grasstree <- gtree %>% 
   select(SiteID, PYear, Squrmetrs, Genus, Species, SzclassM, PCount) %>% 
   mutate(OriginalSpeciesName =paste0(Genus, " ", Species),
         #removes any space after the end of any column containing characters
@@ -140,8 +140,8 @@ gtree <- gtree %>%
   ungroup() %>% 
   filter(PctCov > 0)
 
-grassfinal <- g %>% 
-  rbind(gtree) %>% 
+grassfinal <- grass %>% 
+  rbind(grasstree) %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
   filter(if (sum(code)>=1) layer=="tree" else layer=="herbaceous") %>% 
   select(-code)
@@ -379,7 +379,11 @@ latlong <- site_info %>%
   select(SiteID, PYear, Lat, Lon) %>% 
   rename(Long = Lon)
 
-IL_CTAP2 <- left_join(IL_CTAP2, latlong, by = c("SiteID", "PYear"))
+IL_CTAP2 <- IL_CTAP2 %>% 
+  left_join(latlong, by = c("SiteID", "PYear")) %>% 
+  #creates unique plotIDs
+  mutate(Plot = paste0(SiteID, "_", Transect))
+
 glimpse(IL_CTAP2)
 ```
 
