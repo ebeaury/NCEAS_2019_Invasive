@@ -24,7 +24,7 @@ setwd('/home/shares/neon-inv/data_paper')
 ###   Columns to carry forward in combined dataset
 DesiredColumns <- c("Dataset", "Site", #AIM data does not have Site
                     "Plot", "OriginalPlot", "Long", "Lat", "Year", 
-                    "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", "ExoticStatus", "PctCov",
+                    "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", "NativeStatus", "PctCov",
                     "FuzzedCoord", "SampledArea" 
                     #"GrowthForm", "Duration", 
                     #LP: removing traits for the data paper
@@ -57,7 +57,7 @@ NEON <- NEON %>%
          SpCode = Accepted.Symbol,
          Long = decimalLongitude,
          Lat = decimalLatitude,
-         ExoticStatus = Native.Status,
+         NativeStatus = Native.Status,
          PctCov = plotCover,
          OriginalSpeciesName = scientificName,
          SampledArea = SampledArea) %>%
@@ -106,10 +106,11 @@ FIA <- FIA %>%
   # I think I need to create a new code for Plot so we can identify by Plot which ones are resampled. 
   # unsure if there is a column we could actually use as Site, maybe State 
   rename(Site = PLOT,
+         ## Jeff C will provide new data soon, so check which changes will be necessary (join Area sampled?)
          Plot = NewPlot,
          SpCode = VEG_SPCD, 
          PctCov = PlotCover,
-         ExoticStatus = inv_L48,
+         NativeStatus = inv_L48,
          Long = LON,
          Lat = LAT,
          Year = INVYR,
@@ -143,16 +144,17 @@ AIM <- AIM  %>%
   mutate(PctCov = 100*prop.cover,
          FuzzedCoord = "N",
          Site = NA,
-         Dataset = ifelse(DataSet == "BLM_LMF", "AIM_LMF", "AIM_TerrADat"),
+         # Dataset = ifelse(DataSet == "BLM_LMF", "AIM_LMF", "AIM_TerrADat"),
+         Dataset = "AIM",
          OriginalPlot = as.character(PLOTKEY),
          Plot = ifelse(is.na(NewPlotID), PLOTKEY, NewPlotID)) %>%
   rename(Long = NAD83.X,
          Lat = NAD83.Y,
          Year = VisitYear, 
          SpCode = code,
-         ExoticStatus = inv_L48,
+         NativeStatus = inv_L48,
          AcceptedSpeciesName = bestname, 
-         SampledArea = nHits,
+         SampledArea = nMark,
          OriginalSpeciesName = OriginalName) %>%
   select(one_of(DesiredColumns))
 
@@ -177,8 +179,8 @@ glimpse(NPS)
 
 NPS <- NPS %>%
   select(-Plot) %>%
-  mutate(OriginalPlot = as.character(UniqueID)) %>% 
-  rename(ExoticStatus = Exotic,
+  mutate(OriginalPlot = as.character(Plot)) %>% 
+  rename(NativeStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
          SampledArea =  Area_sampled,
@@ -224,7 +226,6 @@ VEGBANK <- VEGBANK %>%
          Lat = Public.Latitude,
          Long = Public.Longitude,
          AcceptedSpeciesName = bestname,
-         ExoticStatus = ExoticStatus,
          SampledArea = Taxon.Observation.Area,
          OriginalSpeciesName = OriginalName) %>%
   mutate(Dataset = ifelse(grepl("VEGBANK", Dataset), "VEGBANK", "NCVS"),
@@ -257,8 +258,7 @@ VANHP <- VANHP %>%
          OriginalPlot = as.character(Plot)) %>%
   rename(OriginalSpeciesName = VASpeciesName,
          AcceptedSpeciesName = bestname,
-         SampledArea = Plot.Size,
-         ExoticStatus = ExoticStatus) %>%
+         SampledArea = Plot.Size) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(VANHP))
@@ -281,7 +281,7 @@ NWCA <- NWCA %>%
          OriginalSpeciesName = OriginalName,
          AcceptedSpeciesName = bestname,
          SampledArea = PlotArea_m2,
-         ExoticStatus = inv_L48,
+         NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          PctCov = COVER) %>%
   select(one_of(DesiredColumns))
@@ -304,7 +304,7 @@ IL_CTAP <- IL_CTAP %>%
          OriginalPlot = as.character(Transect)) %>%
   rename(Site = SiteID,
          AcceptedSpeciesName = bestname,
-         ExoticStatus = inv_L48,
+         NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          Year = PYear) %>%
   select(one_of(DesiredColumns))
@@ -342,7 +342,7 @@ DataBase <- DataBase %>%
                           Lat < 20 & Long < -65 & Long > -70 ~ "PR",
                           TRUE ~ "MissingCoords")) %>%
   left_join(status) %>%
-  mutate(ExoticStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, ExoticStatus)) %>%
+  mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, NativeStatus)) %>%
   select(-L48status)
 
 DataBase %>%
@@ -381,7 +381,7 @@ DataBase%>%
   select(Dataset, Plot) %>%
   distinct() # ROBI.XX = 10 plots
 
-DataBase%>%
+v<-DataBase%>%
   filter(Year == 2064) %>%
   select(Dataset, Plot) %>%
   distinct() # ROBI.XX = 24 plots
@@ -402,36 +402,36 @@ DataBase <- DataBase %>%
                            "Notholithocarpus densiflorus" = "Lithocarpus densiflorus"))
 
 DataBase <- DataBase %>%
-  mutate(ExoticStatus = ifelse(SpCode == "RHYNC3" & Zone == "L48",
+  mutate(NativeStatus = ifelse(SpCode == "RHYNC3" & Zone == "L48",
                                "NI",
-                               ExoticStatus),
-         ExoticStatus = ifelse(SpCode == "FIMBR" & Zone == "L48",
+                               NativeStatus),
+         NativeStatus = ifelse(SpCode == "FIMBR" & Zone == "L48",
                                "NI",
-                               ExoticStatus),
+                               NativeStatus),
          # based on USDA plants:
-         ExoticStatus = ifelse(SpCode == "ACMI2" & Zone == "AK",
+         NativeStatus = ifelse(SpCode == "ACMI2" & Zone == "AK",
                                "N",
-                               ExoticStatus))
+                               NativeStatus))
 
 # Species with multiple exotic status:
 DataBase %>%
   group_by(Zone, SpCode, AcceptedSpeciesName) %>%
-  summarize(nStatus = n_distinct(ExoticStatus)) %>%
+  summarize(nStatus = n_distinct(NativeStatus)) %>%
   filter(nStatus > 1)
 
 ###  FIX species with multiple exotic status  ####
 # By zone
 DataBase.fill <- DataBase %>%
   group_by(SpCode, AcceptedSpeciesName, Zone) %>%
-  fill(ExoticStatus, .direction = "downup") 
+  fill(NativeStatus, .direction = "downup") 
 
 # Creates a summarized table in which identifies whether a species code has 
-# more than a particular "bestname", "ExoticStatus" attributed to it.
+# more than a particular "bestname", "NativeStatus" attributed to it.
 # I see inconsistencies when adding the VEGBANK data. 
 countFilled <- DataBase.fill %>%
   group_by(SpCode) %>%
   # non-numeric variables:
-  summarise(across(one_of("AcceptedSpeciesName", "ExoticStatus"), 
+  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
                    ~ n_distinct(.x[!is.na(.x)]))) %>%
   filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
 head(countFilled)
@@ -461,7 +461,7 @@ glimpse(DataBase.fill)
 countFilled <- DataBase.fill %>%
   group_by(SpCode) %>%
   # non-numeric variables:
-  summarise(across(one_of("AcceptedSpeciesName", "ExoticStatus"), 
+  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
                    ~ n_distinct(.x[!is.na(.x)]))) %>%
   filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
 head(countFilled)
@@ -471,7 +471,7 @@ head(countFilled)
 UnmatchData <- DataBase.fill %>% 
   ungroup() %>%
   filter(SpCode %in% countFilled$SpCode) %>%
-  select(Dataset, SpCode, AcceptedSpeciesName, ExoticStatus) %>%
+  select(Dataset, SpCode, AcceptedSpeciesName, NativeStatus) %>%
   distinct()
 
 #manually modify based on the USDA accepted name on 08/20/2021 and 10/28/2021
@@ -536,7 +536,7 @@ DataBase.fill <- DataBase.fill %>%
 countFilled <- DataBase.fill %>%
   group_by(SpCode) %>%
   # non-numeric variables:
-  summarise(across(one_of("AcceptedSpeciesName", "ExoticStatus"), 
+  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
                    ~ n_distinct(.x[!is.na(.x)])),
             # round the numeric ones:
             #across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))
@@ -547,25 +547,25 @@ nrow(countFilled) # the issues were fixed!
 
 ##fixing an error on code FEBR7 that came as 7-Feb before
 DataBase.fill <- DataBase.fill %>%
-  mutate(ExoticStatus = ifelse(SpCode == "FEBR7" & is.na(ExoticStatus), "I", ExoticStatus))
+  mutate(NativeStatus = ifelse(SpCode == "FEBR7" & is.na(NativeStatus), "I", NativeStatus))
 
 ##  Update few species/genera following suggestion from Jeff Corbin:
 DataBase.fill %>%
   filter(SpCode %in% c("CASTI", "POLYG4", "RUMEX", "PLANT", "ELMA7")) %>%
-  select(SpCode, AcceptedSpeciesName, ExoticStatus, Zone) %>%
+  select(SpCode, AcceptedSpeciesName, NativeStatus, Zone) %>%
   distinct() %>%
   arrange(SpCode)
 
 DataBase.fill <- DataBase.fill %>%
-  mutate(ExoticStatus = ifelse(SpCode == "CASTI",
+  mutate(NativeStatus = ifelse(SpCode == "CASTI",
                                "I",
-                               ExoticStatus),
-         ExoticStatus = ifelse(SpCode == "ELMA7", "N", ExoticStatus),
-         ExoticStatus = ifelse(SpCode == "PLANT", "NI", ExoticStatus),
-         ExoticStatus = ifelse(SpCode == "POLYG4" & Zone != "AK",
-                               "NI", ExoticStatus),
-         ExoticStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
-                               "NI", ExoticStatus))
+                               NativeStatus),
+         NativeStatus = ifelse(SpCode == "ELMA7", "N", NativeStatus),
+         NativeStatus = ifelse(SpCode == "PLANT", "NI", NativeStatus),
+         NativeStatus = ifelse(SpCode == "POLYG4" & Zone != "AK",
+                               "NI", NativeStatus),
+         NativeStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
+                               "NI", NativeStatus))
 
 ###
 #### Checks PctCover column and drop plot with missing info ####
@@ -637,7 +637,7 @@ DataBase.fill %>%
 # number of invaded plots #
 DataBase.fill %>%
   ungroup() %>%
-  filter(ExoticStatus=="I") %>%
+  filter(NativeStatus=="I") %>%
   select(Plot) %>%
   distinct() %>%
   nrow() #42722 plots (55.24% of the total)
@@ -673,7 +673,7 @@ ggplot(x, aes(x=Dataset, y=n, fill=Dataset)) +
 # number of invaded plots per dataset#
 y<-DataBase.fill %>%
   ungroup() %>%
-  filter(ExoticStatus=="I") %>%
+  filter(NativeStatus=="I") %>%
   select(Dataset, Plot) %>%
   distinct() %>%
   count(Dataset) %>%
@@ -700,8 +700,22 @@ xx<-x %>%
 ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
   geom_bar(stat="identity")+
   geom_col() +
+  # geom_text(aes(label=n),vjust=-0.3, size=3.5) +
+  theme_bw()+
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_continuous(breaks=seq(0,27000,5000)) +
   scale_fill_viridis_d(option="B") + theme_minimal() +
-  ylab("number of plots") + theme(axis.title.x = element_blank())
+  ylab("Number of plots") + theme(axis.title.x = element_blank(),
+                                  legend.position = c(0.87, 0.87),
+                                  legend.title = element_blank(),
+                                  legend.background = element_rect(fill = "white", color = "black",
+                                                                   size=0.25),
+                                  legend.key.size = unit(0.4, "cm"),
+                                  legend.text = element_text(size = 10),
+                                  panel.grid = element_blank(),
+                                  text=element_text(size=15, color="black"),
+                                  legend.spacing.y = unit(0, 'pt'))
+ggsave("GraphInvadedPlotsperDataset11082021.png", dpi=300)
 
 # number of plots outside L48 #
 DataBase.fill %>%
@@ -735,10 +749,10 @@ DataBase.fill %>%
 #number of species per exotic status##
 DataBase.fill %>%
   ungroup() %>%
-  select(SpCode, ExoticStatus) %>%
+  select(SpCode, NativeStatus) %>%
   distinct() %>%
-  count(ExoticStatus) 
-# ExoticStatus     n
+  count(NativeStatus) 
+# NativeStatus     n
 # 1 I             1157
 # 2 N            10509
 # 3 NI             353
@@ -748,13 +762,13 @@ DataBase.fill %>%
 #species with NA exotic status per Dataset#
 DataBase.fill %>%
   ungroup() %>%
-  select(Dataset, SpCode, ExoticStatus) %>%
-  filter(is.na(ExoticStatus)) %>% # no year
+  select(Dataset, SpCode, NativeStatus) %>%
+  filter(is.na(NativeStatus)) %>% # no year
   distinct() %>%
-  count(Dataset, ExoticStatus) %>%
+  count(Dataset, NativeStatus) %>%
   arrange(n) 
 # number of distinct species with NA per dataset (so, the same species can show up in more than one dataset)
-# Dataset        ExoticStatus     n  
+# Dataset        NativeStatus     n  
 # 1 IL_CTAP      NA               3
 # 2 NCVS         NA              27
 # 3 NEON         NA             168
@@ -769,15 +783,15 @@ DataBase.fill %>%
 ##percent of species exotic status per dataset##
 DatasetNA <- DataBase.fill %>%
   ungroup() %>%
-  select(Dataset, SpCode, ExoticStatus) %>%
+  select(Dataset, SpCode, NativeStatus) %>%
   distinct() %>%
-  count(Dataset, ExoticStatus) %>%
+  count(Dataset, NativeStatus) %>%
   group_by(Dataset) %>%
   mutate(pct = round((n/sum(n))*100,2),
-         ExoticStatus = ifelse(is.na(ExoticStatus), "NA", ExoticStatus))
+         NativeStatus = ifelse(is.na(NativeStatus), "NA", NativeStatus))
 #for VegBank, species with associated NAs for exotic status are around 88% of all species id for VegBank
 
-ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=ExoticStatus)) +
+ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=NativeStatus)) +
        geom_bar(stat="identity")+
        geom_col() +
        scale_fill_viridis_d(option="B") + theme_minimal() +
@@ -786,7 +800,7 @@ ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=ExoticStatus)) +
 
 ## Cover of invasive species per dataset
 rangecover<- DataBase.fill %>%
-  group_by(Dataset, ExoticStatus) %>%
+  group_by(Dataset, NativeStatus) %>%
   summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
             max = max(PctCov, na.rm = TRUE))
@@ -810,53 +824,3 @@ x<- DataBase.fill %>%
   count(Plot, sort = T) %>% 
   filter(n>1) 
 dim(x) #7,357 plots were resampled at least once
-
-### WORLD MAP ###
-
-## The World Map
-
-# coord objt
-
-sites_coord <- DataBase.fill %>%
-  #filter(invasive.response.mean.control > 0) %>% # removes all the presence/absence of invasives
-  select(Dataset, Latitude, Longitude, Country) %>% #selects just a few of the columns
-  distinct(StudyID, .keep_all = TRUE) %>% #removes duplicates due to several data entries for the same
-  filter(!is.na(Latitude)) # removes studies that the coordinates were not entered
-
-sites_coord <- st_as_sf(sites_coord, coords = c("Longitude", "Latitude"), remove = FALSE, 
-                        crs = 4326, agr = "constant")
-
-# world map
-
-# map of the countries of the entire world and choosing scale, respectively
-library(rnaturalearth)
-library(rnaturalearthdata)
-library(rgeos)
-library(ggspatial)
-library(ggthemes)
-library(sf)
-
-world <- ne_countries(scale = "medium", returnclass = "sf") #creates the object with the map
-class(world) #gives you the category of the object
-
-ggplot(data = world) + #plot the object as a map
-  geom_sf() + 
-  coord_sf(expand = FALSE) + #this makes the coordinates to show up
-  geom_point(data = DataBase.fill, aes(x = Long, y = Lat), size = 4, #specifies the data
-             shape = 21, fill = "darkred") + #specifies how the dots will show
-  theme(panel.border = element_blank()) +
-  theme(plot.margin = unit(c(0,0.5,0,0.5), "cm")) +
-  # theme (axis.ticks.length = unit(2, "cm")) +
-  # annotation_scale(location = "bl", width_hint = 0.5) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                         style = north_arrow_fancy_orienteering) +
-  xlab("Longitude") + ylab("Latitude") +
-  # ylim(-60,NA) + #defining the limits in the yaxis, NA to indicate that automatic upper limit
-  ggtitle("World map of plots included in the DAIAS", 
-          subtitle = paste0("(", length(unique(DataBase.fill$Plot)), " plots)")) #+ # I will probably modify this line
-#theme_map()
-
-ggsave("maptitle_final.pdf", dpi = 300, scale = 2) # saves the last generated plot 
-ggsave("maptitle_final.png", dpi = 300, scale = 2) # saves the last generated plot 
-
