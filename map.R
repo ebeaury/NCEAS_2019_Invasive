@@ -90,7 +90,7 @@ ggm1 <- ggplot() +
   geom_sf(data = us_states_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(DAIAS_2163, Zone == "L48"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#0D0887FF", "#A92395FF", "#F89441FF", "#4C02A1FF", 
+  scale_colour_manual(values=c("#0D0887FF", "#F89441FF", "#4C02A1FF", 
                                "#CC4678FF", "#FDC328FF", "#7E03A8FF", "#E56B5DFF", "#F0F921FF")) +
   theme_void() +
   # theme(legend.position = "none") +
@@ -102,8 +102,7 @@ ggm1 <- ggplot() +
   #       legend.direction = "horizontal") +
   coord_sf(xlim = st_bbox(us_states_2163_bb)[c(1, 3)],
            ylim = st_bbox(us_states_2163_bb)[c(2, 4)]) +
-  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) +
-  north(filter(DAIAS_2163, Zone == "L48"), scale = 0.1, symbol = 10)
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
 
 ggm1
 
@@ -161,9 +160,10 @@ gg_inset_map = ggdraw() +
   draw_plot(ggm4, x = 0.55, y = 0, width = 0.2, height = 0.2) 
 
 gg_inset_map 
-  
+
 #adding the north arrow
-north2(gg_inset_map, .93, .55, scale = 0.1, symbol = 10)
+north2(gg_inset_map, .93, .55, symbol = 10)
+
 
 # The line below is not working, so I am manually saving the plot
 # ggsave("MapAllPlots11022021.png", dpi = 300)
