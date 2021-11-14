@@ -219,7 +219,7 @@ glimpse(VEGBANK)
 VEGBANK <- VEGBANK %>% 
   #extracting the first four letters from the plotID to use as site info
   mutate(Site = str_sub(UniqueID, 1, 4),
-         OriginalPlot = as.character(UniqueID)) %>%
+         OriginalPlot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
   rename(Plot = UniqueID,
          Lat_Original = Lat,
          Long_Original = Long,
