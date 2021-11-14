@@ -1,0 +1,87 @@
+---
+title: "Checking Duplicate plots CVS-VANHP"
+author: "Lais Petri"
+date: "11/14/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Packages
+```{r}
+library(tidyverse)
+```
+
+Importing file from Kristen and VANHP
+```{r}
+
+## Kristen's data ##
+CVS_VA <- read.csv("/home/shares/neon-inv/output_files/VegBank_VA_KPEACH_LP_reduced.csv", 
+                    na = c('', 'NA'))
+glimpse(CVS_VA)
+
+# number of unique plots
+length(unique(CVS_VA$VegBankUniqueID)) #130
+plotsCVS_VA <- unique(CVS_VA$VegBankUniqueID)
+
+## VANHP ##
+VA_NHP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/VANHP_datapaper_06_16_21_EB.csv", 
+                    na = c('', 'NA')) 
+glimpse(VA_NHP)
+
+# number of unique plots
+length(unique(VA_NHP$Plot)) #4773
+
+```
+
+Merging the datasets
+```{r}
+
+VA <- CVS_VA %>% 
+  select(Lat, Long, VegBankUniqueID, Year, Dataset) %>% 
+  rename(Plot = VegBankUniqueID) %>% 
+  rbind(select(VA_NHP, c(Plot, Lat, Long, Year, Dataset))) %>% 
+  # distinct() %>% 
+  group_by(Plot, Year) %>% 
+  #counts the number of observations per plot (so I can compare between the datasets)
+  add_tally() %>% 
+  ungroup() %>% 
+  distinct()
+
+```
+
+Finding duplicates
+```{r}
+
+#finds distinct plot codes with same lat/long 
+duplicatesVA <- VA %>% 
+  # select(Lat, Long, Year, Dataset) %>% 
+  group_by(Lat,Long) %>% 
+  distinct() %>%
+  #finds the number of different plots per same lat/long
+  add_tally() %>% 
+  #selects the ones with more than one plot code per same lat/long
+  filter(nn>1) 
+
+duplicatesVAdatasetcount <- duplicatesVA %>% 
+  group_by(Lat,Long) %>%
+  #counts the number of datasets per same lat/long 
+  # this is because several VANHP plots have the same lat/long with distinct plot codes
+  summarise(count = n_distinct(Dataset))
+
+#code below finds all distinct plots for VEGBANK with no duplicate
+noduplicatesVA <- VA %>% 
+  # select(Lat, Long, Year, Dataset) %>% 
+  group_by(Lat,Long) %>% distinct() %>%
+  add_tally() %>% 
+  filter(nn==1 & Dataset == "VEGBANK_VA") 
+
+plotscommonVA <- unique(noduplicatesVA$Plot)
+
+#setting the difference between all the VEGBANK plots and the ones with no duplicate
+setdiff(plotsCVS_VA, plotscommonVA)
+# VEGBANK CODE: "094-01-0032" "094-01-0053" "094-01-0056"
+# CVS CODE:"BLRP032" "BLRP053" "BLRP056" [I've searched manually these ones through the coordinates]
+
+```
+
