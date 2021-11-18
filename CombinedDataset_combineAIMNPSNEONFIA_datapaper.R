@@ -14,6 +14,7 @@
 ##  08/21/2021: including new datasets and merging into a full database
 ##  10/28/2021: included IL_CTAP and made modifications on the accuracy of coordinates of a few datasets
 ##  11/01/2021: included "OriginalPlot" column. This allow that the combination of Plot*Year to find resampled plots.
+##  11/18/2021: updated the "SampledArea" column for AIM according to info Helen gave me
 
 library(tidyverse)
 theme_set(theme_classic())
@@ -144,6 +145,7 @@ AIM <- AIM  %>%
   mutate(PctCov = 100*prop.cover,
          FuzzedCoord = "N",
          Site = NA,
+         SampledArea = ifelse(DataSet == "BLM_LMF", 2000, 10000),
          # Dataset = ifelse(DataSet == "BLM_LMF", "AIM_LMF", "AIM_TerrADat"),
          Dataset = "AIM",
          OriginalPlot = as.character(PLOTKEY),
@@ -154,7 +156,7 @@ AIM <- AIM  %>%
          SpCode = code,
          NativeStatus = inv_L48,
          AcceptedSpeciesName = bestname, 
-         SampledArea = nMark,
+         # SampledArea = nMark,
          OriginalSpeciesName = OriginalName) %>%
   select(one_of(DesiredColumns))
 
@@ -178,8 +180,9 @@ glimpse(NPS)
 # NPS2 <- NPS %>% group_by(UniqueID) %>% filter(Year == max(Year))
 
 NPS <- NPS %>%
+  mutate(OriginalPlot = as.character(Plot),
+         Year = ifelse(UniqueID =="ASIS_2", 1995, Year)) %>% 
   select(-Plot) %>%
-  mutate(OriginalPlot = as.character(Plot)) %>% 
   rename(NativeStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
@@ -202,42 +205,66 @@ VEGBANK <- read.csv("data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced.csv",
                     na = c('', 'NA')) # this data includes repeated samples
 glimpse(VEGBANK)
 
-# to fill Growth forms that were not carried out
-## there are missing GrowthForm in VEGBANK for lichens and moss, KP filtered the L48 species, but those showed up as NA (nativeness are defined at the level of North America)
-## other datasets carry the GrowthForm for them
-# usdaKP <- read_csv("/home/shares/neon-inv/raw_VegBank_data/USDA_Plant_List_020821.txt")
-# usdaKP <- usdaKP %>% 
-#   filter(!is.na(`Native Status`)) %>% 
-#   select(`Accepted Symbol`, `Growth Habit`) %>% 
-#   distinct() %>% 
-#   rename(SpCode = `Accepted Symbol`)
+#updated information on plot area for WVNHP/NCVS
+WVplotArea <- read_excel("code_by_dataset/extra_csv_WVNHP/WVplotArea.xlsx") %>% 
+  rename(UniqueID = `Plot Code`, 
+         PlotArea = `Plot Area`) %>% 
+  distinct()
 
-# finds only the last year of data 
-# total of unique plots = 9318
-# VEGBANK2 <- VEGBANK %>% group_by(VegBankUniqueID) %>% slice(which.max(Year))
+#plots to be removed, duplicate info with VNHP
+PlotsRemoveVegBank <- c("094-01-0032", "094-01-0053", "094-01-0056")
 
 VEGBANK <- VEGBANK %>% 
-  #extracting the first four letters from the plotID to use as site info
-  mutate(Site = str_sub(UniqueID, 1, 4),
+  left_join(select(WVplotArea, UniqueID, PlotArea), by="UniqueID") %>% 
+  #extracting the first letters from the plotID to use as site info for WVNHP
+  mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), NA),
+         SampledArea = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
+         SampledArea = ifelse(Dataset == "NCVS_WV" & SampledArea == 0, NA, SampledArea),
          OriginalPlot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
+  #line below removes the 3 plots that have the same information in VNHP dataset
+  filter(!VegBankUniqueID %in% PlotsRemoveVegBank) %>% 
   rename(Plot = UniqueID,
          Lat_Original = Lat,
          Long_Original = Long,
-         Lat = Public.Latitude,
-         Long = Public.Longitude,
          AcceptedSpeciesName = bestname,
-         SampledArea = Taxon.Observation.Area,
-         OriginalSpeciesName = OriginalName) %>%
-  mutate(Dataset = ifelse(grepl("VEGBANK", Dataset), "VEGBANK", "NCVS"),
-         #Lat = ifelse(grepl("VEGBANK", Site), Public.Latitude, Lat_Original), # for datapaper: only public coordinates
-         #Long = ifelse(grepl("VEGBANK", Site), Public.Longitude, Long_Original)  # for datapaper: only public coordinates
+         OriginalSpeciesName = OriginalName,
+         NativeStatus = ExoticStatus) %>%
+  mutate(Lat = ifelse(Dataset=="NCVS_WV", round(Lat_Original, 1), Public.Latitude),
+         Long = ifelse(Dataset=="NCVS_WV", round(Long_Original, 1), Public.Longitude),
+         Dataset = ifelse(grepl("VEGBANK", Dataset), "CVS", "WVNHP"),
          FuzzedCoord = "Y") %>%
+  # removing entire plots with threatened and endangered species or targeted for poaching. Request from Jim
+  group_by(OriginalPlot) %>%
+  filter(is.na(OriginalSpeciesName)| # code to keep the plot with NA in the original species name column
+           !any(OriginalSpeciesName == "Arabis serotina Steele" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Ptilimnium nodosumRose Mathias" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Scirpus ancistrochaetus Schuyler" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Trifolium stoloniferum Muhl. ex Eat." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Isotria medeoloidesPursh Raf." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Spiraea virginiana Britt." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb. var. pubescensWilld. Knight" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Cypripedium reginae Walt." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Panax quinquefolius" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Hydrastis canadensis" & Dataset == "WVNHP")) %>%
+  ungroup() %>% 
   dplyr::select(one_of(DesiredColumns))
-  # left_join(usdaKP) %>%
-  # mutate(GrowthForm = ifelse(Dataset == "VEGBANK" & is.na(GrowthForm), 
-  #                            `Growth Habit`, GrowthForm)) %>%
-  # select(-`Growth Habit`) %>%
-  
+
+#code to summarize the number of distinct plots
+# total # of plots is 14735
+# total # of plots removing the ones with targeted species is 14519
+# 216 plots removed
+VEGBANK %>% select(Plot) %>% distinct() %>% nrow()
 
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
@@ -255,10 +282,12 @@ VANHP <- VANHP %>%
          Site = "NA", 
          Long = round(Long, 1),
          Lat = round(Lat, 1),
-         OriginalPlot = as.character(Plot)) %>%
+         OriginalPlot = as.character(Plot),
+         Dataset = "VNHP") %>%
   rename(OriginalSpeciesName = VASpeciesName,
          AcceptedSpeciesName = bestname,
-         SampledArea = Plot.Size) %>%
+         SampledArea = Plot.Size, 
+         NativeStatus = ExoticStatus) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(VANHP))
@@ -374,14 +403,14 @@ table(DataBase$Year) # checks the range of years
 DataBase%>%
   filter(Year == 1195) %>%
   select(Dataset, Plot) %>%
-  distinct() # ASIS_2
+  distinct() # ASIS_2 --> FIXED!
 
 DataBase%>%
   filter(Year == 2063) %>%
   select(Dataset, Plot) %>%
   distinct() # ROBI.XX = 10 plots
 
-v<-DataBase%>%
+DataBase%>%
   filter(Year == 2064) %>%
   select(Dataset, Plot) %>%
   distinct() # ROBI.XX = 24 plots
@@ -604,8 +633,21 @@ DataBase.fill %>%
   filter(is.na(PctCov)) %>%
   nrow()
 
-write_rds(DataBase.fill, "final_data/Database_11022021.rds")
-write_csv(DataBase.fill, "final_data/Database_11022021.csv")
+## sampled area has some wierd values (-40, and 0)
+DataBase.fill %>% 
+  ungroup() %>% 
+  select(Dataset, SampledArea, Plot) %>% 
+  distinct() %>% 
+  filter(SampledArea <= 0) %>% 
+  group_by(Dataset, SampledArea) %>% 
+  count(Plot) %>%
+  nrow()
+## 34 plots from NPS with zeros.
+## I still need to fix this!
+
+
+write_rds(DataBase.fill, "final_data/Database_11182021.rds")
+write_csv(DataBase.fill, "final_data/Database_11182021.csv")
 
 
 ##### Summaries #####
@@ -824,3 +866,5 @@ x<- DataBase.fill %>%
   count(Plot, sort = T) %>% 
   filter(n>1) 
 dim(x) #7,357 plots were resampled at least once
+
+
