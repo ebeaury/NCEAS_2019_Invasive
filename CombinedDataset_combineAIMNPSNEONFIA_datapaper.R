@@ -408,12 +408,12 @@ DataBase%>%
 DataBase%>%
   filter(Year == 2063) %>%
   select(Dataset, Plot) %>%
-  distinct() # ROBI.XX = 10 plots
+  distinct() # ROBI.XX = 10 plots --> Jeff C is checking w/ data owners
 
 DataBase%>%
   filter(Year == 2064) %>%
   select(Dataset, Plot) %>%
-  distinct() # ROBI.XX = 24 plots
+  distinct() # ROBI.XX = 24 plots --> Jeff C is checking w/ data owners
 
 #removes the data entries with Years to come
 DataBase <- DataBase %>%
@@ -646,8 +646,8 @@ DataBase.fill %>%
 ## I still need to fix this!
 
 
-write_rds(DataBase.fill, "final_data/Database_11182021.rds")
-write_csv(DataBase.fill, "final_data/Database_11182021.csv")
+write_rds(DataBase.fill, "final_data/Database_12142021.rds")
+write_csv(DataBase.fill, "final_data/Database_12142021.csv")
 
 
 ##### Summaries #####
