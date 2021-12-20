@@ -10,6 +10,7 @@ library(sp)
 library(rgdal)
 library(ggsn) #add north arrow
 library(viridis)
+library(scales)
 
 
 ### Data preparation
@@ -54,7 +55,7 @@ puerto_rico = subset(us_states,
 puerto_rico_2163 = st_transform(puerto_rico, crs = 2163)
 
 #### Point data
-DAIAS <- readRDS("/home/shares/neon-inv/data_paper/final_data/Database_11022021.rds")
+DAIAS <- readRDS("/home/shares/neon-inv/data_paper/final_data/UDIPADatabase_12202021.rds")
 glimpse(DAIAS)
 DAIAS <- DAIAS %>% 
   ungroup() %>% 
@@ -90,8 +91,8 @@ ggm1 <- ggplot() +
   geom_sf(data = us_states_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(DAIAS_2163, Zone == "L48"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#0D0887FF", "#F89441FF", "#4C02A1FF", 
-                               "#CC4678FF", "#FDC328FF", "#7E03A8FF", "#E56B5DFF", "#F0F921FF")) +
+  scale_colour_manual(values=c("#0D0887FF", "#4C02A1FF", "#7E03A8FF", "#A92395FF",
+                               "#CC4678FF", "#E56B5DFF", "#F89441FF", "#FDC328FF", "#F0F921FF")) +
   theme_void() +
   # theme(legend.position = "none") +
   theme(legend.position = c(0.93, 0.25),
@@ -107,11 +108,11 @@ ggm1 <- ggplot() +
 ggm1
 
 #### Hawaii
-ggm2 = ggplot() + 
+ggm2 <- ggplot() + 
   geom_sf(data = hawaii_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(DAIAS_2163, Zone == "HI"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#CC4678FF", "#FDC328FF")) +
+  scale_colour_manual(values=c("#E56B5DFF", "#CC4678FF")) +
   geom_sf(data = hawaii_2163_bb, fill = NA, color = "black", size = 0.1) +
   theme_void() +
 # the colors of the datasets are not matching to the master graph
@@ -121,11 +122,11 @@ ggm2 = ggplot() +
 ggm2
 
 #### Alaska
-ggm3 = ggplot() + 
+ggm3 <- ggplot() + 
   geom_sf(data = alaska_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(DAIAS_2163, Zone == "AK"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#F89441FF", "#CC4678FF")) +
+  scale_colour_manual(values=c("#7E03A8FF", "#CC4678FF")) +
   geom_sf(data = alaska_2163_bb, fill = NA, color = "black", size = 0.1) +
   theme_void()  +
 # the colors of the datasets are not matching to the master graph
@@ -135,12 +136,12 @@ ggm3 = ggplot() +
 ggm3
 
 #### Puerto Rico
-ggm4 = ggplot() + 
+ggm4 <- ggplot() + 
   geom_sf(data = puerto_rico_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(DAIAS_2163, Zone == "PR"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
   geom_sf(data = puerto_rico_2163_bb, fill = NA, color = "black", size = 0.1) +
-  scale_colour_manual(values=c("#F89441FF", "#CC4678FF")) +
+  scale_colour_manual(values=c("#7E03A8FF", "#CC4678FF")) +
   theme_void() +
   # the colors of the datasets are not matching to the master graph
   theme(legend.position = "none")
@@ -153,7 +154,7 @@ gg_inset_map = ggdraw() +
   #Conterminous US
   draw_plot(ggm1) +
   #Alaska
-  draw_plot(ggm3, x = 0.03, y = 0, width = 0.27, height = 0.27) +
+  draw_plot(ggm3, x = 0.05, y = 0, width = 0.27, height = 0.27) +
   #HI
   draw_plot(ggm2, x = 0.18, y = 0, width = 0.27, height = 0.27) +
   #PR
@@ -162,8 +163,8 @@ gg_inset_map = ggdraw() +
 gg_inset_map 
 
 #adding the north arrow
-north2(gg_inset_map, .93, .55, symbol = 10)
+# north2(gg_inset_map, .93, .55, symbol = 10)
 
 
 # The line below is not working, so I am manually saving the plot
-# ggsave("MapAllPlots11022021.png", dpi = 300)
+# ggsave("MapAllPlots12202021.png", dpi = 300)
