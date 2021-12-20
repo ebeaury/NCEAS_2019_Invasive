@@ -1,0 +1,919 @@
+---
+title: "UDIPA Database: the US distribution invasive plant species abundance"
+author: "Lais Petri"
+date: "12/20/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+    number_sections: true
+    theme: lumen
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+This code was adapted from Helen's code when assembling the database for the NCEAS sub-groups to use. 
+
+```{r packages and working directory, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(readxl)
+theme_set(theme_classic())
+# setwd('/home/shares/neon-inv/data_paper')
+```
+
+# Desired columns for FULL Database
+Columns to carry forward in combined dataset
+
+```{r}
+DesiredColumns <- c("Dataset", "Site", 
+                    "Plot", "OriginalPlot", "Long", "Lat", "Original.Long", "Original.Lat",
+                    "Year", "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", 
+                    "NativeStatus", "PctCov", "FuzzedCoord", "SampledArea" 
+                    )
+
+```
+
+# Individual datasets
+## NEON ##
+Imports the file
+```{r}
+NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210810.csv")
+glimpse(NEON) 
+```
+
+Data wrangling and column selection
+```{r}
+NEON <- NEON %>%
+  mutate(FuzzedCoord = "N",
+         # those are sites in which diversity and vegetation structure data are from different years
+         year = ifelse(siteID == "ABBY" | siteID == "SJER" | siteID == "WREF", 2017, year),
+         OriginalPlot = as.character(plotID),
+         Original.Long = decimalLongitude,
+         Original.Lat = decimalLatitude) %>%
+  rename(Dataset = dataset,
+         Site = siteID,
+         Plot = plotID,
+         Year = year,
+         AcceptedSpeciesName = bestname,
+         SpCode = Accepted.Symbol,
+         Long = decimalLongitude,
+         Lat = decimalLatitude,
+         NativeStatus = Native.Status,
+         PctCov = plotCover,
+         OriginalSpeciesName = scientificName,
+         SampledArea = SampledArea) %>%
+  select(one_of(DesiredColumns), 
+         #next line of code carries whether cover of a particular species in a plot was based on basal areas and/or canopy cover (sum)
+         # if 0 in both, it came from the 1m2 plots
+         # NEONvst_status = if a plot should have veg structure data, but it was not collected yet
+         contains("NEON", ignore.case = FALSE))
+
+setdiff(DesiredColumns, names(NEON))
+setdiff(names(NEON), DesiredColumns)
+glimpse(NEON)
+```
+
+## FIA [Jeff C will provide new data soon] ##
+Imports the file
+```{r}
+FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/FIA_DataPaper_10282021.csv") #ALL data including repeated samples (3207 plots)
+glimpse(FIA)
+```
+
+Merges the new plotID to the FIA data
+```{r}
+#file with unique plot IDs
+NewPlotIDFIA <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_FIA/NewPlotIDFIA.csv")
+glimpse(NewPlotIDFIA)
+
+#merging the new plotID to the FIA database
+FIA <- FIA %>% 
+  left_join(NewPlotIDFIA, by = c("PLOT", "STATECD", "LAT", "LON"))
+```
+
+Data wrangling and column selection
+```{r}
+FIA <- FIA %>%
+  mutate(FuzzedCoord = "Y",
+         OriginalPlot = as.character(PLT_CN),
+         Original.Lat = LAT,
+         Original.Long = LON) %>%
+  rename(Site = PLOT,
+         Plot = NewPlot,
+         SpCode = VEG_SPCD, 
+         PctCov = PlotCover,
+         NativeStatus = inv_L48,
+         Long = LON,
+         Lat = LAT,
+         Year = INVYR,
+         SampledArea = SampledArea,
+         AcceptedSpeciesName = bestname,
+         OriginalSpeciesName = SciName) %>%
+  mutate(Dataset = "FIA",
+         Site = as.character(Site),
+         Plot = as.character(Plot)) %>%
+  select(one_of(DesiredColumns))
+
+setdiff(DesiredColumns, names(FIA))
+setdiff(names(FIA), DesiredColumns)
+glimpse(FIA)
+```
+
+## AIM ##
+Imports the file
+```{r warning=FALSE}
+AIM <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/AIM_AllSpTax_LP_20Aug2021.csv") 
+glimpse(AIM)
+```
+
+Making sure plotID is unique to plots with the same coordinate across years
+```{r}
+renamedPlotIDAIM <- AIM %>% select(PLOTKEY,NAD83.X,NAD83.Y, VisitYear) %>% group_by(NAD83.X,NAD83.Y) %>% distinct() %>%
+  add_tally() %>% select(-VisitYear) %>% filter(n >1) %>% distinct() %>% mutate(NewPlotID = paste0("AIM_", cur_group_id()))
+```
+
+Data wrangling and column selection
+```{r}
+AIM <- AIM  %>%
+  left_join(renamedPlotIDAIM, by = c("PLOTKEY", "NAD83.X", "NAD83.Y")) %>%
+  # convert from proportion to percent cover:
+  mutate(PctCov = 100*prop.cover,
+         FuzzedCoord = "N",
+         Site = NA,
+         SampledArea = ifelse(DataSet == "BLM_LMF", 2000, 10000),
+         Dataset = "AIM",
+         OriginalPlot = as.character(PLOTKEY),
+         Plot = ifelse(is.na(NewPlotID), PLOTKEY, NewPlotID),
+         Original.Lat = NAD83.Y,
+         Original.Long = NAD83.X) %>%
+  rename(Long = NAD83.X,
+         Lat = NAD83.Y,
+         Year = VisitYear, 
+         SpCode = code,
+         NativeStatus = inv_L48,
+         AcceptedSpeciesName = bestname,
+         OriginalSpeciesName = OriginalName) %>%
+  select(one_of(DesiredColumns))
+
+setdiff(DesiredColumns, names(AIM))
+setdiff(names(AIM), DesiredColumns)
+glimpse(AIM)
+```
+
+## NPS ##
+Imports the file
+```{r}
+NPS <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NPS_DataPaper_27July2021.csv", 
+                na = c('', 'NA'))
+glimpse(NPS)
+```
+
+Data wrangling and column selection
+```{r}
+NPS <- NPS %>%
+  mutate(OriginalPlot = as.character(Plot),
+         Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
+         Original.Lat = Lat,
+         Original.Long = Long) %>% 
+  select(-Plot) %>%
+  rename(NativeStatus = Exotic,
+         SpCode = Species,
+         PctCov = Pct_Cov,
+         SampledArea =  Area_sampled,
+         Plot = UniqueID,
+         FuzzedCoord = RealCoords,
+         AcceptedSpeciesName = bestname,
+         OriginalSpeciesName = OriginalName) %>%
+  select(one_of(DesiredColumns)) %>%
+  mutate(SampledArea = as.double(SampledArea))
+
+setdiff(DesiredColumns, names(NPS))
+setdiff(names(NPS), DesiredColumns)
+glimpse(NPS)
+```
+
+## CVS & WVNHP ##
+Imports the file
+```{r}
+VEGBANK <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced.csv", 
+                    na = c('', 'NA')) # this data includes repeated samples
+glimpse(VEGBANK)
+```
+
+Updated information on plot area for WVNHP
+```{r}
+WVplotArea <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVplotArea.xlsx") %>% 
+  rename(UniqueID = `Plot Code`, 
+         PlotArea = `Plot Area`) %>% 
+  distinct()
+```
+
+Plots to be removed from CVS as they are present in VNHP dataset
+```{r}
+PlotsRemoveVegBank <- c("094-01-0032", "094-01-0053", "094-01-0056")
+```
+
+Data wrangling and column selection
+```{r}
+VEGBANK <- VEGBANK %>% 
+  left_join(select(WVplotArea, UniqueID, PlotArea), by="UniqueID") %>% 
+  #extracting the first letters from the plotID to use as site info for WVNHP
+  mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), NA),
+         SampledArea = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
+         SampledArea = ifelse(Dataset == "NCVS_WV" & SampledArea == 0, NA, SampledArea),
+         OriginalPlot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
+  #line below removes the 3 plots that have the same information in VNHP dataset
+  filter(!VegBankUniqueID %in% PlotsRemoveVegBank) %>% 
+  rename(Plot = UniqueID,
+         Original.Lat = Lat,
+         Original.Long = Long,
+         AcceptedSpeciesName = bestname,
+         OriginalSpeciesName = OriginalName,
+         NativeStatus = ExoticStatus) %>%
+  mutate(Lat = ifelse(Dataset=="NCVS_WV", round(Original.Lat, 1), Public.Latitude),
+         Long = ifelse(Dataset=="NCVS_WV", round(Original.Long, 1), Public.Longitude),
+         Dataset = ifelse(grepl("VEGBANK", Dataset), "CVS", "WVNHP"),
+         FuzzedCoord = "Y") %>% 
+  dplyr::select(one_of(DesiredColumns))
+setdiff(DesiredColumns, names(VEGBANK))
+setdiff(names(VEGBANK), DesiredColumns)
+glimpse(VEGBANK)
+```
+
+## VANHP ##
+Imports the file
+```{r}
+VNHP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/VANHP_datapaper_06_16_21_EB.csv", 
+                    na = c('', 'NA')) 
+glimpse(VNHP)
+```
+
+Data wrangling and column selection
+```{r}
+VNHP <- VNHP %>%
+  mutate(FuzzedCoord = "Y", 
+         Site = "NA",
+         Original.Long = Long,
+         Original.Lat = Lat,
+         Long = round(Long, 1),
+         Lat = round(Lat, 1),
+         OriginalPlot = as.character(Plot),
+         Dataset = "VNHP") %>%
+  rename(OriginalSpeciesName = VASpeciesName,
+         AcceptedSpeciesName = bestname,
+         SampledArea = Plot.Size, 
+         NativeStatus = ExoticStatus) %>%
+  select(one_of(DesiredColumns))
+
+setdiff(DesiredColumns, names(VNHP))
+setdiff(names(VNHP), DesiredColumns)
+glimpse(VNHP)
+```
+
+## NWCA ##
+Imports the file
+```{r}
+NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_08202021.csv", 
+                  na = c('', 'NA')) 
+glimpse(NWCA)
+```
+
+Data wrangling and column selection
+```{r}
+NWCA <- NWCA %>%
+  mutate(FuzzedCoord = "N",
+         Dataset = "NWCA",
+         OriginalPlot = as.character(PLOT),
+         Original.Lat = Lat,
+         Original.Long = Long) %>%
+  rename(Site = SITE_ID,
+         Plot = UniquePlotID,
+         OriginalSpeciesName = OriginalName,
+         AcceptedSpeciesName = bestname,
+         SampledArea = PlotArea_m2,
+         NativeStatus = inv_L48,
+         SpCode = Accepted.Symbol,
+         PctCov = COVER) %>%
+  select(one_of(DesiredColumns))
+
+setdiff(DesiredColumns, names(NWCA))
+setdiff(names(NWCA), DesiredColumns)
+glimpse(NWCA)
+```
+
+## IL_CTAP ##
+Imports the file
+```{r}
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper10262021.csv", 
+                 na = c('', 'NA')) 
+glimpse(IL_CTAP)
+```
+
+Data wrangling and column selection
+```{r}
+IL_CTAP <- IL_CTAP %>%
+  mutate(FuzzedCoord = "Y",
+         Lat = round(Lat, 2),
+         Long = round(Long, 2),
+         OriginalPlot = as.character(Transect)) %>%
+  rename(Site = SiteID,
+         AcceptedSpeciesName = bestname,
+         NativeStatus = inv_L48,
+         SpCode = Accepted.Symbol,
+         Year = PYear) %>%
+  select(one_of(DesiredColumns))
+
+setdiff(DesiredColumns, names(IL_CTAP))
+setdiff(names(IL_CTAP), DesiredColumns)
+glimpse(IL_CTAP)
+```
+
+
+# Join
+
+```{r}
+DataBase <- bind_rows(AIM, NPS, FIA, NEON, VEGBANK, VNHP, NWCA, IL_CTAP)
+glimpse(DataBase)
+
+DataBase %>% select(Plot) %>% distinct() %>% nrow()
+```
+
+# Update native status to be consistent
+
+## Creating a "Zone" Column
+```{r}
+# file with manually changed native status
+status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
+head(status)
+
+status <- status %>%
+  select(SpCode, L48status = `FINAL DECISION (L48)`) %>%
+  filter(!is.na(SpCode))
+anyDuplicated(status$SpCode)
+
+DataBase <- DataBase %>%
+  mutate(Zone = case_when(Lat > 50 ~ "AK",
+                          Lat < 50 & Lat > 19 & Long > -130 ~ "L48",
+                          Long < -150 & Lat < 25 ~ "HI",
+                          Lat < 20 & Long < -65 & Long > -70 ~ "PR",
+                          TRUE ~ "MissingCoords")) %>%
+  left_join(status) %>%
+  mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, NativeStatus)) %>%
+  select(-L48status)
+
+DataBase %>%
+  select(Dataset, Site, Plot, Zone) %>%
+  distinct() %>%
+  count(Zone) #number of plots per zone 
+
+DataBase %>%
+  filter(Zone == "MissingCoords",
+         !is.na(Long),
+         !is.na(Lat)) %>%
+  nrow() # yes, all missing coords 
+table(DataBase$Zone) #missing coordinates = 185102 records
+
+DataBase %>%
+  filter(Zone == "PR") %>%
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset)
+```
+
+## Fix taxonomy errors and inconsistencies
+```{r}
+DataBase <- DataBase %>%
+  mutate(AcceptedSpeciesName = recode(AcceptedSpeciesName, 
+                           "Pyrrocoma uniflora var. uniflora" = "Pyrrocoma uniflora",
+                           "Antennaria rosea ssp. confinis" = "Antennaria rosea",
+                           "Notholithocarpus densiflorus" = "Lithocarpus densiflorus"))
+
+DataBase <- DataBase %>%
+  mutate(NativeStatus = ifelse(SpCode == "RHYNC3" & Zone == "L48",
+                               "NI",
+                               NativeStatus),
+         NativeStatus = ifelse(SpCode == "FIMBR" & Zone == "L48",
+                               "NI",
+                               NativeStatus),
+         # based on USDA plants:
+         NativeStatus = ifelse(SpCode == "ACMI2" & Zone == "AK",
+                               "N",
+                               NativeStatus))
+
+# Species with multiple exotic status:
+DataBase %>%
+  group_by(Zone, SpCode, AcceptedSpeciesName) %>%
+  summarize(nStatus = n_distinct(NativeStatus)) %>%
+  filter(nStatus > 1)
+
+###  FIX species with multiple exotic status  ####
+# By zone
+DataBase.fill <- DataBase %>%
+  group_by(SpCode, AcceptedSpeciesName, Zone) %>%
+  fill(NativeStatus, .direction = "downup") 
+
+# Creates a summarized table in which identifies whether a species code has 
+# more than a particular "bestname", "NativeStatus" attributed to it.
+# I see inconsistencies when adding the VEGBANK data. 
+countFilled <- DataBase.fill %>%
+  group_by(SpCode) %>%
+  # non-numeric variables:
+  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
+                   ~ n_distinct(.x[!is.na(.x)]))) %>%
+  filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
+head(countFilled)
+
+IanTaxonomy <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxonomy_temp10_revised.csv")
+
+IanTaxonomy <- IanTaxonomy %>%
+  select(Accepted.Symbol, bestname) %>%
+  filter(Accepted.Symbol %in% countFilled$SpCode) %>%
+  distinct() %>%
+  group_by(Accepted.Symbol) %>%
+  add_tally() %>%
+  rename(SpCode = Accepted.Symbol)
+
+#it seems that even Ian's taxonomy has multiple species bestname for a particular code. 
+#So here, I filtered the species codes that had a single match for bestname (and I couldn't figure out why
+#they were different across datasets) and redefined their bestname. The remaining species codes, that
+#have more than one bestname, I am going to manually modify based on the USDA accepted name on 08/20/2021 and 10/28/2021
+DataBase.fill <- DataBase.fill %>%
+  left_join(IanTaxonomy %>% filter(n == 1)) %>%
+  mutate(AcceptedSpeciesName = ifelse(!is.na(bestname), bestname, AcceptedSpeciesName)) %>%
+  select(-bestname, -n)
+glimpse(DataBase.fill)
+
+#checking again
+#now it's better, only 49 species codes have multiple bestname
+countFilled <- DataBase.fill %>%
+  group_by(SpCode) %>%
+  # non-numeric variables:
+  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
+                   ~ n_distinct(.x[!is.na(.x)]))) %>%
+  filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
+head(countFilled)
+ 
+## species codes with different bestname associated to them
+## Not really using this dataframe for anything in the code, just to help me check the inconsistencies
+UnmatchData <- DataBase.fill %>% 
+  ungroup() %>%
+  filter(SpCode %in% countFilled$SpCode) %>%
+  select(Dataset, SpCode, AcceptedSpeciesName, NativeStatus) %>%
+  distinct()
+
+#manually modify based on the USDA accepted name on 08/20/2021 and 10/28/2021
+DataBase.fill <- DataBase.fill %>%
+  mutate(SpCode = ifelse(SpCode == "7-Feb", "FEBR7", SpCode),
+    AcceptedSpeciesName = ifelse(SpCode == "ACFL", "Acer floridanum",
+                    ifelse(SpCode == "ANGLP", "Andropogon glomeratus var. pumilus",
+                    ifelse(SpCode == "ANGYS", "Andropogon gyrans var. stenophyllus",
+                    ifelse(SpCode == "ANMI3", "Antennaria microphylla",
+                    ifelse(SpCode == "ARLAB", "Arabis laevigata var. burkii",
+                    ifelse(SpCode == "ARLUI2", "Artemisia ludoviciana ssp. incompta",
+                    ifelse(SpCode == "ASTUR", "Asclepias tuberosa ssp. rolfsii",
+                    ifelse(SpCode == "BOON", "Botrychium oneidense",
+                    ifelse(SpCode == "BRAR5", "Bromus arvensis",
+                    ifelse(SpCode == "CACAD2", "Carex canescens ssp. disjuncta",
+                    ifelse(SpCode == "CEPU10", "Celtis pumila",
+                    ifelse(SpCode == "CLHA", "Cleome hassleriana",
+                    ifelse(SpCode == "CRMIE", "Croton michauxii var. ellipticus",
+                    ifelse(SpCode == "DRGO3", "Dryopteris goldieana",
+                           ifelse(SpCode == "ELMI2", "Eleocharis microcarpa",
+                           ifelse(SpCode == "ELPAP", "Eleocharis palustris var. palustris",
+                           ifelse(SpCode == "ERHIH2", "Erechtites hieraciifolius var. hieraciifolius",
+                           ifelse(SpCode == "EUATA2", "Euonymus atropurpureus var. atropurpureus",
+                           ifelse(SpCode == "EUMAM4", "Eutrochium maculatum var. maculatum",
+                           ifelse(SpCode == "EURE18", "Eubotrys recurvus",
+                           ifelse(SpCode == "FEBR7", "Festuca brevipila",
+                           ifelse(SpCode == "HASU3", "Hasteola suaveolens",
+                           ifelse(SpCode == "HEAMH2", "Heuchera americana var. hispida",
+                           ifelse(SpCode == "KYGR", "Kyllinga gracillima",
+                           ifelse(SpCode == "LEFR5", "Lespedeza frutescens",
+                           ifelse(SpCode == "LIPUM2", "Liatris punctata var. mucronata",
+                           ifelse(SpCode == "MEOF", "Melilotus officinalis",
+                           ifelse(SpCode == "MOFIB", "Monarda fistulosa var. brevis",
+                                  ifelse(SpCode == "NEAR5", "Nekemias arborea",
+                                  ifelse(SpCode == "OEFRT", "Oenothera fruticosa ssp. tetragona",
+                                  ifelse(SpCode == "OSAM", "Osmanthus americanus",
+                                  ifelse(SpCode == "PAPSP2", "Packera pseudaurea var. pseudaurea",
+                                  ifelse(SpCode == "PARI4", "Panicum rigidulum",
+                                  ifelse(SpCode == "PARIE2", "Panicum rigidulum var. elongatum",
+                                  ifelse(SpCode == "PHLA13", "Phlox latifolia",
+                                  ifelse(SpCode == "PIASA", "Pityopsis aspera var. adenolepis",
+                                  ifelse(SpCode == "PIGRT", "Pityopsis graminifolia var. tenuifolia",
+                                  ifelse(SpCode == "PIMI", "Piptatheropsis micrantha",
+                                  ifelse(SpCode == "PLAQ2", "Platanthera aquilonis",
+                                  ifelse(SpCode == "POAR21", "Poa arnowiae",
+                                  ifelse(SpCode == "RHMAV", "Rhexia mariana var. ventricosa",
+                                         ifelse(SpCode == "RUSAM", "Rumex salicifolius var. mexicanus",
+                                         ifelse(SpCode == "RUTRR", "Rudbeckia triloba var. rupestris",
+                                         ifelse(SpCode == "SACA19", "Saxifraga careyana",
+                                         ifelse(SpCode == "SOPUP", "Solidago puberula var. pulverulenta",
+                                         ifelse(SpCode == "VEHY", "Veratrum hybridum",
+                                         ifelse(SpCode == "VIBE5", "Viola ×bernardii",
+                                         ifelse(SpCode == "VIES3", "Viola ×esculenta",
+                                         ifelse(SpCode == "ZILE", "Zigadenus leimanthoides",
+                                         AcceptedSpeciesName))))))))))))))))))))))))))))))))))))))))))))))))))
+
+## it seems to have a limit on how many ifelse we can have in a mutate, that's why I broke it down here.
+DataBase.fill <- DataBase.fill %>%
+  mutate(AcceptedSpeciesName = ifelse(SpCode == "DIACA", "Dichanthelium acuminatum", AcceptedSpeciesName))
+
+# checking if the code worked:
+countFilled <- DataBase.fill %>%
+  group_by(SpCode) %>%
+  # non-numeric variables:
+  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
+                   ~ n_distinct(.x[!is.na(.x)])),
+            # round the numeric ones:
+            #across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))
+  ) %>%
+  filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
+head(countFilled)
+nrow(countFilled) # the issues were fixed!
+
+##fixing an error on code FEBR7 that came as 7-Feb before
+DataBase.fill <- DataBase.fill %>%
+  mutate(NativeStatus = ifelse(SpCode == "FEBR7" & is.na(NativeStatus), "I", NativeStatus))
+
+##  Update few species/genera following suggestion from Jeff Corbin:
+DataBase.fill %>%
+  filter(SpCode %in% c("CASTI", "POLYG4", "RUMEX", "PLANT", "ELMA7")) %>%
+  select(SpCode, AcceptedSpeciesName, NativeStatus, Zone) %>%
+  distinct() %>%
+  arrange(SpCode)
+
+DataBase.fill <- DataBase.fill %>%
+  mutate(NativeStatus = ifelse(SpCode == "CASTI",
+                               "I",
+                               NativeStatus),
+         NativeStatus = ifelse(SpCode == "ELMA7", "N", NativeStatus),
+         NativeStatus = ifelse(SpCode == "PLANT", "NI", NativeStatus),
+         NativeStatus = ifelse(SpCode == "POLYG4" & Zone != "AK",
+                               "NI", NativeStatus),
+         NativeStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
+                               "NI", NativeStatus))
+
+```
+
+# Checking missing data for Year column
+```{r}
+####checking missing data for Year column####
+DataBase.fill %>% 
+  filter(is.na(Year)) %>% 
+  nrow() # missing Year = 65368 records 
+
+table(DataBase.fill$Year) # checks the range of years
+
+DataBase.fill%>%
+  filter(Year == 1195) %>%
+  select(Dataset, Plot) %>%
+  distinct() # ASIS_2 --> FIXED!
+
+DataBase.fill%>%
+  filter(Year == 2063) %>%
+  select(Dataset, Plot) %>%
+  distinct() # ROBI.XX = 10 plots --> Jeff C is checking w/ data owners
+
+DataBase.fill%>%
+  filter(Year == 2064) %>%
+  select(Dataset, Plot) %>%
+  distinct() # ROBI.XX = 24 plots --> Jeff C is checking w/ data owners
+
+#removes the data entries with Years to come
+# DataBase.fill <- DataBase.fill %>%
+#   filter(Year < 2063)
+```
+
+#  Check that all datasets are percent cover, not proportion
+```{r}
+
+DataBase.fill %>%
+  group_by(Dataset) %>%
+  summarize(min = min(PctCov, na.rm = TRUE),
+            mean = mean(PctCov, na.rm = TRUE),
+            max = max(PctCov, na.rm = TRUE)) 
+
+# why are there any rows with NA cover
+DataBase.fill %>%
+  ungroup() %>%
+  filter(is.na(PctCov)) %>%
+  select(Site, Plot) %>%
+  distinct()
+
+DataBase.fill %>%
+  filter(Plot == "24023611010478",
+         !is.na(PctCov)) # all NA for this plot
+#all others belong to NWCA dataset. The plots have only one or a few species that there was no cover recorded, 
+#although the species were recorded. for example
+DataBase.fill %>%
+  filter(Plot == "NWCA_1",
+         !is.na(PctCov)) # there are other species with cover recorded
+
+# I am keeping NWCA plots with some missing cover (LAIS)
+
+# drop this FIA plot with all NAs
+DataBase.fill <- DataBase.fill %>%
+  filter(Plot != "24023611010478")
+
+DataBase.fill %>%
+  filter(is.na(PctCov)) %>%
+  nrow()
+
+## sampled area has some wierd values (-40, and 0)
+DataBase.fill %>% 
+  ungroup() %>% 
+  select(Dataset, SampledArea, Plot) %>% 
+  distinct() %>% 
+  filter(SampledArea <= 0) %>% 
+  group_by(Dataset, SampledArea) %>% 
+  count(Plot) %>%
+  nrow()
+## 34 plots from NPS with zeros.
+## I still need to fix this!
+```
+
+# Creating the FULL Database
+```{r}
+FULLDatabase <- DataBase.fill
+glimpse(FULLDatabase)
+```
+
+## Exporting the FULL Database
+```{r eval=FALSE, include=FALSE}
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_12202021.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_12202021.csv")
+```
+
+# Creating UDIPA Database
+## Desired columns for UDIPA Database
+Columns to carry forward in combined UDIPA dataset
+```{r}
+DesiredColumns2 <- c("Dataset", "Site", 
+                    "Plot", "OriginalPlot", "Long", "Lat",
+                    "Year", "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", 
+                    "NativeStatus", "PctCov", "FuzzedCoord", "SampledArea", "Zone" 
+                    )
+
+```
+
+### Selecting columns and removing plots with rare species
+```{r}
+UDIPADatabase <- DataBase.fill %>% 
+  group_by(OriginalPlot) %>%
+  filter(is.na(OriginalSpeciesName)| # code to keep the plot with NA in the original species name column
+           !any(OriginalSpeciesName == "Arabis serotina Steele" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Ptilimnium nodosumRose Mathias" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Scirpus ancistrochaetus Schuyler" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Trifolium stoloniferum Muhl. ex Eat." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Isotria medeoloidesPursh Raf." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Spiraea virginiana Britt." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb. var. pubescensWilld. Knight" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Cypripedium reginae Walt." & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Panax quinquefolius" & Dataset == "WVNHP"),
+         is.na(OriginalSpeciesName)|
+           !any(OriginalSpeciesName == "Hydrastis canadensis" & Dataset == "WVNHP")) %>%
+  ungroup() %>% 
+  dplyr::select(one_of(DesiredColumns2))
+glimpse(UDIPADatabase)
+```
+
+### Exporting the UDIPA Database
+```{r eval=FALSE, include=FALSE}
+write_rds(UDIPADatabase, "/home/shares/neon-inv/data_paper/final_data/UDIPADatabase_12202021.rds")
+write_csv(UDIPADatabase, "/home/shares/neon-inv/data_paper/final_data/UDIPADatabase_12202021.csv")
+```
+
+# **Summaries**
+## Number of records
+```{r}
+# number of records #
+dim(UDIPADatabase) 
+
+UDIPADatabase %>%
+  ungroup() %>%
+  filter(Zone!="MissingCoords", # no coordinates
+         !is.na(Year)) %>% # no year
+  nrow() 
+
+#number of records per database
+UDIPADatabase %>%
+  ungroup() %>%
+  count(Dataset) %>%
+  mutate(status = "All",
+         pct = round((n/sum(n))*100,2))
+```
+
+## Plot summaries
+```{r}
+# number of plots #
+UDIPADatabase %>%
+  ungroup() %>%
+  select(Plot) %>%
+  distinct() %>%
+  nrow() 
+
+# number of invaded plots #
+UDIPADatabase %>%
+  ungroup() %>%
+  filter(NativeStatus=="I") %>%
+  select(Plot) %>%
+  distinct() %>%
+  nrow() 
+
+# number of plots  per Dataset#
+UDIPADatabase %>%
+  ungroup() %>%
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset) %>%
+  mutate(status = "All",
+         pct = round((n/sum(n))*100,2))
+
+```
+
+```{r echo=FALSE}
+x<-UDIPADatabase %>%
+  ungroup() %>%
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset) %>%
+  mutate(status = "All",
+         pct = round((n/sum(n))*100,2))
+ggplot(x, aes(x=Dataset, y=n, fill=Dataset)) +
+  geom_bar(stat="identity", width=1) +
+ # coord_polar("y", start=0)+ 
+  scale_fill_viridis_d(option="B") +
+  theme_minimal() +
+  ylab("number of plots per dataset") + 
+  theme(axis.title.x = element_blank()) + 
+  theme(legend.position = "none")
+```
+
+```{r}
+# number of invaded plots per dataset#
+UDIPADatabase %>%
+  ungroup() %>%
+  filter(NativeStatus=="I") %>%
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset) %>%
+  rename(invaded = n)
+```
+
+```{r echo=FALSE}
+# number of invaded plots per dataset#
+y<-UDIPADatabase %>%
+  ungroup() %>%
+  filter(NativeStatus=="I") %>%
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset) %>%
+  rename(invaded = n)
+xx<-x %>%
+  left_join(y) %>%
+  mutate(uninvaded = n-invaded) %>%
+  select(-n, -status) %>%
+  gather("status", "n", 3:4)
+
+ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
+  geom_bar(stat="identity")+
+  geom_col() +
+  # geom_text(aes(label=n),vjust=-0.3, size=3.5) +
+  theme_bw()+
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_continuous(breaks=seq(0,27000,5000)) +
+  scale_fill_viridis_d(option="B") + theme_minimal() +
+  ylab("Number of plots") + theme(axis.title.x = element_blank(),
+                                  legend.position = c(0.87, 0.87),
+                                  legend.title = element_blank(),
+                                  legend.background = element_rect(fill = "white", color = "black",
+                                                                   size=0.25),
+                                  legend.key.size = unit(0.4, "cm"),
+                                  legend.text = element_text(size = 10),
+                                  panel.grid = element_blank(),
+                                  text=element_text(size=15, color="black"),
+                                  legend.spacing.y = unit(0, 'pt'))
+ggsave("GraphInvadedPlotsperDataset12202021.png", dpi=300)
+```
+
+```{r}
+# number of plots outside L48 #
+UDIPADatabase %>%
+  ungroup() %>%
+  filter(Zone!="L48",
+         Zone!="MissingCoords") %>% 
+  select(Plot) %>%
+  distinct() %>%
+  nrow() #530 plots (~0.70% of the total)
+
+UDIPADatabase %>%
+  ungroup() %>%
+  filter(Zone!="L48",
+         Zone!="MissingCoords") %>% # 
+  select(Dataset,Plot) %>%
+  distinct() %>%
+  count(Dataset)
+```
+
+## Species and Native status summaries
+```{r}
+#number of species##
+UDIPADatabase %>%
+  ungroup() %>%
+    select(SpCode) %>%
+  distinct() %>%
+  nrow()
+
+#number of species per exotic status##
+UDIPADatabase %>%
+  ungroup() %>%
+  select(SpCode, NativeStatus) %>%
+  distinct() %>%
+  count(NativeStatus) 
+
+#species with NA exotic status per Dataset#
+UDIPADatabase %>%
+  ungroup() %>%
+  select(Dataset, SpCode, NativeStatus) %>%
+  filter(is.na(NativeStatus)) %>% # no year
+  distinct() %>%
+  count(Dataset, NativeStatus) %>%
+  arrange(n) 
+# number of distinct species with NA per dataset (so, the same species can show up in more than one dataset)
+
+UDIPADatabase %>%
+  ungroup() %>%
+  select(Dataset, SpCode, NativeStatus) %>%
+  distinct() %>%
+  count(Dataset, NativeStatus) %>%
+  group_by(Dataset) %>%
+  mutate(pct = round((n/sum(n))*100,2),
+         NativeStatus = ifelse(is.na(NativeStatus), "NA", NativeStatus))
+#for VegBank, species with associated NAs for exotic status are around 88% of all species id for VegBank
+```
+
+
+```{r echo=FALSE}
+##percent of species exotic status per dataset##
+DatasetNA <- UDIPADatabase %>%
+  ungroup() %>%
+  select(Dataset, SpCode, NativeStatus) %>%
+  distinct() %>%
+  count(Dataset, NativeStatus) %>%
+  group_by(Dataset) %>%
+  mutate(pct = round((n/sum(n))*100,2),
+         NativeStatus = ifelse(is.na(NativeStatus), "NA", NativeStatus))
+#for VegBank, species with associated NAs for exotic status are around 88% of all species id for VegBank
+
+ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=NativeStatus)) +
+       geom_bar(stat="identity")+
+       geom_col() +
+       scale_fill_viridis_d(option="B") + theme_minimal() +
+  ylab("% of species nativeness status per dataset") + theme(axis.title.x = element_blank(),
+                                                         legend.position="bottom")
+```
+
+
+```{r}
+## Cover of invasive species per dataset
+rangecover<- UDIPADatabase %>%
+  group_by(Dataset, NativeStatus) %>%
+  summarize(min = min(PctCov, na.rm = TRUE),
+            mean = mean(PctCov, na.rm = TRUE),
+            max = max(PctCov, na.rm = TRUE))
+
+## Years of data collection ##
+table(UDIPADatabase$Year)
+
+y<- UDIPADatabase %>%
+  ungroup() %>%
+  select(Dataset, Plot, Year) %>%
+  distinct() 
+dim(y)
+
+## number of resampled plots
+x<- UDIPADatabase %>%
+  ungroup() %>%
+  select(Dataset, Plot, Year) %>%
+  distinct() %>%
+  group_by(Dataset,Plot) %>% 
+  count(Plot, sort = T) %>% 
+  filter(n>1) 
+dim(x)
+
+```
+
