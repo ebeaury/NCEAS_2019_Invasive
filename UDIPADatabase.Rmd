@@ -76,22 +76,26 @@ setdiff(names(NEON), DesiredColumns)
 glimpse(NEON)
 ```
 
-## FIA [Jeff C will provide new data soon] ##
+## FIA ##
 Imports the file
 ```{r}
-FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/FIA_DataPaper_10282021.csv") #ALL data including repeated samples (3207 plots)
+FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/FIA Veg data 12-21-21.csv") #ALL data including repeated samples (3207 plots)
 glimpse(FIA)
 ```
 
 Merges the new plotID to the FIA data
 ```{r}
-#file with unique plot IDs
-NewPlotIDFIA <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_FIA/NewPlotIDFIA.csv")
-glimpse(NewPlotIDFIA)
+# finding the number of plots that were resampled
+Resample <- aggregate(INVYR ~ PLOT+STATECD+LAT+LON, data=unique(FIA[c("PLOT","INVYR", "STATECD", "LAT", "LON")]), FUN=length)
+Resample <- Resample [order(Resample$INVYR, decreasing = TRUE), ]
+## creates a file with unique plotIDs for FIA data
+Resample <- Resample %>% 
+  mutate(NewPlot = paste0("FIA_", 1:nrow(Resample))) %>%
+  select(-INVYR)
 
 #merging the new plotID to the FIA database
 FIA <- FIA %>% 
-  left_join(NewPlotIDFIA, by = c("PLOT", "STATECD", "LAT", "LON"))
+  left_join(Resample, by = c("PLOT", "STATECD", "LAT", "LON"))
 ```
 
 Data wrangling and column selection
@@ -100,16 +104,22 @@ FIA <- FIA %>%
   mutate(FuzzedCoord = "Y",
          OriginalPlot = as.character(PLT_CN),
          Original.Lat = LAT,
-         Original.Long = LON) %>%
+         Original.Long = LON,
+         Zone = case_when(LAT > 50 ~ "AK",
+                          LAT < 50 & LAT > 19 & LON > -130 ~ "L48",
+                          LON < -150 & LAT < 25 ~ "HI",
+                          LAT < 20 & LON < -65 & LON > -70 ~ "PR",
+                          TRUE ~ "MissingCoords"),
+         NativeStatus = ifelse(Zone == "L48", inv_L48,
+                               ifelse(Zone == "AK", inv_AK, NA))) %>%
   rename(Site = PLOT,
          Plot = NewPlot,
          SpCode = VEG_SPCD, 
-         PctCov = PlotCover,
-         NativeStatus = inv_L48,
+         PctCov = PctCover,
          Long = LON,
          Lat = LAT,
          Year = INVYR,
-         SampledArea = SampledArea,
+         SampledArea = PlotArea,
          AcceptedSpeciesName = bestname,
          OriginalSpeciesName = SciName) %>%
   mutate(Dataset = "FIA",
@@ -333,7 +343,6 @@ glimpse(IL_CTAP)
 
 
 # Join
-
 ```{r}
 DataBase <- bind_rows(AIM, NPS, FIA, NEON, VEGBANK, VNHP, NWCA, IL_CTAP)
 glimpse(DataBase)
@@ -557,7 +566,111 @@ DataBase.fill <- DataBase.fill %>%
          NativeStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
                                "NI", NativeStatus))
 
+
+## Modifying the Native Status for Puerto Rico species to NA
+
+DataBase.fill <- DataBase.fill %>%
+  mutate(NativeStatus = ifelse(Zone == "PR",
+                               NA,
+                               NativeStatus))
 ```
+
+### Finding species with real missing status
+```{r eval=FALSE, include=FALSE}
+
+tax <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxonomy_temp10_revised.csv")
+tax <- tax %>%
+  select(Accepted.Symbol, Scientific.Name, bestname, inv_L48, inv_AK, inv_HI, FIA_Code) 
+glimpse(tax)
+taxcodes <- tax %>% select(Accepted.Symbol) %>% distinct()
+taxcodes <- taxcodes$Accepted.Symbol
+
+"%ni%" <- Negate("%in%")
+
+MissingStatusAll <- DataBase.fill %>% 
+  select(Dataset, SpCode, NativeStatus, AcceptedSpeciesName, OriginalSpeciesName, Zone) %>% 
+  filter(is.na(NativeStatus)) %>% 
+  distinct() %>% 
+  glimpse()
+
+MissingStatusPR <- MissingStatusAll %>% 
+  filter(Zone == "PR") %>% 
+  glimpse()
+
+MissingStatusl48HIAKknown <- MissingStatusAll %>% 
+  filter(Zone != "PR") %>% 
+  glimpse()
+
+MissingStatusl48HIAK <- MissingStatusl48HIAKknown %>% 
+  filter(!SpCode %in% taxcodes,
+         Zone != "MissingCoords",
+         #spp codes that Kristen created to the unmatched species from CVS
+         !str_detect(SpCode, "NOMATCH")) %>% 
+  # select(-Dataset) %>% 
+  distinct() %>% 
+  glimpse()
+
+sppcodes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+head(sppcodes) 
+sppcodes <- sppcodes %>% filter(is.na(Synonym.Symbol)) %>% select(-Synonym.Symbol) %>% glimpse()
+
+#checking whether the USDA list only has unique symbol for "Accepted.Symbol"
+sppcodes %>% 
+  select(Accepted.Symbol) %>% 
+  group_by(Accepted.Symbol) %>% 
+  add_tally() %>% 
+  arrange(desc(n))
+
+sppcodes2 <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+head(sppcodes2) 
+sppcodes2 <- sppcodes2 %>% filter(!is.na(Synonym.Symbol)) %>% select(-Accepted.Symbol) %>% glimpse()
+
+#checking whether the USDA list only has unique symbol for "Accepted.Symbol"
+sppcodes2 %>% 
+  select(Synonym.Symbol) %>% 
+  group_by(Synonym.Symbol) %>% 
+  add_tally() %>% 
+  arrange(desc(n))
+
+#joins PR and all other missing status species
+RealMissing <- rbind(MissingStatusl48HIAK, MissingStatusPR)
+glimpse(RealMissing)
+
+RealMissing <- RealMissing %>%  left_join(sppcodes, by = c("SpCode" = "Accepted.Symbol")) %>% 
+  mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), Scientific.Name, AcceptedSpeciesName)) %>% 
+  select(-Scientific.Name) %>% left_join(sppcodes2, by = c("SpCode" = "Synonym.Symbol")) %>%
+  mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), Scientific.Name, AcceptedSpeciesName)) %>%
+  select(-Scientific.Name) %>% 
+  filter(!is.na(AcceptedSpeciesName)) %>% 
+  select(-Dataset, -OriginalSpeciesName, -NativeStatus) %>% 
+  distinct() %>% 
+  group_by(SpCode) %>% 
+  add_tally() %>% 
+  arrange(desc(n)) %>% 
+  spread(Zone, n) %>% 
+  write.csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/MissingNativeStatus.csv", row.names = F)
+
+UniqueSpCodesRealMissing <- unique(RealMissing$SpCode)
+
+```
+
+### [Asked Ian for help] Fixing species with real missing status
+```{r}
+MissingNativeStatusFixed <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/MissingNativeStatusMod.xlsx") %>% 
+  rename(AcceptedSpeciesNameFIX = AcceptedSpeciesName)
+
+DataBase.fill <- DataBase.fill %>% 
+  #supposed to join by SpCode
+  left_join(MissingNativeStatusFixed, by = "SpCode") %>% 
+  mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), AcceptedSpeciesNameFIX, AcceptedSpeciesName),
+         NativeStatus = ifelse(is.na(NativeStatus) & Zone == "L48", L48,
+                               ifelse(is.na(NativeStatus) & Zone == "AK", AK, 
+                                      ifelse(is.na(NativeStatus) & Zone == "PR", PR, 
+                                             ifelse(is.na(NativeStatus) & Zone == "MissingCoords", L48, NativeStatus))))) %>% 
+  select(-PR, -AK, -L48)
+
+```
+
 
 # Checking missing data for Year column
 ```{r}
