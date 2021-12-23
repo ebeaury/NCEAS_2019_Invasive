@@ -72,7 +72,6 @@ Importing information on site lat/long
 NWCAsiteID <- unique(NWCA$SITE_ID)
 
 latlong2011 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2011_siteinfo.csv"))
-
 latlong2011 <- latlong2011 %>% select(SITE_ID, AA_CENTER_LAT, AA_CENTER_LON) %>%
   rename(Lat = AA_CENTER_LAT,
          Long = AA_CENTER_LON)
@@ -87,13 +86,13 @@ glimpse(latlong)
 
 latlong <- latlong %>%
   filter(SITE_ID %in% NWCAsiteID) %>%
-  distinct(SITE_ID, .keep_all = T)
+  distinct(SITE_ID, .keep_all = T) 
 
 ```
 
 Adding lat/long info
 ```{r}
-NWCA <- left_join(NWCA, latlong)
+NWCA <- left_join(NWCA, latlong, by = "SITE_ID")
 glimpse(NWCA)
 ```
 
@@ -154,6 +153,6 @@ NWCA2 %>% filter(Accepted.Symbol=="BRIN2")
 
 Exporting final dataset
 ```{r}
-write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_08202021.csv"))
+write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_12232021.csv"))
 ```
 
