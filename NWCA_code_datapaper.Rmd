@@ -57,6 +57,33 @@ NWCA2016 <- NWCA2016 %>%
 glimpse(NWCA2016)
 ```
 
+Importing information on site lat/long
+```{r}
+
+latlong2011 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2011_siteinfo.csv"))
+glimpse(latlong2011)
+latlong2011 <- latlong2011 %>% select(SITE_ID, AA_CENTER_LAT, AA_CENTER_LON) %>%
+  rename(Lat = AA_CENTER_LAT,
+         Long = AA_CENTER_LON) %>% 
+  distinct(SITE_ID, .keep_all = T)
+
+latlong2016 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2016_siteinfo.csv"))
+glimpse(latlong2016)
+latlong2016 <- latlong2016 %>% select(SITE_ID, VEG_PLOT_LAT, VEG_PLOT_LON, PLOT) %>%
+  rename(Lat = VEG_PLOT_LAT,
+         Long = VEG_PLOT_LON)  %>% 
+  distinct(SITE_ID, PLOT, .keep_all = T)
+
+```
+
+Adding lat/long info
+```{r}
+NWCA2011 <- left_join(NWCA2011, latlong2011, by = "SITE_ID")
+glimpse(NWCA2011)
+
+NWCA2016 <- left_join(NWCA2016, latlong2016, by = c("SITE_ID", "PLOT"))
+glimpse(NWCA2016)
+```
 
 Merging the two datasets
 ```{r}
@@ -64,36 +91,6 @@ Merging the two datasets
 NWCA <- bind_rows(NWCA2011, NWCA2016)
 glimpse(NWCA)
 
-```
-
-Importing information on site lat/long
-```{r}
-
-NWCAsiteID <- unique(NWCA$SITE_ID)
-
-latlong2011 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2011_siteinfo.csv"))
-latlong2011 <- latlong2011 %>% select(SITE_ID, AA_CENTER_LAT, AA_CENTER_LON) %>%
-  rename(Lat = AA_CENTER_LAT,
-         Long = AA_CENTER_LON)
-
-latlong2016 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2016_siteinfo.csv"))
-latlong2016 <- latlong2016 %>% select(SITE_ID, VEG_PLOT_LAT, VEG_PLOT_LON) %>%
-  rename(Lat = VEG_PLOT_LAT,
-         Long = VEG_PLOT_LON)
-
-latlong <- bind_rows(latlong2016, latlong2011)
-glimpse(latlong)
-
-latlong <- latlong %>%
-  filter(SITE_ID %in% NWCAsiteID) %>%
-  distinct(SITE_ID, .keep_all = T) 
-
-```
-
-Adding lat/long info
-```{r}
-NWCA <- left_join(NWCA, latlong, by = "SITE_ID")
-glimpse(NWCA)
 ```
 
 Matching species names
