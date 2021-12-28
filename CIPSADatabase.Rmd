@@ -1,5 +1,5 @@
 ---
-title: "UDIPA Database: the US distribution invasive plant species abundance"
+title: "CIPSA: Compilation of Invasive Plant Species Abundance in the USA"
 author: "Lais Petri"
 date: "12/20/2021"
 output: 
@@ -763,9 +763,9 @@ write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabas
 write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_12232021.csv")
 ```
 
-# Creating UDIPA Database
-## Desired columns for UDIPA Database
-Columns to carry forward in combined UDIPA dataset
+# Creating CIPSA Database
+## Desired columns for CIPSA Database
+Columns to carry forward in combined CIPSA dataset
 ```{r}
 DesiredColumns2 <- c("Dataset", "Site", 
                     "Plot", "OriginalPlot", "Long", "Lat",
@@ -777,7 +777,7 @@ DesiredColumns2 <- c("Dataset", "Site",
 
 ### Selecting columns and removing plots with rare species
 ```{r}
-UDIPADatabase <- DataBase.fill %>% 
+CIPSADatabase <- DataBase.fill %>% 
   group_by(OriginalPlot) %>%
   filter(is.na(OriginalSpeciesName)| # code to keep the plot with NA in the original species name column
            !any(OriginalSpeciesName == "Arabis serotina Steele" & Dataset == "WVNHP"),
@@ -803,29 +803,29 @@ UDIPADatabase <- DataBase.fill %>%
            !any(OriginalSpeciesName == "Hydrastis canadensis" & Dataset == "WVNHP")) %>%
   ungroup() %>% 
   dplyr::select(one_of(DesiredColumns2))
-glimpse(UDIPADatabase)
+glimpse(CIPSADatabase)
 ```
 
-### Exporting the UDIPA Database
+### Exporting the CIPSA Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(UDIPADatabase, "/home/shares/neon-inv/data_paper/final_data/UDIPADatabase_12202321.rds")
-write_csv(UDIPADatabase, "/home/shares/neon-inv/data_paper/final_data/UDIPADatabase_12202321.csv")
+write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12202321.rds")
+write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12202321.csv")
 ```
 
 # **Summaries**
 ## Number of records
 ```{r}
 # number of records #
-dim(UDIPADatabase) 
+dim(CIPSADatabase) 
 
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   filter(Zone!="MissingCoords", # no coordinates
          !is.na(Year)) %>% # no year
   nrow() 
 
 #number of records per database
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   count(Dataset) %>%
   mutate(status = "All",
@@ -835,14 +835,14 @@ UDIPADatabase %>%
 ## Plot summaries
 ```{r}
 # number of plots #
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   select(Plot) %>%
   distinct() %>%
   nrow() 
 
 # number of invaded plots #
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   filter(NativeStatus=="I") %>%
   select(Plot) %>%
@@ -850,7 +850,7 @@ UDIPADatabase %>%
   nrow() 
 
 # number of plots  per Dataset#
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   select(Dataset, Plot) %>%
   distinct() %>%
@@ -861,7 +861,7 @@ UDIPADatabase %>%
 ```
 
 ```{r echo=FALSE}
-x<-UDIPADatabase %>%
+x<-CIPSADatabase %>%
   ungroup() %>%
   select(Dataset, Plot) %>%
   distinct() %>%
@@ -880,7 +880,7 @@ ggplot(x, aes(x=Dataset, y=n, fill=Dataset)) +
 
 ```{r}
 # number of invaded plots per dataset#
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   filter(NativeStatus=="I") %>%
   select(Dataset, Plot) %>%
@@ -891,7 +891,7 @@ UDIPADatabase %>%
 
 ```{r echo=FALSE}
 # number of invaded plots per dataset#
-y<-UDIPADatabase %>%
+y<-CIPSADatabase %>%
   ungroup() %>%
   filter(NativeStatus=="I") %>%
   select(Dataset, Plot) %>%
@@ -927,7 +927,7 @@ ggsave("GraphInvadedPlotsperDataset12202021.png", dpi=300)
 
 ```{r}
 # number of plots outside L48 #
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   filter(Zone!="L48",
          Zone!="MissingCoords") %>% 
@@ -935,7 +935,7 @@ UDIPADatabase %>%
   distinct() %>%
   nrow() #530 plots (~0.70% of the total)
 
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   filter(Zone!="L48",
          Zone!="MissingCoords") %>% # 
@@ -947,21 +947,21 @@ UDIPADatabase %>%
 ## Species and Native status summaries
 ```{r}
 #number of species##
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
     select(SpCode) %>%
   distinct() %>%
   nrow()
 
 #number of species per exotic status##
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   select(SpCode, NativeStatus) %>%
   distinct() %>%
   count(NativeStatus) 
 
 #species with NA exotic status per Dataset#
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   select(Dataset, SpCode, NativeStatus) %>%
   filter(is.na(NativeStatus)) %>% # no year
@@ -970,7 +970,7 @@ UDIPADatabase %>%
   arrange(n) 
 # number of distinct species with NA per dataset (so, the same species can show up in more than one dataset)
 
-UDIPADatabase %>%
+CIPSADatabase %>%
   ungroup() %>%
   select(Dataset, SpCode, NativeStatus) %>%
   distinct() %>%
@@ -984,7 +984,7 @@ UDIPADatabase %>%
 
 ```{r echo=FALSE}
 ##percent of species exotic status per dataset##
-DatasetNA <- UDIPADatabase %>%
+DatasetNA <- CIPSADatabase %>%
   ungroup() %>%
   select(Dataset, SpCode, NativeStatus) %>%
   distinct() %>%
@@ -1005,23 +1005,23 @@ ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=NativeStatus)) +
 
 ```{r}
 ## Cover of invasive species per dataset
-rangecover<- UDIPADatabase %>%
+rangecover<- CIPSADatabase %>%
   group_by(Dataset, NativeStatus) %>%
   summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
             max = max(PctCov, na.rm = TRUE))
 
 ## Years of data collection ##
-table(UDIPADatabase$Year)
+table(CIPSADatabase$Year)
 
-y<- UDIPADatabase %>%
+y<- CIPSADatabase %>%
   ungroup() %>%
   select(Dataset, Plot, Year) %>%
   distinct() 
 dim(y)
 
 ## number of resampled plots
-x<- UDIPADatabase %>%
+x<- CIPSADatabase %>%
   ungroup() %>%
   select(Dataset, Plot, Year) %>%
   distinct() %>%
@@ -1062,7 +1062,7 @@ glimpse(ecoreg1)
 
 Joining the ecoregion spatial information
 ```{r}
-UDIPADatabaseEco <- UDIPADatabase %>% 
+CIPSADatabaseEco <- CIPSADatabase %>% 
   filter(Zone != "MissingCoords") %>% 
   # getting all data as a sf object
   st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
@@ -1079,7 +1079,7 @@ UDIPADatabaseEco <- UDIPADatabase %>%
 status <- "I"
 
 # All Ecoregions at once
-UDIPADatabaseEco %>% filter(NativeStatus == status,
+CIPSADatabaseEco %>% filter(NativeStatus == status,
                      !is.na(Ecoregion)) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram() + 
   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
@@ -1087,10 +1087,10 @@ UDIPADatabaseEco %>% filter(NativeStatus == status,
   labs(y="Frequency", x = "Non-Native Species Cover (%)") +
   ggsave('figures/AllEcoregionsNN.png', dpi = 300)
 
-table(UDIPADatabaseEco$Ecoregion)
+table(CIPSADatabaseEco$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
-graph1<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph1<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1102,7 +1102,7 @@ graph1<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
-graph2<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph2<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "GREAT PLAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1115,7 +1115,7 @@ graph2<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
-graph3<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph3<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MARINE WEST COAST FOREST"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1128,7 +1128,7 @@ graph3<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
-graph4<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph4<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1140,7 +1140,7 @@ graph4<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
-graph5<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph5<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTH AMERICAN DESERTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1153,7 +1153,7 @@ graph5<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
-graph6<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph6<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHERN FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1167,7 +1167,7 @@ graph6<-UDIPADatabaseEco %>% filter(NativeStatus == status,
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
-graph7<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph7<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1179,7 +1179,7 @@ graph7<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
-graph8<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph8<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1194,7 +1194,7 @@ graph8<-UDIPADatabaseEco %>% filter(NativeStatus == status,
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
 # TEMPERATE SIERRAS
-graph9<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph9<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "TEMPERATE SIERRAS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1228,7 +1228,7 @@ dev.off()
 status <- "N"
 
 # All Ecoregions at once
-UDIPADatabaseEco %>% filter(NativeStatus == status,
+CIPSADatabaseEco %>% filter(NativeStatus == status,
                      !is.na(Ecoregion)) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram() + 
   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
@@ -1236,10 +1236,10 @@ UDIPADatabaseEco %>% filter(NativeStatus == status,
   labs(y="Frequency", x = "Native Species Cover (%)") +
   ggsave('figures/AllEcoregionsN.png', dpi = 300)
 
-table(UDIPADatabaseEco$Ecoregion)
+table(CIPSADatabaseEco$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
-graph1<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph1<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1251,7 +1251,7 @@ graph1<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
-graph2<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph2<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "GREAT PLAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1264,7 +1264,7 @@ graph2<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
-graph3<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph3<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MARINE WEST COAST FOREST"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1277,7 +1277,7 @@ graph3<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
-graph4<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph4<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1289,7 +1289,7 @@ graph4<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
-graph5<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph5<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTH AMERICAN DESERTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1302,7 +1302,7 @@ graph5<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
-graph6<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph6<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHERN FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1316,7 +1316,7 @@ graph6<-UDIPADatabaseEco %>% filter(NativeStatus == status,
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
-graph7<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph7<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1328,7 +1328,7 @@ graph7<-UDIPADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
-graph8<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph8<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1343,7 +1343,7 @@ graph8<-UDIPADatabaseEco %>% filter(NativeStatus == status,
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
 # TEMPERATE SIERRAS
-graph9<-UDIPADatabaseEco %>% filter(NativeStatus == status,
+graph9<-CIPSADatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "TEMPERATE SIERRAS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
