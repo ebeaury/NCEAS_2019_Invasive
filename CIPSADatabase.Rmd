@@ -808,8 +808,8 @@ glimpse(CIPSADatabase)
 
 ### Exporting the CIPSA Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12202321.rds")
-write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12202321.csv")
+write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12232021.rds")
+write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12232021.csv")
 ```
 
 # **Summaries**
