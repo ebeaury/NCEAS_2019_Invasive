@@ -31,7 +31,8 @@ Columns to carry forward in combined dataset
 DesiredColumns <- c("Dataset", "Site", 
                     "Plot", "OriginalPlot", "Long", "Lat", "Original.Long", "Original.Lat",
                     "Year", "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", 
-                    "NativeStatus", "PctCov", "FuzzedCoord", "SampledArea" 
+                    "NativeStatus", "PctCov", "FuzzedCoord", "SampledArea", 
+                    "Duration", "Growth.Habit" 
                     )
 
 ```
@@ -81,12 +82,131 @@ Imports the file
 ```{r}
 FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/FIA Veg data 12-21-21.csv") #ALL data including repeated samples (3207 plots)
 glimpse(FIA)
+FIA <- FIA %>% 
+  mutate(Zone = case_when(LAT > 50 ~ "AK",
+                          LAT < 50 & LAT > 19 & LON > -130 ~ "L48",
+                          LON < -150 & LAT < 25 ~ "HI",
+                          LAT < 20 & LON < -65 & LON > -70 ~ "PR",
+                          TRUE ~ "MissingCoords"),
+         NativeStatus = ifelse(Zone == "L48", inv_L48,
+                               ifelse(Zone == "AK", inv_AK, NA))) %>% 
+  select(-X1)
 ```
+
+Fixes taxonomy - species codes with missing native status
+```{r}
+#distinct species codes with no NativeStatus by Zone
+FIA2 <- FIA %>% 
+  filter(is.na(NativeStatus)) %>% 
+  select(VEG_SPCD, Zone, NativeStatus) %>% 
+  distinct()
+glimpse(FIA2)
+```
+
+* full species list from USDA that Ian extracted the info from their website
+```{r}
+# organizing Ian's taxonomy
+
+tax<-read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/usc.csv', as.is=T)
+tax$inv_PR<-NA
+tax$inv_PR[grep(pattern="PR.I.", x=tax$Native.Status)]<-"I"
+tax$inv_PR[grep(pattern="PR.N.", x=tax$Native.Status)]<-"N"
+tax$inv_PR[grep(pattern="PR.NI.", x=tax$Native.Status)]<-"NI"
+
+tax$inv_HI<-NA
+tax$inv_HI[grep(pattern="HI.I.", x=tax$Native.Status)]<-"I"
+tax$inv_HI[grep(pattern="HI.N.", x=tax$Native.Status)]<-"N"
+tax$inv_HI[grep(pattern="HI.NI.", x=tax$Native.Status)]<-"NI"
+
+tax$inv_L48<-NA
+tax$inv_L48[grep(pattern="L48.I.", x=tax$Native.Status)]<-"I"
+tax$inv_L48[grep(pattern="L48.N.", x=tax$Native.Status)]<-"N"
+tax$inv_L48[grep(pattern="L48.NI.", x=tax$Native.Status)]<-"NI"
+
+tax$inv_AK<-NA
+tax$inv_AK[grep(pattern="AK.I.", x=tax$Native.Status)]<-"I"
+tax$inv_AK[grep(pattern="AK.N.", x=tax$Native.Status)]<-"N"
+tax$inv_AK[grep(pattern="AK.NI.", x=tax$Native.Status)]<-"NI"
+
+tax <- tax %>% separate(Scientific.Name, c("genus", "epithet"), remove = F)
+```
+
+* getting the missing info from it
+```{r}
+# only unique accepted symbols
+
+tax_accep <- tax %>% 
+  mutate_all(na_if,"") %>% 
+  filter(is.na(Synonym.Symbol))
+
+FIA2 <- FIA2 %>% 
+  left_join(tax_accep, by = c("VEG_SPCD" = "Accepted.Symbol")) %>% 
+  mutate(NativeStatus = ifelse(Zone == "L48", inv_L48,
+                               ifelse(Zone == "AK", inv_AK, 
+                                      ifelse(Zone == "PR", inv_PR, NA))))
+# sub-setting the fixed ones
+FIA2_fixed <- FIA2 %>% 
+  filter(!is.na(Scientific.Name)) %>% 
+  rename(bestname = Scientific.Name) %>% 
+  select(VEG_SPCD, Zone, NativeStatus, bestname, genus, epithet, Duration, Growth.Habit)
+
+# fixing the ones with Synonyms
+FIA3 <- FIA2 %>% 
+  filter(is.na(Scientific.Name)) %>% 
+  select(VEG_SPCD, Zone, NativeStatus) %>% 
+  left_join(select(tax, c("Symbol", "Accepted.Symbol")), by = c("VEG_SPCD" = "Symbol")) %>% 
+  left_join(tax_accep, by = c("Accepted.Symbol" = "Accepted.Symbol")) %>% 
+  mutate(NativeStatus = ifelse(Zone == "L48", inv_L48,
+                               ifelse(Zone == "AK", inv_AK, 
+                                      ifelse(Zone == "PR", inv_PR, NA)))) %>% 
+  rename(bestname = Scientific.Name) %>% 
+  select(VEG_SPCD, Zone, NativeStatus, bestname, genus, epithet, Duration, Growth.Habit)
+
+# getting the entire list of missing codes again (722 species codes)
+FIA_missingcodes <- rbind(FIA2_fixed, FIA3)
+  
+```
+
+* imports the file we manually changed species native status
+```{r}
+# importing the taxonomy we manually changed
+status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
+head(status)
+
+status <- status %>%
+  select(SpCode, L48status = `FINAL DECISION (L48)`) %>%
+  filter(!is.na(SpCode))
+anyDuplicated(status$SpCode)
+```
+
+* fixes the missing native status and make sure the ones we changed manually are also fixed
+```{r}
+# fixing the missing native status codes
+
+FIA_final <- FIA %>% 
+  left_join(FIA_missingcodes, by = c("VEG_SPCD", "Zone")) %>% 
+  mutate(NativeStatus = ifelse(is.na(NativeStatus.x), NativeStatus.y, NativeStatus.x),
+         bestname = ifelse(is.na(NativeStatus.x), bestname.y, bestname.x),
+         genus = ifelse(is.na(NativeStatus.x), genus.y, genus.x),
+         epithet = ifelse(is.na(NativeStatus.x), epithet.y, epithet.x),
+         Duration = ifelse(is.na(NativeStatus.x), Duration.y, Duration.x),
+         Growth.Habit = ifelse(is.na(NativeStatus.x), Growth.Habit.y, Growth.Habit.x)) %>% 
+  select(-NativeStatus.x, -NativeStatus.y, -bestname.x, -bestname.y, -genus.x, -genus.y, 
+         -epithet.x, -epithet.y, -Duration.x, -Duration.y, -Growth.Habit.x, -Growth.Habit.y,
+         -inv_L48, -inv_AK) %>%
+  left_join(status, by = c("VEG_SPCD"="SpCode")) %>%
+  mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(NativeStatus), L48status, NativeStatus)) %>%
+  select(-L48status)
+
+# write.csv(FIA_final, "data_by_dataset/FIA Veg data 01-04-22.csv")
+
+```
+
 
 Merges the new plotID to the FIA data
 ```{r}
 # finding the number of plots that were resampled
-Resample <- aggregate(INVYR ~ PLOT+STATECD+LAT+LON, data=unique(FIA[c("PLOT","INVYR", "STATECD", "LAT", "LON")]), FUN=length)
+Resample <- aggregate(INVYR ~ PLOT+STATECD+LAT+LON, data=unique(FIA_final[c("PLOT","INVYR", "STATECD", "LAT", "LON")]), FUN=length)
 Resample <- Resample [order(Resample$INVYR, decreasing = TRUE), ]
 ## creates a file with unique plotIDs for FIA data
 Resample <- Resample %>% 
@@ -94,24 +214,17 @@ Resample <- Resample %>%
   select(-INVYR)
 
 #merging the new plotID to the FIA database
-FIA <- FIA %>% 
+FIA_final <- FIA_final %>% 
   left_join(Resample, by = c("PLOT", "STATECD", "LAT", "LON"))
 ```
 
 Data wrangling and column selection
 ```{r}
-FIA <- FIA %>%
+FIA <- FIA_final %>%
   mutate(FuzzedCoord = "Y",
          OriginalPlot = as.character(PLT_CN),
          Original.Lat = LAT,
-         Original.Long = LON,
-         Zone = case_when(LAT > 50 ~ "AK",
-                          LAT < 50 & LAT > 19 & LON > -130 ~ "L48",
-                          LON < -150 & LAT < 25 ~ "HI",
-                          LAT < 20 & LON < -65 & LON > -70 ~ "PR",
-                          TRUE ~ "MissingCoords"),
-         NativeStatus = ifelse(Zone == "L48", inv_L48,
-                               ifelse(Zone == "AK", inv_AK, NA))) %>%
+         Original.Long = LON) %>%
   rename(Site = PLOT,
          Plot = NewPlot,
          SpCode = VEG_SPCD, 
