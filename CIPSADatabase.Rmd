@@ -198,10 +198,10 @@ FIA_final <- FIA %>%
          -epithet.x, -epithet.y, -Duration.x, -Duration.y, -Growth.Habit.x, -Growth.Habit.y,
          -inv_L48, -inv_AK, -Accepted.Symbol2) %>%
   left_join(status, by = c("VEG_SPCD"="SpCode")) %>%
-  mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(NativeStatus), L48status, NativeStatus)) %>%
+  mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, NativeStatus)) %>%
   select(-L48status)
 
-# write.csv(FIA_final, "data_by_dataset/FIA Veg data 01-04-22.csv")
+# write.csv(FIA_final, "data_by_dataset/FIA Veg data 01-05-22.csv", row.names = F)
 
 ```
 
