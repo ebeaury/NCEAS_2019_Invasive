@@ -80,7 +80,7 @@ glimpse(NEON)
 ## FIA ##
 Imports the file
 ```{r}
-FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/FIA Veg data 12-21-21.csv") #ALL data including repeated samples (3207 plots)
+FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/archived/FIA Veg data 12-21-21.csv") #ALL data including repeated samples (3207 plots)
 glimpse(FIA)
 FIA <- FIA %>% 
   mutate(Zone = case_when(LAT > 50 ~ "AK",
@@ -128,7 +128,9 @@ tax$inv_AK[grep(pattern="AK.I.", x=tax$Native.Status)]<-"I"
 tax$inv_AK[grep(pattern="AK.N.", x=tax$Native.Status)]<-"N"
 tax$inv_AK[grep(pattern="AK.NI.", x=tax$Native.Status)]<-"NI"
 
-tax <- tax %>% separate(Scientific.Name, c("genus", "epithet"), remove = F)
+tax <- tax %>% 
+  separate(Scientific.Name, c("genus", "epithet"), remove = F) %>% 
+  mutate(Accepted.Symbol2 = Accepted.Symbol)
 ```
 
 * getting the missing info from it
@@ -148,7 +150,7 @@ FIA2 <- FIA2 %>%
 FIA2_fixed <- FIA2 %>% 
   filter(!is.na(Scientific.Name)) %>% 
   rename(bestname = Scientific.Name) %>% 
-  select(VEG_SPCD, Zone, NativeStatus, bestname, genus, epithet, Duration, Growth.Habit)
+  select(VEG_SPCD, Zone, NativeStatus, bestname, genus, epithet, Duration, Growth.Habit, Accepted.Symbol2)
 
 # fixing the ones with Synonyms
 FIA3 <- FIA2 %>% 
@@ -160,7 +162,7 @@ FIA3 <- FIA2 %>%
                                ifelse(Zone == "AK", inv_AK, 
                                       ifelse(Zone == "PR", inv_PR, NA)))) %>% 
   rename(bestname = Scientific.Name) %>% 
-  select(VEG_SPCD, Zone, NativeStatus, bestname, genus, epithet, Duration, Growth.Habit)
+  select(VEG_SPCD, Zone, NativeStatus, bestname, genus, epithet, Duration, Growth.Habit, Accepted.Symbol2)
 
 # getting the entire list of missing codes again (722 species codes)
 FIA_missingcodes <- rbind(FIA2_fixed, FIA3)
@@ -190,10 +192,11 @@ FIA_final <- FIA %>%
          genus = ifelse(is.na(NativeStatus.x), genus.y, genus.x),
          epithet = ifelse(is.na(NativeStatus.x), epithet.y, epithet.x),
          Duration = ifelse(is.na(NativeStatus.x), Duration.y, Duration.x),
-         Growth.Habit = ifelse(is.na(NativeStatus.x), Growth.Habit.y, Growth.Habit.x)) %>% 
+         Growth.Habit = ifelse(is.na(NativeStatus.x), Growth.Habit.y, Growth.Habit.x),
+         VEG_SPCD = ifelse(is.na(NativeStatus.x), Accepted.Symbol2, VEG_SPCD)) %>% 
   select(-NativeStatus.x, -NativeStatus.y, -bestname.x, -bestname.y, -genus.x, -genus.y, 
          -epithet.x, -epithet.y, -Duration.x, -Duration.y, -Growth.Habit.x, -Growth.Habit.y,
-         -inv_L48, -inv_AK) %>%
+         -inv_L48, -inv_AK, -Accepted.Symbol2) %>%
   left_join(status, by = c("VEG_SPCD"="SpCode")) %>%
   mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(NativeStatus), L48status, NativeStatus)) %>%
   select(-L48status)
@@ -309,7 +312,8 @@ NPS <- NPS %>%
          Plot = UniqueID,
          FuzzedCoord = RealCoords,
          AcceptedSpeciesName = bestname,
-         OriginalSpeciesName = OriginalName) %>%
+         OriginalSpeciesName = OriginalName,
+         Growth.Habit = GrowthForm) %>%
   select(one_of(DesiredColumns)) %>%
   mutate(SampledArea = as.double(SampledArea))
 
@@ -355,16 +359,20 @@ VEGBANK <- VEGBANK %>%
          Original.Long = Long,
          AcceptedSpeciesName = bestname,
          OriginalSpeciesName = OriginalName,
-         NativeStatus = ExoticStatus) %>%
+         NativeStatus = ExoticStatus,
+         Growth.Habit = GrowthForm) %>%
   mutate(Lat = ifelse(Dataset=="NCVS_WV", round(Original.Lat, 1), Public.Latitude),
          Long = ifelse(Dataset=="NCVS_WV", round(Original.Long, 1), Public.Longitude),
          Dataset = ifelse(grepl("VEGBANK", Dataset), "CVS", "WVNHP"),
-         FuzzedCoord = "Y") %>% 
+         FuzzedCoord = "Y",
+         Year = ifelse(Year==2064, 1964,
+                       ifelse(Year==2063, 1963, Year))) %>% 
   dplyr::select(one_of(DesiredColumns))
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
 glimpse(VEGBANK)
 ```
+
 
 ## VANHP ##
 Imports the file
@@ -469,24 +477,12 @@ DataBase %>% select(Plot) %>% distinct() %>% nrow()
 
 ## Creating a "Zone" Column
 ```{r}
-# file with manually changed native status
-status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
-head(status)
-
-status <- status %>%
-  select(SpCode, L48status = `FINAL DECISION (L48)`) %>%
-  filter(!is.na(SpCode))
-anyDuplicated(status$SpCode)
-
 DataBase <- DataBase %>%
   mutate(Zone = case_when(Lat > 50 ~ "AK",
                           Lat < 50 & Lat > 19 & Long > -130 ~ "L48",
                           Long < -150 & Lat < 25 ~ "HI",
                           Lat < 20 & Long < -65 & Long > -70 ~ "PR",
-                          TRUE ~ "MissingCoords")) %>%
-  left_join(status) %>%
-  mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, NativeStatus)) %>%
-  select(-L48status)
+                          TRUE ~ "MissingCoords")) 
 
 DataBase %>%
   select(Dataset, Site, Plot, Zone) %>%
@@ -508,281 +504,358 @@ DataBase %>%
 ```
 
 ## Fix taxonomy errors and inconsistencies
+
+* get all the unique species codes by zone
 ```{r}
-DataBase <- DataBase %>%
-  mutate(AcceptedSpeciesName = recode(AcceptedSpeciesName, 
-                           "Pyrrocoma uniflora var. uniflora" = "Pyrrocoma uniflora",
-                           "Antennaria rosea ssp. confinis" = "Antennaria rosea",
-                           "Notholithocarpus densiflorus" = "Lithocarpus densiflorus"))
+#distinct species codes with no NativeStatus by Zone
+DataBaseCodes <- DataBase %>% 
+  select(SpCode, Zone) %>% 
+  distinct() %>% 
+  filter(#spp codes that Kristen created to the unmatched species from CVS
+         !str_detect(SpCode, "NOMATCH"))
+glimpse(DataBaseCodes)
+
+```
+
+* getting native status and needed columns
+*important:* SpCode will be changed to Accepted.Symbol from USDA for all datasets. This is because some datasets (for instance, AIM) kept its original SpCode, but others updated to the Accepted. Symbol from Ian's taxonomy table. As I cannot retrieve this info, I'm making it consistent 
+*important2:* I'll use the Scientific.Name species column from USDA. In case there are synonyms, I will use the species from the Accepted.Symbol of that species.
+```{r}
+# only unique accepted symbols
+
+tax <- tax %>% mutate(Accepted.Symbol2 = Accepted.Symbol)
+
+tax_accep <- tax %>% 
+  mutate_all(na_if,"") %>% 
+  filter(is.na(Synonym.Symbol)) %>% 
+  select(-Symbol, -Synonym.Symbol, -Native.Status, -genus, -epithet, -Family) 
+  
+DataBaseCodes <- DataBaseCodes %>% 
+  left_join(tax_accep, by = c("SpCode" = "Accepted.Symbol")) %>% 
+  mutate(NativeStatus = ifelse(Zone == "L48", inv_L48,
+                               ifelse(Zone == "AK", inv_AK, 
+                                      ifelse(Zone == "PR", inv_PR, 
+                                      ifelse(Zone == "HI", inv_HI, 
+                                      ifelse(Zone == "MissingCoords", inv_L48, NA))))))
+
+# sub-setting the fixed ones (19608)
+DataBaseCodes_fixed <- DataBaseCodes %>% 
+  filter(!is.na(Scientific.Name)) %>% 
+  rename(AcceptedSpeciesName = Scientific.Name) %>% 
+  select(SpCode, Zone, NativeStatus, AcceptedSpeciesName, Duration, Growth.Habit, Accepted.Symbol2)
+
+
+# fixing the ones with Synonyms (2141)
+DataBaseCodes2 <- DataBaseCodes %>% 
+  filter(is.na(Scientific.Name)) %>% 
+  select(SpCode, Zone) %>% 
+  left_join(select(tax, c("Symbol", "Accepted.Symbol")), by = c("SpCode" = "Symbol")) %>% 
+  distinct() %>% 
+  left_join(tax_accep, by = c("Accepted.Symbol" = "Accepted.Symbol")) %>% 
+  mutate(NativeStatus = ifelse(Zone == "L48", inv_L48,
+                               ifelse(Zone == "AK", inv_AK, 
+                                      ifelse(Zone == "PR", inv_PR, 
+                                      ifelse(Zone == "HI", inv_HI, 
+                                      ifelse(Zone == "MissingCoords", inv_L48, NA)))))) %>% 
+  rename(AcceptedSpeciesName = Scientific.Name) %>% 
+  select(SpCode, Zone, NativeStatus, AcceptedSpeciesName, Duration, Growth.Habit, Accepted.Symbol2)
+
+
+# getting the entire list of missing codes again (21749 species codes)
+nrow(DataBaseCodes_fixed) + nrow(DataBaseCodes2)
+DataBaseALLCodes <- rbind(DataBaseCodes_fixed, DataBaseCodes2)
+
+```
+
+
+```{r}
+# file with manually changed native status
+status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
+head(status)
+
+status <- status %>%
+  select(SpCode, L48status = `FINAL DECISION (L48)`) %>%
+  filter(!is.na(SpCode))
+anyDuplicated(status$SpCode)
 
 DataBase <- DataBase %>%
-  mutate(NativeStatus = ifelse(SpCode == "RHYNC3" & Zone == "L48",
-                               "NI",
-                               NativeStatus),
-         NativeStatus = ifelse(SpCode == "FIMBR" & Zone == "L48",
-                               "NI",
-                               NativeStatus),
-         # based on USDA plants:
-         NativeStatus = ifelse(SpCode == "ACMI2" & Zone == "AK",
-                               "N",
-                               NativeStatus))
+  left_join(DataBaseALLCodes, by = c("SpCode", "Zone")) %>% 
+  #removes SpCode that came with the datasets 
+  select(-SpCode, -NativeStatus.x, -AcceptedSpeciesName.x, -Duration.x, -Growth.Habit.x) %>% 
+  rename(SpCode = Accepted.Symbol2,
+         NativeStatus = NativeStatus.y,
+         AcceptedSpeciesName = AcceptedSpeciesName.y,
+         Duration = Duration.y,
+         Growth.Habit = Growth.Habit.y) %>% 
+  left_join(status) %>%
+  mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, 
+                        ifelse(Zone == "MissingCoords" & !is.na(L48status), L48status, NativeStatus))) %>%
+  select(-L48status)
+```
 
-# Species with multiple exotic status:
+Checking whether there are sSpecies with multiple exotic status: NONE!
+```{r}
 DataBase %>%
   group_by(Zone, SpCode, AcceptedSpeciesName) %>%
   summarize(nStatus = n_distinct(NativeStatus)) %>%
   filter(nStatus > 1)
-
-###  FIX species with multiple exotic status  ####
-# By zone
-DataBase.fill <- DataBase %>%
-  group_by(SpCode, AcceptedSpeciesName, Zone) %>%
-  fill(NativeStatus, .direction = "downup") 
-
-# Creates a summarized table in which identifies whether a species code has 
-# more than a particular "bestname", "NativeStatus" attributed to it.
-# I see inconsistencies when adding the VEGBANK data. 
-countFilled <- DataBase.fill %>%
-  group_by(SpCode) %>%
-  # non-numeric variables:
-  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
-                   ~ n_distinct(.x[!is.na(.x)]))) %>%
-  filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
-head(countFilled)
-
-IanTaxonomy <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxonomy_temp10_revised.csv")
-
-IanTaxonomy <- IanTaxonomy %>%
-  select(Accepted.Symbol, bestname) %>%
-  filter(Accepted.Symbol %in% countFilled$SpCode) %>%
-  distinct() %>%
-  group_by(Accepted.Symbol) %>%
-  add_tally() %>%
-  rename(SpCode = Accepted.Symbol)
-
-#it seems that even Ian's taxonomy has multiple species bestname for a particular code. 
-#So here, I filtered the species codes that had a single match for bestname (and I couldn't figure out why
-#they were different across datasets) and redefined their bestname. The remaining species codes, that
-#have more than one bestname, I am going to manually modify based on the USDA accepted name on 08/20/2021 and 10/28/2021
-DataBase.fill <- DataBase.fill %>%
-  left_join(IanTaxonomy %>% filter(n == 1)) %>%
-  mutate(AcceptedSpeciesName = ifelse(!is.na(bestname), bestname, AcceptedSpeciesName)) %>%
-  select(-bestname, -n)
-glimpse(DataBase.fill)
-
-#checking again
-#now it's better, only 49 species codes have multiple bestname
-countFilled <- DataBase.fill %>%
-  group_by(SpCode) %>%
-  # non-numeric variables:
-  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
-                   ~ n_distinct(.x[!is.na(.x)]))) %>%
-  filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
-head(countFilled)
- 
-## species codes with different bestname associated to them
-## Not really using this dataframe for anything in the code, just to help me check the inconsistencies
-UnmatchData <- DataBase.fill %>% 
-  ungroup() %>%
-  filter(SpCode %in% countFilled$SpCode) %>%
-  select(Dataset, SpCode, AcceptedSpeciesName, NativeStatus) %>%
-  distinct()
-
-#manually modify based on the USDA accepted name on 08/20/2021 and 10/28/2021
-DataBase.fill <- DataBase.fill %>%
-  mutate(SpCode = ifelse(SpCode == "7-Feb", "FEBR7", SpCode),
-    AcceptedSpeciesName = ifelse(SpCode == "ACFL", "Acer floridanum",
-                    ifelse(SpCode == "ANGLP", "Andropogon glomeratus var. pumilus",
-                    ifelse(SpCode == "ANGYS", "Andropogon gyrans var. stenophyllus",
-                    ifelse(SpCode == "ANMI3", "Antennaria microphylla",
-                    ifelse(SpCode == "ARLAB", "Arabis laevigata var. burkii",
-                    ifelse(SpCode == "ARLUI2", "Artemisia ludoviciana ssp. incompta",
-                    ifelse(SpCode == "ASTUR", "Asclepias tuberosa ssp. rolfsii",
-                    ifelse(SpCode == "BOON", "Botrychium oneidense",
-                    ifelse(SpCode == "BRAR5", "Bromus arvensis",
-                    ifelse(SpCode == "CACAD2", "Carex canescens ssp. disjuncta",
-                    ifelse(SpCode == "CEPU10", "Celtis pumila",
-                    ifelse(SpCode == "CLHA", "Cleome hassleriana",
-                    ifelse(SpCode == "CRMIE", "Croton michauxii var. ellipticus",
-                    ifelse(SpCode == "DRGO3", "Dryopteris goldieana",
-                           ifelse(SpCode == "ELMI2", "Eleocharis microcarpa",
-                           ifelse(SpCode == "ELPAP", "Eleocharis palustris var. palustris",
-                           ifelse(SpCode == "ERHIH2", "Erechtites hieraciifolius var. hieraciifolius",
-                           ifelse(SpCode == "EUATA2", "Euonymus atropurpureus var. atropurpureus",
-                           ifelse(SpCode == "EUMAM4", "Eutrochium maculatum var. maculatum",
-                           ifelse(SpCode == "EURE18", "Eubotrys recurvus",
-                           ifelse(SpCode == "FEBR7", "Festuca brevipila",
-                           ifelse(SpCode == "HASU3", "Hasteola suaveolens",
-                           ifelse(SpCode == "HEAMH2", "Heuchera americana var. hispida",
-                           ifelse(SpCode == "KYGR", "Kyllinga gracillima",
-                           ifelse(SpCode == "LEFR5", "Lespedeza frutescens",
-                           ifelse(SpCode == "LIPUM2", "Liatris punctata var. mucronata",
-                           ifelse(SpCode == "MEOF", "Melilotus officinalis",
-                           ifelse(SpCode == "MOFIB", "Monarda fistulosa var. brevis",
-                                  ifelse(SpCode == "NEAR5", "Nekemias arborea",
-                                  ifelse(SpCode == "OEFRT", "Oenothera fruticosa ssp. tetragona",
-                                  ifelse(SpCode == "OSAM", "Osmanthus americanus",
-                                  ifelse(SpCode == "PAPSP2", "Packera pseudaurea var. pseudaurea",
-                                  ifelse(SpCode == "PARI4", "Panicum rigidulum",
-                                  ifelse(SpCode == "PARIE2", "Panicum rigidulum var. elongatum",
-                                  ifelse(SpCode == "PHLA13", "Phlox latifolia",
-                                  ifelse(SpCode == "PIASA", "Pityopsis aspera var. adenolepis",
-                                  ifelse(SpCode == "PIGRT", "Pityopsis graminifolia var. tenuifolia",
-                                  ifelse(SpCode == "PIMI", "Piptatheropsis micrantha",
-                                  ifelse(SpCode == "PLAQ2", "Platanthera aquilonis",
-                                  ifelse(SpCode == "POAR21", "Poa arnowiae",
-                                  ifelse(SpCode == "RHMAV", "Rhexia mariana var. ventricosa",
-                                         ifelse(SpCode == "RUSAM", "Rumex salicifolius var. mexicanus",
-                                         ifelse(SpCode == "RUTRR", "Rudbeckia triloba var. rupestris",
-                                         ifelse(SpCode == "SACA19", "Saxifraga careyana",
-                                         ifelse(SpCode == "SOPUP", "Solidago puberula var. pulverulenta",
-                                         ifelse(SpCode == "VEHY", "Veratrum hybridum",
-                                         ifelse(SpCode == "VIBE5", "Viola ×bernardii",
-                                         ifelse(SpCode == "VIES3", "Viola ×esculenta",
-                                         ifelse(SpCode == "ZILE", "Zigadenus leimanthoides",
-                                         AcceptedSpeciesName))))))))))))))))))))))))))))))))))))))))))))))))))
-
-## it seems to have a limit on how many ifelse we can have in a mutate, that's why I broke it down here.
-DataBase.fill <- DataBase.fill %>%
-  mutate(AcceptedSpeciesName = ifelse(SpCode == "DIACA", "Dichanthelium acuminatum", AcceptedSpeciesName))
-
-# checking if the code worked:
-countFilled <- DataBase.fill %>%
-  group_by(SpCode) %>%
-  # non-numeric variables:
-  summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
-                   ~ n_distinct(.x[!is.na(.x)])),
-            # round the numeric ones:
-            #across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))
-  ) %>%
-  filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
-head(countFilled)
-nrow(countFilled) # the issues were fixed!
-
-##fixing an error on code FEBR7 that came as 7-Feb before
-DataBase.fill <- DataBase.fill %>%
-  mutate(NativeStatus = ifelse(SpCode == "FEBR7" & is.na(NativeStatus), "I", NativeStatus))
-
-##  Update few species/genera following suggestion from Jeff Corbin:
-DataBase.fill %>%
-  filter(SpCode %in% c("CASTI", "POLYG4", "RUMEX", "PLANT", "ELMA7")) %>%
-  select(SpCode, AcceptedSpeciesName, NativeStatus, Zone) %>%
-  distinct() %>%
-  arrange(SpCode)
-
-DataBase.fill <- DataBase.fill %>%
-  mutate(NativeStatus = ifelse(SpCode == "CASTI",
-                               "I",
-                               NativeStatus),
-         NativeStatus = ifelse(SpCode == "ELMA7", "N", NativeStatus),
-         NativeStatus = ifelse(SpCode == "PLANT", "NI", NativeStatus),
-         NativeStatus = ifelse(SpCode == "POLYG4" & Zone != "AK",
-                               "NI", NativeStatus),
-         NativeStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
-                               "NI", NativeStatus))
-
-
-## Modifying the Native Status for Puerto Rico species to NA
-
-DataBase.fill <- DataBase.fill %>%
-  mutate(NativeStatus = ifelse(Zone == "PR",
-                               NA,
-                               NativeStatus))
 ```
 
-### Finding species with real missing status
 ```{r eval=FALSE, include=FALSE}
+# old code to fix taxonomic errors, but I fixed above only using USDA tax table from Ian
+# DataBase <- DataBase %>%
+#   mutate(AcceptedSpeciesName = recode(AcceptedSpeciesName, 
+#                            "Pyrrocoma uniflora var. uniflora" = "Pyrrocoma uniflora",
+#                            "Antennaria rosea ssp. confinis" = "Antennaria rosea",
+#                            "Notholithocarpus densiflorus" = "Lithocarpus densiflorus"))
 
-tax <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxonomy_temp10_revised.csv")
-tax <- tax %>%
-  select(Accepted.Symbol, Scientific.Name, bestname, inv_L48, inv_AK, inv_HI, FIA_Code) 
-glimpse(tax)
-taxcodes <- tax %>% select(Accepted.Symbol) %>% distinct()
-taxcodes <- taxcodes$Accepted.Symbol
-
-"%ni%" <- Negate("%in%")
-
-MissingStatusAll <- DataBase.fill %>% 
-  select(Dataset, SpCode, NativeStatus, AcceptedSpeciesName, OriginalSpeciesName, Zone) %>% 
-  filter(is.na(NativeStatus)) %>% 
-  distinct() %>% 
-  glimpse()
-
-MissingStatusPR <- MissingStatusAll %>% 
-  filter(Zone == "PR") %>% 
-  glimpse()
-
-MissingStatusl48HIAKknown <- MissingStatusAll %>% 
-  filter(Zone != "PR") %>% 
-  glimpse()
-
-MissingStatusl48HIAK <- MissingStatusl48HIAKknown %>% 
-  filter(!SpCode %in% taxcodes,
-         Zone != "MissingCoords",
-         #spp codes that Kristen created to the unmatched species from CVS
-         !str_detect(SpCode, "NOMATCH")) %>% 
-  # select(-Dataset) %>% 
-  distinct() %>% 
-  glimpse()
-
-sppcodes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
-head(sppcodes) 
-sppcodes <- sppcodes %>% filter(is.na(Synonym.Symbol)) %>% select(-Synonym.Symbol) %>% glimpse()
-
-#checking whether the USDA list only has unique symbol for "Accepted.Symbol"
-sppcodes %>% 
-  select(Accepted.Symbol) %>% 
-  group_by(Accepted.Symbol) %>% 
-  add_tally() %>% 
-  arrange(desc(n))
-
-sppcodes2 <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
-head(sppcodes2) 
-sppcodes2 <- sppcodes2 %>% filter(!is.na(Synonym.Symbol)) %>% select(-Accepted.Symbol) %>% glimpse()
-
-#checking whether the USDA list only has unique symbol for "Accepted.Symbol"
-sppcodes2 %>% 
-  select(Synonym.Symbol) %>% 
-  group_by(Synonym.Symbol) %>% 
-  add_tally() %>% 
-  arrange(desc(n))
-
-#joins PR and all other missing status species
-RealMissing <- rbind(MissingStatusl48HIAK, MissingStatusPR)
-glimpse(RealMissing)
-
-RealMissing <- RealMissing %>%  left_join(sppcodes, by = c("SpCode" = "Accepted.Symbol")) %>% 
-  mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), Scientific.Name, AcceptedSpeciesName)) %>% 
-  select(-Scientific.Name) %>% left_join(sppcodes2, by = c("SpCode" = "Synonym.Symbol")) %>%
-  mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), Scientific.Name, AcceptedSpeciesName)) %>%
-  select(-Scientific.Name) %>% 
-  filter(!is.na(AcceptedSpeciesName)) %>% 
-  select(-Dataset, -OriginalSpeciesName, -NativeStatus) %>% 
-  distinct() %>% 
-  group_by(SpCode) %>% 
-  add_tally() %>% 
-  arrange(desc(n)) %>% 
-  spread(Zone, n) %>% 
-  write.csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/MissingNativeStatus.csv", row.names = F)
-
-UniqueSpCodesRealMissing <- unique(RealMissing$SpCode)
-
-```
-
-### [ASKED IAN FOR HELP] Fixing species with real missing status
-```{r}
-MissingNativeStatusFixed <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/MissingNativeStatusMod.xlsx") %>% 
-  rename(AcceptedSpeciesNameFIX = AcceptedSpeciesName)
-
-DataBase.fill <- DataBase.fill %>% 
-  #supposed to join by SpCode
-  left_join(MissingNativeStatusFixed, by = "SpCode") %>% 
-  mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), AcceptedSpeciesNameFIX, AcceptedSpeciesName),
-         NativeStatus = ifelse(is.na(NativeStatus) & Zone == "L48", L48,
-                               ifelse(is.na(NativeStatus) & Zone == "AK", AK, 
-                                      ifelse(is.na(NativeStatus) & Zone == "PR", PR, 
-                                             ifelse(is.na(NativeStatus) & Zone == "MissingCoords", L48, NativeStatus))))) %>% 
-  select(-PR, -AK, -L48)
+# DataBase <- DataBase %>%
+#   mutate(NativeStatus = ifelse(SpCode == "RHYNC3" & Zone == "L48",
+#                                "NI",
+#                                NativeStatus),
+#          NativeStatus = ifelse(SpCode == "FIMBR" & Zone == "L48",
+#                                "NI",
+#                                NativeStatus),
+#          # based on USDA plants:
+#          NativeStatus = ifelse(SpCode == "ACMI2" & Zone == "AK",
+#                                "N",
+#                                NativeStatus))
+# 
+# 
+# 
+# ###  FIX species with multiple exotic status  ####
+# # By zone
+# DataBase.fill <- DataBase %>%
+#   group_by(SpCode, AcceptedSpeciesName, Zone) %>%
+#   fill(NativeStatus, .direction = "downup") 
+# 
+# # Creates a summarized table in which identifies whether a species code has 
+# # more than a particular "bestname", "NativeStatus" attributed to it.
+# # I see inconsistencies when adding the VEGBANK data. 
+# countFilled <- DataBase.fill %>%
+#   group_by(SpCode) %>%
+#   # non-numeric variables:
+#   summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
+#                    ~ n_distinct(.x[!is.na(.x)]))) %>%
+#   filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
+# head(countFilled)
+# 
+# IanTaxonomy <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxonomy_temp10_revised.csv")
+# 
+# IanTaxonomy <- IanTaxonomy %>%
+#   select(Accepted.Symbol, bestname) %>%
+#   filter(Accepted.Symbol %in% countFilled$SpCode) %>%
+#   distinct() %>%
+#   group_by(Accepted.Symbol) %>%
+#   add_tally() %>%
+#   rename(SpCode = Accepted.Symbol)
+# 
+# #it seems that even Ian's taxonomy has multiple species bestname for a particular code. 
+# #So here, I filtered the species codes that had a single match for bestname (and I couldn't figure out why
+# #they were different across datasets) and redefined their bestname. The remaining species codes, that
+# #have more than one bestname, I am going to manually modify based on the USDA accepted name on 08/20/2021 and 10/28/2021
+# DataBase.fill <- DataBase.fill %>%
+#   left_join(IanTaxonomy %>% filter(n == 1)) %>%
+#   mutate(AcceptedSpeciesName = ifelse(!is.na(bestname), bestname, AcceptedSpeciesName)) %>%
+#   select(-bestname, -n)
+# glimpse(DataBase.fill)
+# 
+# #checking again
+# #now it's better, only 49 species codes have multiple bestname
+# countFilled <- DataBase.fill %>%
+#   group_by(SpCode) %>%
+#   # non-numeric variables:
+#   summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
+#                    ~ n_distinct(.x[!is.na(.x)]))) %>%
+#   filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
+# head(countFilled)
+#  
+# ## species codes with different bestname associated to them
+# ## Not really using this dataframe for anything in the code, just to help me check the inconsistencies
+# UnmatchData <- DataBase.fill %>% 
+#   ungroup() %>%
+#   filter(SpCode %in% countFilled$SpCode) %>%
+#   select(Dataset, SpCode, AcceptedSpeciesName, NativeStatus) %>%
+#   distinct()
+# 
+# #manually modify based on the USDA accepted name on 08/20/2021 and 10/28/2021
+# DataBase.fill <- DataBase.fill %>%
+#   mutate(SpCode = ifelse(SpCode == "7-Feb", "FEBR7", SpCode),
+#     AcceptedSpeciesName = ifelse(SpCode == "ACFL", "Acer floridanum",
+#                     ifelse(SpCode == "ANGLP", "Andropogon glomeratus var. pumilus",
+#                     ifelse(SpCode == "ANGYS", "Andropogon gyrans var. stenophyllus",
+#                     ifelse(SpCode == "ANMI3", "Antennaria microphylla",
+#                     ifelse(SpCode == "ARLAB", "Arabis laevigata var. burkii",
+#                     ifelse(SpCode == "ARLUI2", "Artemisia ludoviciana ssp. incompta",
+#                     ifelse(SpCode == "ASTUR", "Asclepias tuberosa ssp. rolfsii",
+#                     ifelse(SpCode == "BOON", "Botrychium oneidense",
+#                     ifelse(SpCode == "BRAR5", "Bromus arvensis",
+#                     ifelse(SpCode == "CACAD2", "Carex canescens ssp. disjuncta",
+#                     ifelse(SpCode == "CEPU10", "Celtis pumila",
+#                     ifelse(SpCode == "CLHA", "Cleome hassleriana",
+#                     ifelse(SpCode == "CRMIE", "Croton michauxii var. ellipticus",
+#                     ifelse(SpCode == "DRGO3", "Dryopteris goldieana",
+#                            ifelse(SpCode == "ELMI2", "Eleocharis microcarpa",
+#                            ifelse(SpCode == "ELPAP", "Eleocharis palustris var. palustris",
+#                            ifelse(SpCode == "ERHIH2", "Erechtites hieraciifolius var. hieraciifolius",
+#                            ifelse(SpCode == "EUATA2", "Euonymus atropurpureus var. atropurpureus",
+#                            ifelse(SpCode == "EUMAM4", "Eutrochium maculatum var. maculatum",
+#                            ifelse(SpCode == "EURE18", "Eubotrys recurvus",
+#                            ifelse(SpCode == "FEBR7", "Festuca brevipila",
+#                            ifelse(SpCode == "HASU3", "Hasteola suaveolens",
+#                            ifelse(SpCode == "HEAMH2", "Heuchera americana var. hispida",
+#                            ifelse(SpCode == "KYGR", "Kyllinga gracillima",
+#                            ifelse(SpCode == "LEFR5", "Lespedeza frutescens",
+#                            ifelse(SpCode == "LIPUM2", "Liatris punctata var. mucronata",
+#                            ifelse(SpCode == "MEOF", "Melilotus officinalis",
+#                            ifelse(SpCode == "MOFIB", "Monarda fistulosa var. brevis",
+#                                   ifelse(SpCode == "NEAR5", "Nekemias arborea",
+#                                   ifelse(SpCode == "OEFRT", "Oenothera fruticosa ssp. tetragona",
+#                                   ifelse(SpCode == "OSAM", "Osmanthus americanus",
+#                                   ifelse(SpCode == "PAPSP2", "Packera pseudaurea var. pseudaurea",
+#                                   ifelse(SpCode == "PARI4", "Panicum rigidulum",
+#                                   ifelse(SpCode == "PARIE2", "Panicum rigidulum var. elongatum",
+#                                   ifelse(SpCode == "PHLA13", "Phlox latifolia",
+#                                   ifelse(SpCode == "PIASA", "Pityopsis aspera var. adenolepis",
+#                                   ifelse(SpCode == "PIGRT", "Pityopsis graminifolia var. tenuifolia",
+#                                   ifelse(SpCode == "PIMI", "Piptatheropsis micrantha",
+#                                   ifelse(SpCode == "PLAQ2", "Platanthera aquilonis",
+#                                   ifelse(SpCode == "POAR21", "Poa arnowiae",
+#                                   ifelse(SpCode == "RHMAV", "Rhexia mariana var. ventricosa",
+#                                          ifelse(SpCode == "RUSAM", "Rumex salicifolius var. mexicanus",
+#                                          ifelse(SpCode == "RUTRR", "Rudbeckia triloba var. rupestris",
+#                                          ifelse(SpCode == "SACA19", "Saxifraga careyana",
+#                                          ifelse(SpCode == "SOPUP", "Solidago puberula var. pulverulenta",
+#                                          ifelse(SpCode == "VEHY", "Veratrum hybridum",
+#                                          ifelse(SpCode == "VIBE5", "Viola ×bernardii",
+#                                          ifelse(SpCode == "VIES3", "Viola ×esculenta",
+#                                          ifelse(SpCode == "ZILE", "Zigadenus leimanthoides",
+#                                          AcceptedSpeciesName))))))))))))))))))))))))))))))))))))))))))))))))))
+# 
+# ## it seems to have a limit on how many ifelse we can have in a mutate, that's why I broke it down here.
+# DataBase.fill <- DataBase.fill %>%
+#   mutate(AcceptedSpeciesName = ifelse(SpCode == "DIACA", "Dichanthelium acuminatum", AcceptedSpeciesName))
+# 
+# # checking if the code worked:
+# countFilled <- DataBase.fill %>%
+#   group_by(SpCode) %>%
+#   # non-numeric variables:
+#   summarise(across(one_of("AcceptedSpeciesName", "NativeStatus"), 
+#                    ~ n_distinct(.x[!is.na(.x)])),
+#             # round the numeric ones:
+#             #across(SLA:StemSpecificDensity, ~ n_distinct(round(.x[!is.na(.x)], 4)))
+#   ) %>%
+#   filter(AcceptedSpeciesName>1) # filter species codes with more than one matching bestname
+# head(countFilled)
+# nrow(countFilled) # the issues were fixed!
+# 
+# ##fixing an error on code FEBR7 that came as 7-Feb before
+# DataBase.fill <- DataBase.fill %>%
+#   mutate(NativeStatus = ifelse(SpCode == "FEBR7" & is.na(NativeStatus), "I", NativeStatus))
+# 
+# ##  Update few species/genera following suggestion from Jeff Corbin:
+# DataBase.fill %>%
+#   filter(SpCode %in% c("CASTI", "POLYG4", "RUMEX", "PLANT", "ELMA7")) %>%
+#   select(SpCode, AcceptedSpeciesName, NativeStatus, Zone) %>%
+#   distinct() %>%
+#   arrange(SpCode)
+# 
+# DataBase.fill <- DataBase.fill %>%
+#   mutate(NativeStatus = ifelse(SpCode == "CASTI",
+#                                "I",
+#                                NativeStatus),
+#          NativeStatus = ifelse(SpCode == "ELMA7", "N", NativeStatus),
+#          NativeStatus = ifelse(SpCode == "PLANT", "NI", NativeStatus),
+#          NativeStatus = ifelse(SpCode == "POLYG4" & Zone != "AK",
+#                                "NI", NativeStatus),
+#          NativeStatus = ifelse(SpCode == "RUMEX" & Zone != "AK", 
+#                                "NI", NativeStatus))
+# 
+# 
+# ## Modifying the Native Status for Puerto Rico species to NA
+# 
+# DataBase.fill <- DataBase.fill %>%
+#   mutate(NativeStatus = ifelse(Zone == "PR",
+#                                NA,
+#                                NativeStatus))
+# ```
+# 
+# ### Finding species with real missing status
+# ```{r eval=FALSE, include=FALSE}
+# 
+# tax <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxonomy_temp10_revised.csv")
+# tax <- tax %>%
+#   select(Accepted.Symbol, Scientific.Name, bestname, inv_L48, inv_AK, inv_HI, FIA_Code) 
+# glimpse(tax)
+# taxcodes <- tax %>% select(Accepted.Symbol) %>% distinct()
+# taxcodes <- taxcodes$Accepted.Symbol
+# 
+# "%ni%" <- Negate("%in%")
+# 
+# MissingStatusAll <- DataBase.fill %>% 
+#   select(Dataset, SpCode, NativeStatus, AcceptedSpeciesName, OriginalSpeciesName, Zone) %>% 
+#   filter(is.na(NativeStatus)) %>% 
+#   distinct() %>% 
+#   glimpse()
+# 
+# MissingStatusPR <- MissingStatusAll %>% 
+#   filter(Zone == "PR") %>% 
+#   glimpse()
+# 
+# MissingStatusl48HIAKknown <- MissingStatusAll %>% 
+#   filter(Zone != "PR") %>% 
+#   glimpse()
+# 
+# MissingStatusl48HIAK <- MissingStatusl48HIAKknown %>% 
+#   filter(!SpCode %in% taxcodes,
+#          Zone != "MissingCoords",
+#          #spp codes that Kristen created to the unmatched species from CVS
+#          !str_detect(SpCode, "NOMATCH")) %>% 
+#   # select(-Dataset) %>% 
+#   distinct() %>% 
+#   glimpse()
+# 
+# sppcodes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+# head(sppcodes) 
+# sppcodes <- sppcodes %>% filter(is.na(Synonym.Symbol)) %>% select(-Synonym.Symbol) %>% glimpse()
+# 
+# #checking whether the USDA list only has unique symbol for "Accepted.Symbol"
+# sppcodes %>% 
+#   select(Accepted.Symbol) %>% 
+#   group_by(Accepted.Symbol) %>% 
+#   add_tally() %>% 
+#   arrange(desc(n))
+# 
+# sppcodes2 <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+# head(sppcodes2) 
+# sppcodes2 <- sppcodes2 %>% filter(!is.na(Synonym.Symbol)) %>% select(-Accepted.Symbol) %>% glimpse()
+# 
+# #checking whether the USDA list only has unique symbol for "Accepted.Symbol"
+# sppcodes2 %>% 
+#   select(Synonym.Symbol) %>% 
+#   group_by(Synonym.Symbol) %>% 
+#   add_tally() %>% 
+#   arrange(desc(n))
+# 
+# #joins PR and all other missing status species
+# RealMissing <- rbind(MissingStatusl48HIAK, MissingStatusPR)
+# glimpse(RealMissing)
+# 
+# RealMissing <- RealMissing %>%  left_join(sppcodes, by = c("SpCode" = "Accepted.Symbol")) %>% 
+#   mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), Scientific.Name, AcceptedSpeciesName)) %>% 
+#   select(-Scientific.Name) %>% left_join(sppcodes2, by = c("SpCode" = "Synonym.Symbol")) %>%
+#   mutate(AcceptedSpeciesName = ifelse(is.na(AcceptedSpeciesName), Scientific.Name, AcceptedSpeciesName)) %>%
+#   select(-Scientific.Name) %>% 
+#   filter(!is.na(AcceptedSpeciesName)) %>% 
+#   select(-Dataset, -OriginalSpeciesName, -NativeStatus) %>% 
+#   distinct() %>% 
+#   group_by(SpCode) %>% 
+#   add_tally() %>% 
+#   arrange(desc(n)) %>% 
+#   spread(Zone, n) %>% 
+#   write.csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/MissingNativeStatus.csv", row.names = F)
+# 
+# UniqueSpCodesRealMissing <- unique(RealMissing$SpCode)
 
 ```
 
@@ -790,69 +863,65 @@ DataBase.fill <- DataBase.fill %>%
 # Checking missing data for Year column
 ```{r}
 ####checking missing data for Year column####
-DataBase.fill %>% 
+DataBase %>% 
   filter(is.na(Year)) %>% 
   nrow() # missing Year = 65368 records 
 
-table(DataBase.fill$Year) # checks the range of years
+table(DataBase$Year) # checks the range of years
 
-DataBase.fill%>%
+DataBase%>%
   filter(Year == 1195) %>%
   select(Dataset, Plot) %>%
   distinct() # ASIS_2 --> FIXED!
 
-DataBase.fill%>%
+DataBase%>%
   filter(Year == 2063) %>%
   select(Dataset, Plot) %>%
-  distinct() # ROBI.XX = 10 plots --> Jeff C is checking w/ data owners
+  distinct() # ROBI.XX = 10 plots --> FIXED!
 
-DataBase.fill%>%
+DataBase%>%
   filter(Year == 2064) %>%
   select(Dataset, Plot) %>%
-  distinct() # ROBI.XX = 24 plots --> Jeff C is checking w/ data owners
-
-#removes the data entries with Years to come
-# DataBase.fill <- DataBase.fill %>%
-#   filter(Year < 2063)
+  distinct() # ROBI.XX = 24 plots --> FIXED!
 ```
 
 #  Check that all datasets are percent cover, not proportion
 ```{r}
 
-DataBase.fill %>%
+DataBase %>%
   group_by(Dataset) %>%
   summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
             max = max(PctCov, na.rm = TRUE)) 
 
 # why are there any rows with NA cover
-DataBase.fill %>%
+DataBase %>%
   ungroup() %>%
   filter(is.na(PctCov)) %>%
   select(Site, Plot) %>%
   distinct()
 
-DataBase.fill %>%
-  filter(Plot == "24023611010478",
+DataBase %>% 
+  filter(Plot == "FIA_1976", #OriginalPlot number == 24023611010478
          !is.na(PctCov)) # all NA for this plot
 #all others belong to NWCA dataset. The plots have only one or a few species that there was no cover recorded, 
 #although the species were recorded. for example
-DataBase.fill %>%
+DataBase %>%
   filter(Plot == "NWCA_1",
          !is.na(PctCov)) # there are other species with cover recorded
 
 # I am keeping NWCA plots with some missing cover (LAIS)
 
-# drop this FIA plot with all NAs
-DataBase.fill <- DataBase.fill %>%
-  filter(Plot != "24023611010478")
+# drop this FIA plot with all NAs for cover
+DataBase <- DataBase %>%
+  filter(OriginalPlot != "24023611010478")
 
-DataBase.fill %>%
+DataBase %>%
   filter(is.na(PctCov)) %>%
   nrow()
 
-## sampled area has some wierd values (-40, and 0)
-DataBase.fill %>% 
+## sampled area has some weird values (-40 (Fixed), and 0 (from NPS, substituting info for NA))
+DataBase %>% 
   ungroup() %>% 
   select(Dataset, SampledArea, Plot) %>% 
   distinct() %>% 
@@ -860,20 +929,24 @@ DataBase.fill %>%
   group_by(Dataset, SampledArea) %>% 
   count(Plot) %>%
   nrow()
-## 34 plots from NPS with zeros.
-## I still need to fix this!
+## 38 plots from NPS with zeros.
+
+# substitutes SampledArea of zero per NA (38plots from NPS)
+DataBase <- DataBase %>% 
+  mutate(SampledArea = ifelse(SampledArea == 0, NA, SampledArea))
 ```
 
 # Creating the FULL Database
 ```{r}
-FULLDatabase <- DataBase.fill
+FULLDatabase <- DataBase %>%
+  select(one_of(DesiredColumns))
 glimpse(FULLDatabase)
 ```
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_12232021.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_12232021.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01042022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01042022.csv")
 ```
 
 # Creating CIPSA Database
@@ -883,46 +956,108 @@ Columns to carry forward in combined CIPSA dataset
 DesiredColumns2 <- c("Dataset", "Site", 
                     "Plot", "OriginalPlot", "Long", "Lat",
                     "Year", "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", 
-                    "NativeStatus", "PctCov", "FuzzedCoord", "SampledArea", "Zone" 
+                    "NativeStatus", "Duration", "Growth.Habit",
+                    "PctCov", "FuzzedCoord", "SampledArea", "Zone" 
                     )
 
 ```
 
-### Selecting columns and removing plots with rare species
+
+### Selecting columns and dealing with plots with rare species
 ```{r}
-CIPSADatabase <- DataBase.fill %>% 
-  group_by(OriginalPlot) %>%
-  filter(is.na(OriginalSpeciesName)| # code to keep the plot with NA in the original species name column
-           !any(OriginalSpeciesName == "Arabis serotina Steele" & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Ptilimnium nodosumRose Mathias" & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Scirpus ancistrochaetus Schuyler" & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Trifolium stoloniferum Muhl. ex Eat." & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Isotria medeoloidesPursh Raf." & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Spiraea virginiana Britt." & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb. var. pubescensWilld. Knight" & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb." & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Cypripedium reginae Walt." & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Panax quinquefolius" & Dataset == "WVNHP"),
-         is.na(OriginalSpeciesName)|
-           !any(OriginalSpeciesName == "Hydrastis canadensis" & Dataset == "WVNHP")) %>%
-  ungroup() %>% 
+
+# removes species names and codes but keep them in the plot
+
+AIMALLrarespp <- read_excel("code_by_dataset/extra_csv_AIM/FINAL_National_SSS_List_November_21_2019.xlsx", sheet = "Update_2019_FINAL")
+glimpse(AIMALLrarespp) 
+
+AIMALLrarespp <- AIMALLrarespp %>% 
+  select(Taxon, 
+         ScientificName = `Scientific Name`, 
+         ScientificNameSynonym = `Scientific Name Synonym`, 
+         ListingStatus = `Listing Status`) %>% 
+  filter(Taxon == "Bryophytes" | Taxon == "Conifers and Cycads" | Taxon == "Ferns and Allies" | Taxon == "Flowering Plants")
+        
+AIMrarespp <- DataBase %>%  
+  filter(Dataset == "AIM") %>% 
+  select(SpCode, AcceptedSpeciesName) %>% 
+  distinct() %>% 
+  left_join(AIMALLrarespp, by = c("AcceptedSpeciesName"="ScientificName")) %>% 
+  filter(!is.na(ListingStatus))
+glimpse(AIMrarespp)
+## total of 211 endangered/rare species in the AIM database
+
+# creates a vector with the rare species in AIM
+AIMrarespp <- AIMrarespp$AcceptedSpeciesName
+
+# so I get the number of plots with at least one of those rare species
+AIMplotsrarespp <- DataBase %>% 
+    filter(Dataset == "AIM") %>%
+    group_by(Plot) %>%
+    filter(any(AcceptedSpeciesName %in% AIMrarespp)) 
+length(table(AIMplotsrarespp$Plot)) #6278
+
+## WVNHP rare species list
+WVNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_WVNHP/WVNHPRareSpecies.xlsx")
+View(WVNHPRareSpecies)
+WVNHPRareSpecies<-WVNHPRareSpecies$OriginalSpeciesName
+
+CIPSADatabase <- DataBase %>% 
+  #replaces the species original and accepted names, and species codes for NAs
+  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp, NA),
+         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp, NA),
+         AcceptedSpeciesName = replace(AcceptedSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp, NA)) %>% 
+  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies, NA),
+         SpCode = replace(SpCode, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies, NA),
+         AcceptedSpeciesName = replace(AcceptedSpeciesName, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies, NA)) %>%
+  select(-OriginalSpeciesName) %>% 
+  rename(OriginalSpeciesName = OriginalSpeciesName1) %>% 
   dplyr::select(one_of(DesiredColumns2))
+
+
+# CIPSADatabase <- DataBase.fill %>% 
+  # group_by(OriginalPlot) %>%
+  # filter(is.na(OriginalSpeciesName)| # code to keep the plot with NA in the original species name column
+  #          !any(OriginalSpeciesName == "Arabis serotina Steele" & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Ptilimnium nodosumRose Mathias" & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Scirpus ancistrochaetus Schuyler" & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Trifolium stoloniferum Muhl. ex Eat." & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Isotria medeoloidesPursh Raf." & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Spiraea virginiana Britt." & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb. var. pubescensWilld. Knight" & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Cypripedium parviflorum Salisb." & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Cypripedium reginae Walt." & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Panax quinquefolius" & Dataset == "WVNHP"),
+  #        is.na(OriginalSpeciesName)|
+  #          !any(OriginalSpeciesName == "Hydrastis canadensis" & Dataset == "WVNHP")) %>%
+  # ungroup() 
+
+
 glimpse(CIPSADatabase)
 ```
 
 ### Exporting the CIPSA Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12232021.rds")
-write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12232021.csv")
+write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01042022.rds")
+write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01042022.csv")
+```
+
+### Exporting the CIPSA Database but AIM data only
+```{r eval=FALSE, include=FALSE}
+
+CIPSADatabase_AIM <- CIPSADatabase %>% filter(Dataset == "AIM")
+
+write_rds(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01042022.rds")
+write_csv(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01042022.csv")
 ```
 
 # **Summaries**
