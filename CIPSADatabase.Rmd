@@ -1004,15 +1004,32 @@ WVNHPRareSpecies<-WVNHPRareSpecies$OriginalSpeciesName
 
 CIPSADatabase <- DataBase %>% 
   #replaces the species original and accepted names, and species codes for NAs
-  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp, NA),
-         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp, NA),
-         AcceptedSpeciesName = replace(AcceptedSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp, NA)) %>% 
-  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies, NA),
-         SpCode = replace(SpCode, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies, NA),
-         AcceptedSpeciesName = replace(AcceptedSpeciesName, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies, NA)) %>%
-  select(-OriginalSpeciesName) %>% 
-  rename(OriginalSpeciesName = OriginalSpeciesName1) %>% 
+  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp, NA),
+         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp, NA),
+         AcceptedSpeciesName1 = replace(AcceptedSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp, NA)) %>% 
+  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
+         SpCode = replace(SpCode, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
+         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA)) %>%
+  select(-OriginalSpeciesName, -AcceptedSpeciesName) %>%
+  rename(OriginalSpeciesName = OriginalSpeciesName1,
+  AcceptedSpeciesName = AcceptedSpeciesName1) %>%
   dplyr::select(one_of(DesiredColumns2))
+
+# checking if it worked
+## AIM
+CIPSADatabase %>% 
+  filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp)
+CIPSADatabase %>% 
+  filter(Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp)
+## WVNHP
+CIPSADatabase %>% 
+  filter(Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies)
+CIPSADatabase %>% 
+  filter(Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies)
+# All worked!!!
 
 
 # CIPSADatabase <- DataBase.fill %>% 
@@ -1047,8 +1064,8 @@ glimpse(CIPSADatabase)
 
 ### Exporting the CIPSA Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01042022.rds")
-write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01042022.csv")
+write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01062022.rds")
+write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01062022.csv")
 ```
 
 #### Exporting the CIPSA Database but AIM data only
@@ -1056,8 +1073,8 @@ write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatab
 
 CIPSADatabase_AIM <- CIPSADatabase %>% filter(Dataset == "AIM")
 
-write_rds(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01042022.rds")
-write_csv(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01042022.csv")
+write_rds(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01062022.rds")
+write_csv(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01062022.csv")
 ```
 
 # **Summaries**
