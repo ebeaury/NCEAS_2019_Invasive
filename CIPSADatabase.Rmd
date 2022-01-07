@@ -971,45 +971,80 @@ DesiredColumns2 <- c("Dataset", "Site",
 AIMALLrarespp <- read_excel("code_by_dataset/extra_csv_AIM/FINAL_National_SSS_List_November_21_2019.xlsx", sheet = "Update_2019_FINAL")
 glimpse(AIMALLrarespp) 
 
+# Select necessary columns for the filtering
 AIMALLrarespp <- AIMALLrarespp %>% 
   select(Taxon, 
          ScientificName = `Scientific Name`, 
          ScientificNameSynonym = `Scientific Name Synonym`, 
-         ListingStatus = `Listing Status`) %>% 
-  filter(Taxon == "Bryophytes" | Taxon == "Conifers and Cycads" | Taxon == "Ferns and Allies" | Taxon == "Flowering Plants")
-        
-AIMrarespp <- DataBase %>%  
-  filter(Dataset == "AIM") %>% 
-  select(SpCode, AcceptedSpeciesName) %>% 
-  distinct() %>% 
-  left_join(AIMALLrarespp, by = c("AcceptedSpeciesName"="ScientificName")) %>% 
-  filter(!is.na(ListingStatus))
-glimpse(AIMrarespp)
-## total of 211 endangered/rare species in the AIM database
+         ListingStatus = `Listing Status`) 
 
-# creates a vector with the rare species in AIM
-AIMrarespp <- AIMrarespp$AcceptedSpeciesName
+AIMALLraresppSyn <- AIMALLrarespp %>% 
+  select(ScientificNameSynonym) %>% 
+  drop_na()
+
+# How many rare species in AIM?
+AIMrarespp <- DataBase %>%
+  filter(Dataset == "AIM") %>%
+  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
+  filter(AcceptedSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
+  distinct()
+glimpse(AIMrarespp)
+
+AIMrarespp2 <- DataBase %>%
+  filter(Dataset == "AIM") %>%
+  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
+  filter(AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+  distinct()
+glimpse(AIMrarespp2)
+
+AIMrarespp3 <- DataBase %>%
+  filter(Dataset == "AIM") %>%
+  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
+  filter(OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+  distinct()
+glimpse(AIMrarespp3)
+
+AIMrarespp4 <- DataBase %>%
+  filter(Dataset == "AIM") %>%
+  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
+  filter(OriginalSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
+  distinct()
+glimpse(AIMrarespp4)
+
+finalsAIMrareSpp <- AIMrarespp %>% 
+  rbind(AIMrarespp2, AIMrarespp3, AIMrarespp4) %>% 
+  distinct() %>% 
+  filter(!is.na(SpCode))
+glimpse(finalsAIMrareSpp)
+## total of 217 endangered/rare species in the AIM database
 
 # so I get the number of plots with at least one of those rare species
-AIMplotsrarespp <- DataBase %>% 
+AIMplotsrarespp <- DataBase %>%
     filter(Dataset == "AIM") %>%
     group_by(Plot) %>%
-    filter(any(AcceptedSpeciesName %in% AIMrarespp)) 
-length(table(AIMplotsrarespp$Plot)) #6278
+    filter(any(SpCode %in% finalsAIMrareSpp$SpCode)) 
+length(table(AIMplotsrarespp$Plot)) #6293
 
 ## WVNHP rare species list
 WVNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_WVNHP/WVNHPRareSpecies.xlsx")
-View(WVNHPRareSpecies)
+glimpse(WVNHPRareSpecies)
 WVNHPRareSpecies<-WVNHPRareSpecies$OriginalSpeciesName
 
+#Filtering out rare species
 CIPSADatabase <- DataBase %>% 
   #replaces the species original and accepted names, and species codes for NAs
-  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp, NA),
-         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp, NA),
-         AcceptedSpeciesName1 = replace(AcceptedSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp, NA)) %>% 
+  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName, NA),
+         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName, NA),
+         AcceptedSpeciesName1 = replace(AcceptedSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName, NA),
+         OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym, NA),
+         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym, NA),
+         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym |
+                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym, NA)) %>% 
   mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
          SpCode = replace(SpCode, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
          AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA)) %>%
@@ -1021,9 +1056,21 @@ CIPSADatabase <- DataBase %>%
 # checking if it worked
 ## AIM
 CIPSADatabase %>% 
-  filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMrarespp)
+  filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
+  count(AcceptedSpeciesName)
+
 CIPSADatabase %>% 
-  filter(Dataset=="AIM" & OriginalSpeciesName %in% AIMrarespp)
+  filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+count(AcceptedSpeciesName)
+
+CIPSADatabase %>% 
+  filter(Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+  count(OriginalSpeciesName) 
+
+CIPSADatabase %>% 
+  filter(Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
+  count(OriginalSpeciesName)
+
 ## WVNHP
 CIPSADatabase %>% 
   filter(Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies)
