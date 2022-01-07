@@ -1074,7 +1074,6 @@ CIPSADatabase <- DataBase %>%
 CIPSADatabase %>% 
   filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
   count(AcceptedSpeciesName)
-
 CIPSADatabase %>% 
   filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
 count(AcceptedSpeciesName)
