@@ -65,8 +65,9 @@ wet <- w %>%
   select(-Genus, -Species, -Class) %>% 
   filter(OriginalSpeciesName != "None") %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
-  mutate(SampledArea = .25, 
-         PctCov = mean(PctCov)/SampledArea, 
+  mutate(SampledAreaOriginal = .25, 
+         # PctCov = mean(PctCov)/SampledArea, # Ian contacted me and this doesn't agree with the rest of the datasets
+         PctCov = mean(PctCov), 
          code = 0, 
          layer = "herbaceous") %>% 
   distinct() %>% 
@@ -82,8 +83,8 @@ wettree <- wtree %>%
   select(-Genus, -Species, -SzclassM, -PCount) %>% 
   filter(OriginalSpeciesName != "None") %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>%
-  rename(SampledArea = Squmetr) %>% 
-  mutate(PctCov = sum(dbh)/SampledArea, 
+  rename(SampledAreaOriginal = Squmetr) %>% 
+  mutate(PctCov = (sum(dbh)/SampledAreaOriginal)/4, 
          code = 1,
          layer = "tree") %>% 
   select(-dbh) %>% 
@@ -95,6 +96,10 @@ wetfinal <- wet %>%
   rbind(wettree) %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
   filter(if (sum(code)>=1) layer=="tree" else layer=="herbaceous") %>% 
+  ungroup() %>% 
+  group_by(SiteID, PYear) %>% 
+  #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
+  mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code)
   
 ```
@@ -114,8 +119,9 @@ grass <- g %>%
   select(-Genus, -Species, -Class) %>% 
   filter(OriginalSpeciesName != "None") %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
-  mutate(SampledArea = .25, 
-         PctCov = mean(PctCov)/SampledArea, 
+  mutate(SampledAreaOriginal = .25, 
+         # PctCov = mean(PctCov)/SampledArea, # Ian contacted me and this doesn't agree with the rest of the datasets
+         PctCov = mean(PctCov),
          code = 0, 
          layer = "herbaceous") %>% 
   distinct() %>% 
@@ -131,8 +137,9 @@ grasstree <- gtree %>%
   select(-Genus, -Species, -SzclassM, -PCount) %>% 
   filter(OriginalSpeciesName != "None") %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>%
-  rename(SampledArea = Squrmetrs) %>% 
-  mutate(PctCov = sum(dbh)/SampledArea, 
+  rename(SampledAreaOriginal = Squrmetrs) %>% 
+  # I am dividing 
+  mutate(PctCov = (sum(dbh)/SampledAreaOriginal)/4, 
          code = 1,
          layer = "tree") %>% 
   select(-dbh) %>% 
@@ -144,6 +151,10 @@ grassfinal <- grass %>%
   rbind(grasstree) %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
   filter(if (sum(code)>=1) layer=="tree" else layer=="herbaceous") %>% 
+  ungroup() %>% 
+  group_by(SiteID, PYear) %>% 
+  #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
+  mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code)
 
 ```
@@ -163,8 +174,8 @@ forest <- f %>%
   select(-Genus, -Species, -Class) %>% 
   filter(OriginalSpeciesName != "None") %>% 
   group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>% 
-  mutate(SampledArea = .25, 
-         PctCov = mean(PctCov)/SampledArea, 
+  mutate(SampledAreaOriginal = .25, 
+         PctCov = mean(PctCov), 
          code = 0, 
          layer = "herbaceous") %>% 
   distinct() %>% 
@@ -177,11 +188,11 @@ fortree <- ftree %>%
         #removes any space after the end of any column containing characters
         across(where(is.character), str_trim),
         dbh = SzclassM*PCount,
-         SampledArea = 500) %>% 
+         SampledAreaOriginal = 500) %>% 
   select(-Genus, -Species, -SzclassM, -PCount) %>% 
   filter(OriginalSpeciesName != "None") %>% 
   group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>%
-  mutate(PctCov = sum(dbh)/SampledArea, 
+  mutate(PctCov = (sum(dbh)/SampledAreaOriginal)/4, 
          code = 1,
          layer = "tree") %>% 
   select(-dbh) %>% 
@@ -193,6 +204,10 @@ forestfinal <- forest %>%
   rbind(fortree) %>% 
   group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>% 
   filter(if (sum(code)>=1) layer=="tree" else layer=="herbaceous") %>% 
+  ungroup() %>% 
+  group_by(SiteID, PYear, Transect) %>% 
+  #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
+  mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>%
   select(-code)
 
 ```
@@ -205,6 +220,7 @@ IL_CTAP <- forestfinal %>%
   rbind(grassfinal) %>% 
   rbind(wetfinal) %>% 
   mutate(Dataset = "IL_CTAP",
+         SampledArea = 0.25,
          Transect = ifelse(is.na(Transect), 1, Transect)) %>% 
   select(Dataset, everything())
 ```
@@ -220,7 +236,7 @@ glimpse(tax)
 
 sppcodes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
 head(sppcodes) 
-sppcodes <- sppcodes %>% select(-Synonym.Symbol)
+# sppcodes <- sppcodes %>% select(-Synonym.Symbol)
 
 sppfixed <- read_csv(file.path(data_extra, "IL_CTAPsppFixed.csv"))
 
@@ -390,6 +406,6 @@ glimpse(IL_CTAP2)
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper10262021.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper01072022.csv"))
 ```
 
