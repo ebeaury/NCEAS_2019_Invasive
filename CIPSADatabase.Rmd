@@ -965,7 +965,6 @@ DesiredColumns2 <- c("Dataset", "Site",
 
 ### Selecting columns and dealing with plots with rare species
 ```{r}
-
 # removes species names and codes but keep them in the plot
 
 AIMALLrarespp <- read_excel("code_by_dataset/extra_csv_AIM/FINAL_National_SSS_List_November_21_2019.xlsx", sheet = "Update_2019_FINAL")
@@ -1030,6 +1029,10 @@ WVNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_WVNHP/WVNHPRareSpecies
 glimpse(WVNHPRareSpecies)
 WVNHPRareSpecies<-WVNHPRareSpecies$OriginalSpeciesName
 
+## VANHP rare species list
+VNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_VNHP/VAspeciestoexclude.xlsx")
+glimpse(VNHPRareSpecies)
+
 #Filtering out rare species
 CIPSADatabase <- DataBase %>% 
   #replaces the species original and accepted names, and species codes for NAs
@@ -1048,6 +1051,19 @@ CIPSADatabase <- DataBase %>%
   mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
          SpCode = replace(SpCode, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
          AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA)) %>%
+  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  
+                                          Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
+         SpCode = replace(SpCode, Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  
+                            Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
+         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies | 
+                                          Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
+          OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES |  
+                                          Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES, NA),
+         SpCode = replace(SpCode, Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES |  
+                            Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES, NA),
+         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES | 
+                                          Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES, NA)) %>%
+  
   select(-OriginalSpeciesName, -AcceptedSpeciesName) %>%
   rename(OriginalSpeciesName = OriginalSpeciesName1,
   AcceptedSpeciesName = AcceptedSpeciesName1) %>%
@@ -1076,9 +1092,57 @@ CIPSADatabase %>%
   filter(Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies)
 CIPSADatabase %>% 
   filter(Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies)
+
+## VNHP
+CIPSADatabase %>% 
+  filter(Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies) %>% 
+count(AcceptedSpeciesName)
+CIPSADatabase %>% 
+  filter(Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies) %>% 
+  count(OriginalSpeciesName) 
+CIPSADatabase %>% 
+  filter(Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES) %>% 
+count(AcceptedSpeciesName)
+CIPSADatabase %>% 
+  filter(Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES) %>% 
+  count(OriginalSpeciesName) 
+
 # All worked!!!
+```
+
+Creating a final list of Rare Species handled in the DataBase
+```{r}
+# creating a final list of species removed per dataset
+## fixing VNHP
+VNHPRareSpecies2 <- VNHPRareSpecies %>% 
+  select(SPECIES) %>% 
+  left_join(select(tax, Accepted.Symbol, Scientific.Name), by=c("SPECIES"="Scientific.Name")) %>% 
+  mutate(OriginalSpeciesName = SPECIES,
+         Dataset = "VNHP") %>% 
+  rename(AcceptedSpeciesName = SPECIES,
+         SpCode = Accepted.Symbol) %>% 
+  mutate(AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Boechera serotina", "Arabis serotina", AcceptedSpeciesName),
+         SpCode = ifelse(OriginalSpeciesName == "Boechera serotina", "ARSE9", SpCode),
+         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Phemeranthus piedmontanus", NA, AcceptedSpeciesName))
+## fixing WVNHP
+WVNHPRareSpecies2 <- FULLDatabase %>% 
+  filter(Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, 
+  Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies) %>% 
+  select(Dataset, SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>% 
+  distinct()
+  
+# FINAL
+ListRareSpecies <- finalsAIMrareSpp %>% 
+  mutate(Dataset = "AIM") %>% 
+  rbind(VNHPRareSpecies2, WVNHPRareSpecies2) %>% 
+  select(Dataset, everything()) 
+
+# write.csv(ListRareSpecies, "final_data/ListRareSpecies_01072022.csv", row.names = F)
+```
 
 
+```{r eval=FALSE, include=FALSE}
+#Old code, leaving here in case we need
 # CIPSADatabase <- DataBase.fill %>% 
   # group_by(OriginalPlot) %>%
   # filter(is.na(OriginalSpeciesName)| # code to keep the plot with NA in the original species name column
@@ -1111,8 +1175,8 @@ glimpse(CIPSADatabase)
 
 ### Exporting the CIPSA Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01062022.rds")
-write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01062022.csv")
+write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01072022.rds")
+write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01072022.csv")
 ```
 
 #### Exporting the CIPSA Database but AIM data only
