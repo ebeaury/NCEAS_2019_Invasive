@@ -37,12 +37,94 @@ DesiredColumns <- c("Dataset", "Site",
 
 ```
 
+# Full species list from USDA that Ian extracted the info from their website
+```{r}
+# organizing Ian's taxonomy
+
+tax<-read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/usc.csv', as.is=T)
+tax$inv_PR<-NA
+tax$inv_PR[grep(pattern="PR.I.", x=tax$Native.Status)]<-"I"
+tax$inv_PR[grep(pattern="PR.N.", x=tax$Native.Status)]<-"N"
+tax$inv_PR[grep(pattern="PR.NI.", x=tax$Native.Status)]<-"NI"
+
+tax$inv_HI<-NA
+tax$inv_HI[grep(pattern="HI.I.", x=tax$Native.Status)]<-"I"
+tax$inv_HI[grep(pattern="HI.N.", x=tax$Native.Status)]<-"N"
+tax$inv_HI[grep(pattern="HI.NI.", x=tax$Native.Status)]<-"NI"
+
+tax$inv_L48<-NA
+tax$inv_L48[grep(pattern="L48.I.", x=tax$Native.Status)]<-"I"
+tax$inv_L48[grep(pattern="L48.N.", x=tax$Native.Status)]<-"N"
+tax$inv_L48[grep(pattern="L48.NI.", x=tax$Native.Status)]<-"NI"
+
+tax$inv_AK<-NA
+tax$inv_AK[grep(pattern="AK.I.", x=tax$Native.Status)]<-"I"
+tax$inv_AK[grep(pattern="AK.N.", x=tax$Native.Status)]<-"N"
+tax$inv_AK[grep(pattern="AK.NI.", x=tax$Native.Status)]<-"NI"
+
+tax <- tax %>% 
+  separate(Scientific.Name, c("genus", "epithet"), remove = F) %>% 
+  mutate(Accepted.Symbol2 = Accepted.Symbol)
+```
+
 # Individual datasets
 ## NEON ##
 Imports the file
 ```{r}
 NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210810.csv")
 glimpse(NEON) 
+```
+
+Fixing errors in taxonomy
+```{r}
+NEONspp <- NEON %>% 
+  ## \\s = white space between the word and sp. or spp.
+  ## \\. = dot of sp. or spp.
+  ## $ = tells its only the ones at the end of the string
+  filter(str_detect(scientificName, "\\ssp\\.$") | str_detect(scientificName, "\\sspp\\.$")) %>% 
+  filter(str_detect(scientificName, "ceae sp\\.$", negate = T)) %>% 
+  filter(str_detect(scientificName, "ceae spp\\.$", negate = T)) %>% 
+  select(scientificName) %>% 
+  distinct() %>% 
+  separate(scientificName, "genus" , remove = F) %>% 
+  left_join(tax, by = c("genus" = "Scientific.Name")) %>% 
+  filter(Synonym.Symbol != "GAURA" | is.na(Synonym.Symbol)) %>% 
+  select(scientificName, Accepted.Symbol, genus, inv_L48, inv_AK, inv_HI, inv_PR) %>%
+  mutate_all(na_if,"") %>% 
+  rename(Accepted.SymbolNEW = Accepted.Symbol)
+
+NEON <- NEON %>% 
+  mutate(Native.Status = ifelse(scientificName == "Unknown plant" | scientificName == "Unknown hardwood plant", NA, Native.Status),
+         AccSpeciesName = ifelse(scientificName == "Unknown plant" | scientificName == "Unknown hardwood plant", NA, AccSpeciesName),
+        Accepted.Symbol = ifelse(scientificName == "Unknown plant" | scientificName == "Unknown hardwood plant", NA, Accepted.Symbol),
+        Accepted.Symbol = ifelse(str_detect(scientificName, "ceae sp\\."), NA, Accepted.Symbol),
+        Native.Status = ifelse(str_detect(scientificName, "ceae sp\\."), NA, Native.Status),
+        AccSpeciesName = ifelse(str_detect(scientificName, "ceae sp\\."), NA, AccSpeciesName),
+        Accepted.Symbol = ifelse(str_detect(scientificName, "ceae spp\\."), NA, Accepted.Symbol),
+        Native.Status = ifelse(str_detect(scientificName, "ceae spp\\."), NA, Native.Status),
+        AccSpeciesName = ifelse(str_detect(scientificName, "ceae spp\\."), NA, AccSpeciesName)) %>% 
+  left_join(NEONspp, by = "scientificName") %>% 
+    mutate(Zone = case_when(decimalLatitude > 50 ~ "AK",
+                          decimalLatitude < 50 & decimalLatitude > 19 & decimalLongitude > -130 ~ "L48",
+                          decimalLongitude < -150 & decimalLatitude < 25 ~ "HI",
+                          decimalLatitude < 20 & decimalLongitude < -65 & decimalLongitude > -70 ~ "PR",
+                          TRUE ~ "MissingCoords"),
+         Native.Status = ifelse(!is.na(Accepted.Symbol) & Zone == "L48", inv_L48,
+                          ifelse(!is.na(Accepted.Symbol)& Zone == "AK", inv_AK, 
+                            ifelse(!is.na(Accepted.Symbol)& Zone == "PR", inv_PR, 
+                              ifelse(!is.na(Accepted.Symbol)& Zone == "HI", inv_HI, Native.Status)))),
+         Accepted.Symbol = ifelse(!is.na(Accepted.SymbolNEW), Accepted.SymbolNEW, Accepted.Symbol),
+         AccSpeciesName = ifelse(!is.na(genus), genus, AccSpeciesName))  
+
+
+
+## NEXT STEPS:
+# filter the OriginalSpeciesName with sp. or spp. by the end --> create a new object
+# remove the "ceae sp."
+# separate the genus from sp/spp, keep the orginal column
+# find the USDA species codes for them based on tax
+# left_join the new SpCodes and mutate the "old" SpCode column to keep the new match
+
 ```
 
 Data wrangling and column selection
@@ -53,19 +135,19 @@ NEON <- NEON %>%
          year = ifelse(siteID == "ABBY" | siteID == "SJER" | siteID == "WREF", 2017, year),
          OriginalPlot = as.character(plotID),
          Original.Long = decimalLongitude,
-         Original.Lat = decimalLatitude) %>%
+         Original.Lat = decimalLatitude, 
+         SampledArea = 1) %>%
   rename(Dataset = dataset,
          Site = siteID,
          Plot = plotID,
          Year = year,
-         AcceptedSpeciesName = bestname,
+         AcceptedSpeciesName = AccSpeciesName,
          SpCode = Accepted.Symbol,
          Long = decimalLongitude,
          Lat = decimalLatitude,
          NativeStatus = Native.Status,
          PctCov = plotCover,
-         OriginalSpeciesName = scientificName,
-         SampledArea = SampledArea) %>%
+         OriginalSpeciesName = scientificName) %>%
   select(one_of(DesiredColumns), 
          #next line of code carries whether cover of a particular species in a plot was based on basal areas and/or canopy cover (sum)
          # if 0 in both, it came from the 1m2 plots
@@ -103,35 +185,6 @@ FIA2 <- FIA %>%
 glimpse(FIA2)
 ```
 
-* full species list from USDA that Ian extracted the info from their website
-```{r}
-# organizing Ian's taxonomy
-
-tax<-read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/usc.csv', as.is=T)
-tax$inv_PR<-NA
-tax$inv_PR[grep(pattern="PR.I.", x=tax$Native.Status)]<-"I"
-tax$inv_PR[grep(pattern="PR.N.", x=tax$Native.Status)]<-"N"
-tax$inv_PR[grep(pattern="PR.NI.", x=tax$Native.Status)]<-"NI"
-
-tax$inv_HI<-NA
-tax$inv_HI[grep(pattern="HI.I.", x=tax$Native.Status)]<-"I"
-tax$inv_HI[grep(pattern="HI.N.", x=tax$Native.Status)]<-"N"
-tax$inv_HI[grep(pattern="HI.NI.", x=tax$Native.Status)]<-"NI"
-
-tax$inv_L48<-NA
-tax$inv_L48[grep(pattern="L48.I.", x=tax$Native.Status)]<-"I"
-tax$inv_L48[grep(pattern="L48.N.", x=tax$Native.Status)]<-"N"
-tax$inv_L48[grep(pattern="L48.NI.", x=tax$Native.Status)]<-"NI"
-
-tax$inv_AK<-NA
-tax$inv_AK[grep(pattern="AK.I.", x=tax$Native.Status)]<-"I"
-tax$inv_AK[grep(pattern="AK.N.", x=tax$Native.Status)]<-"N"
-tax$inv_AK[grep(pattern="AK.NI.", x=tax$Native.Status)]<-"NI"
-
-tax <- tax %>% 
-  separate(Scientific.Name, c("genus", "epithet"), remove = F) %>% 
-  mutate(Accepted.Symbol2 = Accepted.Symbol)
-```
 
 * getting the missing info from it
 ```{r}
@@ -193,7 +246,7 @@ FIA_final <- FIA %>%
          epithet = ifelse(is.na(NativeStatus.x), epithet.y, epithet.x),
          Duration = ifelse(is.na(NativeStatus.x), Duration.y, Duration.x),
          Growth.Habit = ifelse(is.na(NativeStatus.x), Growth.Habit.y, Growth.Habit.x),
-         VEG_SPCD = ifelse(is.na(NativeStatus.x), Accepted.Symbol2, VEG_SPCD)) %>% 
+         VEG_SPCD = ifelse(is.na(NativeStatus.x) & is.na(VEG_SPCD), Accepted.Symbol2, VEG_SPCD)) %>% 
   select(-NativeStatus.x, -NativeStatus.y, -bestname.x, -bestname.y, -genus.x, -genus.y, 
          -epithet.x, -epithet.y, -Duration.x, -Duration.y, -Growth.Habit.x, -Growth.Habit.y,
          -inv_L48, -inv_AK, -Accepted.Symbol2) %>%
@@ -201,7 +254,7 @@ FIA_final <- FIA %>%
   mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, NativeStatus)) %>%
   select(-L48status)
 
-# write.csv(FIA_final, "data_by_dataset/FIA Veg data 01-05-22.csv", row.names = F)
+# write.csv(FIA_final, "data_by_dataset/FIA Veg data 01-18-22.csv", row.names = F)
 
 ```
 
@@ -257,13 +310,57 @@ glimpse(AIM)
 
 Making sure plotID is unique to plots with the same coordinate across years
 ```{r}
-renamedPlotIDAIM <- AIM %>% select(PLOTKEY,NAD83.X,NAD83.Y, VisitYear) %>% group_by(NAD83.X,NAD83.Y) %>% distinct() %>%
-  add_tally() %>% select(-VisitYear) %>% filter(n >1) %>% distinct() %>% mutate(NewPlotID = paste0("AIM_", cur_group_id()))
+# table that I have created before on the plots that match coordinates & earlier visits for resampled plots
+# I used this one just to manually check my work below
+# excludeAIM_11Sept2020 <- read_csv("code_by_dataset/extra_csv_AIM/excludeAIM_11Sept2020.csv")
+# glimpse(excludeAIM_11Sept2020)
+
+
+#find the PLOTKEY in which coordinates are the same and were sampled in the same year
+excludePlotIDAIM <- AIM %>% select(PLOTKEY,NAD83.X,NAD83.Y, VisitYear) %>% 
+  # code below number of plots with the same coordinate 
+  group_by(NAD83.X,NAD83.Y) %>% distinct() %>%
+  add_tally() %>% #select(-VisitYear) %>% 
+  filter(n >1) %>% distinct() %>% mutate(NewPlotID = paste0("AIM_", cur_group_id())) %>% 
+  # removes the data of data collection from the end of the plot key
+  mutate(PLOTKEY2 = str_sub(PLOTKEY, end=-11)) %>% 
+  # code below number of plots within the same plot key (without the end date in PLOTKEY)
+  group_by(PLOTKEY2) %>% 
+  add_tally() %>% 
+  mutate(discrepancy = ifelse(n == nn, 0, 1)) %>% 
+  # code below means that plot keys are different within the same coordinates
+  # LP: ok to keep just the ones that don't have the same year of data collection
+  filter(discrepancy == 1) %>% 
+  # if nnn >1 plot keys are different but they have the same coordinate and have the same year of data collection
+  # LP: I think they should be removed, unsure which one to keep
+  group_by(NewPlotID, VisitYear) %>% 
+  add_tally() %>% 
+  filter(nnn == 2)
+  # drop earlier visits for resampled plots:
+  #filter(!PLOTKEY %in% excludeAIM_11Sept2020$PLOTKEY)
+
+# this code is not working properly
+renamedPlotIDAIM <- AIM %>% 
+  select(PLOTKEY,NAD83.X,NAD83.Y, VisitYear) %>% 
+  filter(!PLOTKEY %in% excludePlotIDAIM$PLOTKEY) %>% 
+  group_by(NAD83.X,NAD83.Y) %>% distinct() %>%
+  add_tally() %>% 
+  select(-VisitYear) %>% 
+  filter(n >1) %>% 
+  distinct() %>% 
+  mutate(NewPlotID = paste0("AIM_", cur_group_id()))
+
+# plots that were resampled within the same year
+# keeping the ones that were sampled later in the year (usually Sept)
+excludePlotIDAIMSameYear <- c("14031706564266912014-03-01","14041413200089512014-03-01","14031807170092172014-03-01","14031710225831662014-03-01","14031710094842362014-03-01")
+
 ```
 
 Data wrangling and column selection
 ```{r}
 AIM <- AIM  %>%
+  filter(!PLOTKEY %in% excludePlotIDAIM$PLOTKEY) %>% 
+  filter(!PLOTKEY %in% excludePlotIDAIMSameYear) %>% 
   left_join(renamedPlotIDAIM, by = c("PLOTKEY", "NAD83.X", "NAD83.Y")) %>%
   # convert from proportion to percent cover:
   mutate(PctCov = 100*prop.cover,
@@ -407,7 +504,7 @@ glimpse(VNHP)
 ## NWCA ##
 Imports the file
 ```{r}
-NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_12232021.csv", 
+NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_01242022.csv", 
                   na = c('', 'NA')) 
 glimpse(NWCA)
 ```
@@ -438,7 +535,7 @@ glimpse(NWCA)
 ## IL_CTAP ##
 Imports the file
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper01072022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper01202022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
@@ -577,7 +674,10 @@ status <- status %>%
   select(SpCode, L48status = `FINAL DECISION (L48)`) %>%
   filter(!is.na(SpCode))
 anyDuplicated(status$SpCode)
+```
 
+*Option1*: Uses USDA PLANTS species code from Accepted.Symbol2 even if the original dataset have a particular code for that species
+```{r}
 DataBase <- DataBase %>%
   left_join(DataBaseALLCodes, by = c("SpCode", "Zone")) %>% 
   #removes SpCode that came with the datasets 
@@ -591,9 +691,29 @@ DataBase <- DataBase %>%
   mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, 
                         ifelse(Zone == "MissingCoords" & !is.na(L48status), L48status, NativeStatus))) %>%
   select(-L48status)
+
 ```
 
-Checking whether there are sSpecies with multiple exotic status: NONE!
+*Option2*: Uses SpCode from the original dataset and replaces the NA from Accepted.Symbol2 (PLANTS codes)
+LP: It seems to me that this is not the way to go. The "NOMATCH" codes are for both species that USDA PLANTS don't have but was identified by researchers at the source [mainly CVS, WVNHP, VNHP] or clearly stated as Unknown [in CVS it's {Unkown}]
+```{r eval=FALSE, include=FALSE}
+## SpCode from the original dataset and replaces the NA from Accepted.Symbol2 (PLANTS codes)
+# DataBase <- DataBase %>%
+#   left_join(DataBaseALLCodes, by = c("SpCode", "Zone")) %>% 
+#   #line below gets the SpCode from the original dataset and replaces the NA from Accepted.Symbol2    
+#   mutate(SpCode = ifelse(is.na(Accepted.Symbol2), SpCode, Accepted.Symbol2)) %>% 
+#   select(-NativeStatus.x, -AcceptedSpeciesName.x, -Duration.x, -Growth.Habit.x) %>%
+#   rename(NativeStatus = NativeStatus.y,
+#          AcceptedSpeciesName = AcceptedSpeciesName.y,
+#          Duration = Duration.y,
+#          Growth.Habit = Growth.Habit.y) %>% 
+#   left_join(status, by = "SpCode") %>%
+#   mutate(NativeStatus = ifelse(Zone == "L48" & !is.na(L48status), L48status, 
+#                         ifelse(Zone == "MissingCoords" & !is.na(L48status), L48status, NativeStatus))) %>%
+#   select(-L48status, -Accepted.Symbol2)
+```
+
+Checking whether there are Species with multiple exotic status: NONE!
 ```{r}
 DataBase %>%
   group_by(Zone, SpCode, AcceptedSpeciesName) %>%
@@ -867,6 +987,11 @@ DataBase %>%
   filter(is.na(Year)) %>% 
   nrow() # missing Year = 65368 records 
 
+DataBase %>% 
+  filter(is.na(Year)) %>% 
+  group_by(Dataset) %>% 
+  tally()# missing Year = all 65368 records are from NPS
+
 table(DataBase$Year) # checks the range of years
 
 DataBase%>%
@@ -936,6 +1061,100 @@ DataBase <- DataBase %>%
   mutate(SampledArea = ifelse(SampledArea == 0, NA, SampledArea))
 ```
 
+# Quality checks done by Kristen
++ One spp per year per plot
+```{r}
+duplicates <- DataBase %>% # time consuming
+  group_by(Dataset, Plot, SpCode, Year) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 1)
+table(duplicates$Dataset)
+## there are species codes with NA, let's filter that
+
+duplicatesNA <- duplicates %>% filter(is.na(SpCode))
+table(duplicatesNA$Dataset)
+
+# Description of what was happening before I had fix some of the below issues
+# for the following datasets, the issue is only with NAs:
+## CVS, FIA, NPS, WVNHP; all others have some duplicated code as well
+
+# NA issue --> the code above includes all NAs. NA in the SpCode column mean different morphotypes identified in the field but without respective plant id. Specificity by dataset with respect to NAs are as follows:
+## AIM: had species codes that did not match PLANTS and no associated original species name was found
+## CVS, WNHP, VNHP: the "NOMATCH" species code did not carry through. I will use code from Kristen and modified by Eve to fix this or fix my code above to keep them (maybe easier)
+## FIA: the multiple NAs refer to species that there was no original species name, but they had a particular species code associated to them. [Maybe fix the code above and use the same structure to the entire dataset, so it doesn't get erased]
+
+# after fixing the above, there are still instances were multiple NAs are found in IL_CTAP and NWCA
+# IL_CTAP --> those are entries with unidentified species, so there is no associated SpCode
+# NWCA --> those are entries with unidentified species, so there is no associated SpCode. BUT, I also noticed that I have a ton of species within plots with zero pct cover associated to them. 
+
+duplicatesNoNA <- duplicates %>% filter(!is.na(SpCode))
+## duplicate codes are still showing up in AIM, and IL_CTAP because different original species names got the same accepted species name and symbol --> this issue is fixed in the code below
+table(duplicatesNoNA$Dataset)
+
+
+# manually fix some inconsistencies I found in the datasets
+DataBase <- DataBase %>% 
+  mutate(#fixes error in VNHP
+         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GABO2", 
+                                      "Galium circaezans", AcceptedSpeciesName),
+         SpCode = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GABO2", "GACI2", SpCode),
+         
+         #Fixes errors in NPS
+         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GACIC", 
+                                      "Galium circaezans var. circaezans", AcceptedSpeciesName),
+         
+         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GACIH", 
+                                      "Galium circaezans var. hypomalacum", AcceptedSpeciesName),
+         
+         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Euthamia graminifolia" & SpCode=="EUCA26", 
+                                      "Euthamia graminifolia", AcceptedSpeciesName),
+         SpCode = ifelse(OriginalSpeciesName == "Euthamia graminifolia" & SpCode=="EUCA26", "EUGR5", SpCode),
+         
+         #fixes error in NEON
+         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Eupatorium capillifolium (Lam.) Small" & SpCode=="EUCA26", 
+                                      "Eupatorium capillifolium", AcceptedSpeciesName),
+         SpCode = ifelse(OriginalSpeciesName == "Eupatorium capillifolium (Lam.) Small" & SpCode=="EUCA26", "EUCA5", SpCode)) 
+
+DataBase <- DataBase %>% # time consuming
+  # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
+  group_by(Dataset, Site, Plot, OriginalPlot, Long, Lat, Original.Long, Original.Lat,
+           Year, FuzzedCoord, SampledArea, Zone, NativeStatus, AcceptedSpeciesName, 
+           Duration, Growth.Habit, SpCode) %>% 
+  summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
+            OriginalSpeciesName = dplyr::first(OriginalSpeciesName)) %>% 
+  ungroup() %>% 
+  distinct()
+
+DataBase %>%  # time consuming
+  group_by(Dataset, Plot, SpCode, Year) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(!is.na(SpCode)) %>% 
+  filter(n_obs > 1)
+  
+```
+
++ weird commas where they shouldn't be
+```{r}
+# Growth.Habit
+## there is a "Shrub," category
+unique(DataBase$Growth.Habit)
+
+## fixing it:
+DataBase$Growth.Habit <- gsub("\\Shrub\\,\\s$", "Shrub", DataBase$Growth.Habit, ignore.case = FALSE)
+unique(DataBase$Growth.Habit)
+
+# Duration
+## there is AN instead of Annual
+unique(DataBase$Duration)
+
+## Fixing it
+DataBase <- DataBase %>% 
+  mutate(Duration = str_replace(Duration, "\\sAN$", " Annual"))
+unique(DataBase$Duration)
+
+```
+
+
 # Creating the FULL Database
 ```{r}
 FULLDatabase <- DataBase %>%
@@ -945,8 +1164,8 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01072022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01072022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.csv")
 ```
 
 # Creating CIPSA Database
@@ -1174,8 +1393,8 @@ glimpse(CIPSADatabase)
 
 ### Exporting the CIPSA Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01072022.rds")
-write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01072022.csv")
+write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01252022.rds")
+write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01252022.csv")
 ```
 
 #### Exporting the CIPSA Database but AIM data only
@@ -1183,8 +1402,8 @@ write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatab
 
 CIPSADatabase_AIM <- CIPSADatabase %>% filter(Dataset == "AIM")
 
-write_rds(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01062022.rds")
-write_csv(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01062022.csv")
+write_rds(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01252022.rds")
+write_csv(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01252022.csv")
 ```
 
 # **Summaries**
