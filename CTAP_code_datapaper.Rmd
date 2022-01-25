@@ -222,7 +222,23 @@ IL_CTAP <- forestfinal %>%
   mutate(Dataset = "IL_CTAP",
          SampledArea = 0.25,
          Transect = ifelse(is.na(Transect), 1, Transect)) %>% 
+  #
+  group_by(Dataset, SiteID, Transect, PYear, OriginalSpeciesName, 
+           layer, RecordedStrata, SampledArea) %>% 
+  # this is the column I need to sum
+  dplyr::summarise(PctCov = sum(PctCov),
+                   # different trees were sampled in the different sampled area, I am keeping the first one
+                   SampledAreaOriginal = dplyr::first(SampledAreaOriginal)) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  #
   select(Dataset, everything())
+
+## checking for duplicates per species per plot per year
+duplicatesILCTAP <- IL_CTAP %>% 
+  group_by(SiteID, Transect, OriginalSpeciesName, PYear) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 1)
 ```
 
 Matching species names
@@ -406,6 +422,6 @@ glimpse(IL_CTAP2)
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper01072022.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper01202022.csv"))
 ```
 
