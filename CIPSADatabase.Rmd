@@ -164,6 +164,10 @@ Imports the file
 ```{r}
 FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/archived/FIA Veg data 12-21-21.csv") #ALL data including repeated samples (3207 plots)
 glimpse(FIA)
+```
+
+# created a zone column
+```{r}
 FIA <- FIA %>% 
   mutate(Zone = case_when(LAT > 50 ~ "AK",
                           LAT < 50 & LAT > 19 & LON > -130 ~ "L48",
@@ -463,7 +467,9 @@ VEGBANK <- VEGBANK %>%
          Dataset = ifelse(grepl("VEGBANK", Dataset), "CVS", "WVNHP"),
          FuzzedCoord = "Y",
          Year = ifelse(Year==2064, 1964,
-                       ifelse(Year==2063, 1963, Year))) %>% 
+                       ifelse(Year==2063, 1963, Year)),
+         # change the beginning of the name of the plot from VEGBANK to CVS
+         Plot = str_replace(Plot, "^VEGBANK_", "CVS_")) %>% 
   dplyr::select(one_of(DesiredColumns))
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
@@ -1131,6 +1137,22 @@ DataBase %>%  # time consuming
   filter(!is.na(SpCode)) %>% 
   filter(n_obs > 1)
   
+```
+
++ NA for OriginalSpeciesName
+```{r}
+MissingOrigName<-DataBase %>% 
+  filter(is.na(OriginalSpeciesName)) %>% 
+  select(Dataset, OriginalSpeciesName, SpCode) %>% 
+  group_by(Dataset, OriginalSpeciesName, SpCode) %>% 
+  summarise(n_obs = n())
+
+## AIM, FIA and NPS ==> total of 14517 observations with no OriginalSpeciesName and SpCpde associated to them. My understand is that they represent unknown species (NEON, for instance had a written of "Unknown Plant" for those, that's why it's not showing up in this summary)
+
+## CVS (15), FIA (510), NPS (793) ==> observations in which OriginalSpeciesName is missing(NA) but there is no associated OriginalSpeciesNames. For FIA, all the species codes don't have any associated OriginalSpeciesName from the data I got from Jeff Corbin. For NPS, most of the species codes have associated OriginalSpeciesName in other plots, but wuite frequently associated to more than one. For CVS, is the same case as NPS, but more than one OriginalSpeciesName is frequently associated to a SpCode, so I won't fix.
+
+## LP decision: not changing OriginalSpeciesName, but we're aware of the gaps.
+
 ```
 
 + weird commas where they shouldn't be
