@@ -1153,9 +1153,9 @@ NEONdata_flatted <- NEONdata_flatted %>%
   select(-taxonID2)
 
 #exporting final file
-write.csv(NEONdata_flatted,
-          '/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210810.csv',
-          row.names = FALSE)
+# write.csv(NEONdata_flatted,
+#           '/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210810.csv',
+#           row.names = FALSE)
 
 
 ###### END ######
