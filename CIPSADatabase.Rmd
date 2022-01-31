@@ -1014,6 +1014,28 @@ DataBase%>%
   filter(Year == 2064) %>%
   select(Dataset, Plot) %>%
   distinct() # ROBI.XX = 24 plots --> FIXED!
+
+# plots missing coordinates based on "Zone" column
+DataBase %>%
+  ungroup() %>%
+  select(Plot, Zone) %>% 
+  distinct() %>%
+  count(Zone)
+
+# plots missing coordinates based on "FuzzedCoord" column
+DataBase %>%
+  ungroup() %>%
+  select(Plot, FuzzedCoord) %>% 
+  distinct() %>%
+  count(FuzzedCoord)
+
+## they differ. Need to fix this
+DataBase <- DataBase %>% 
+  mutate(FuzzedCoord = ifelse(is.na(Lat) & is.na(Long), "Missing", FuzzedCoord))
+table(DataBase$FuzzedCoord)
+table(DataBase$Zone)
+##FIXED!
+
 ```
 
 #  Check that all datasets are percent cover, not proportion
@@ -1186,8 +1208,8 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.csv")
+# write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.rds")
+# write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.csv")
 ```
 
 # Creating CIPSA Database
@@ -1473,6 +1495,20 @@ CIPSADatabase %>%
   count(Dataset) %>%
   mutate(status = "All",
          pct = round((n/sum(n))*100,2))
+
+# number of plots with Fuzzed coordinates
+CIPSADatabase %>%
+  ungroup() %>%
+  select(Plot, FuzzedCoord) %>% 
+  distinct() %>%
+  count(FuzzedCoord) %>% 
+  mutate(plotpct = round((n/sum(n))*100,2))
+
+CIPSADatabase %>%
+  ungroup() %>%
+  select(Plot, Zone) %>% 
+  distinct() %>%
+  count(Zone)
 
 ```
 
