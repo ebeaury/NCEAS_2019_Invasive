@@ -1,5 +1,5 @@
 ---
-title: "CIPSA: Compilation of Invasive Plant Species Abundance in the USA"
+title: "SPCIS: Standardized Plant Community with Introduced Status"
 author: "Lais Petri"
 date: "12/20/2021"
 output: 
@@ -29,9 +29,9 @@ Columns to carry forward in combined dataset
 
 ```{r}
 DesiredColumns <- c("Dataset", "Site", 
-                    "Plot", "OriginalPlot", "Long", "Lat", "Original.Long", "Original.Lat",
-                    "Year", "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", 
-                    "NativeStatus", "PctCov", "FuzzedCoord", "SampledArea", 
+                    "Plot", "Original.Plot", "Long", "Lat", "Original.Long", "Original.Lat",
+                    "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
+                    "NativeStatus", "Original.PctCov", "PctCov", "FuzzedCoord", "Original.SampledArea", "SampledArea", 
                     "Duration", "Growth.Habit" 
                     )
 
@@ -119,7 +119,7 @@ NEON <- NEON %>%
 
 
 ## NEXT STEPS:
-# filter the OriginalSpeciesName with sp. or spp. by the end --> create a new object
+# filter the Original.TaxonName with sp. or spp. by the end --> create a new object
 # remove the "ceae sp."
 # separate the genus from sp/spp, keep the orginal column
 # find the USDA species codes for them based on tax
@@ -133,7 +133,7 @@ NEON <- NEON %>%
   mutate(FuzzedCoord = "N",
          # those are sites in which diversity and vegetation structure data are from different years
          year = ifelse(siteID == "ABBY" | siteID == "SJER" | siteID == "WREF", 2017, year),
-         OriginalPlot = as.character(plotID),
+         Original.Plot = as.character(plotID),
          Original.Long = decimalLongitude,
          Original.Lat = decimalLatitude, 
          SampledArea = 1) %>%
@@ -141,13 +141,13 @@ NEON <- NEON %>%
          Site = siteID,
          Plot = plotID,
          Year = year,
-         AcceptedSpeciesName = AccSpeciesName,
+         AcceptedTaxonName = AccSpeciesName,
          SpCode = Accepted.Symbol,
          Long = decimalLongitude,
          Lat = decimalLatitude,
          NativeStatus = Native.Status,
          PctCov = plotCover,
-         OriginalSpeciesName = scientificName) %>%
+         Original.TaxonName = scientificName) %>%
   select(one_of(DesiredColumns), 
          #next line of code carries whether cover of a particular species in a plot was based on basal areas and/or canopy cover (sum)
          # if 0 in both, it came from the 1m2 plots
@@ -282,7 +282,7 @@ Data wrangling and column selection
 ```{r}
 FIA <- FIA_final %>%
   mutate(FuzzedCoord = "Y",
-         OriginalPlot = as.character(PLT_CN),
+         Original.Plot = as.character(PLT_CN),
          Original.Lat = LAT,
          Original.Long = LON) %>%
   rename(Site = PLOT,
@@ -293,8 +293,8 @@ FIA <- FIA_final %>%
          Lat = LAT,
          Year = INVYR,
          SampledArea = PlotArea,
-         AcceptedSpeciesName = bestname,
-         OriginalSpeciesName = SciName) %>%
+         AcceptedTaxonName = bestname,
+         Original.TaxonName = SciName) %>%
   mutate(Dataset = "FIA",
          Site = as.character(Site),
          Plot = as.character(Plot)) %>%
@@ -370,9 +370,9 @@ AIM <- AIM  %>%
   mutate(PctCov = 100*prop.cover,
          FuzzedCoord = "N",
          Site = NA,
-         SampledArea = ifelse(DataSet == "BLM_LMF", 2000, 10000),
+         SampledArea = ifelse(DataSet == "BLM_LMF", 3000, 10000),
          Dataset = "AIM",
-         OriginalPlot = as.character(PLOTKEY),
+         Original.Plot = as.character(PLOTKEY),
          Plot = ifelse(is.na(NewPlotID), PLOTKEY, NewPlotID),
          Original.Lat = NAD83.Y,
          Original.Long = NAD83.X) %>%
@@ -381,8 +381,8 @@ AIM <- AIM  %>%
          Year = VisitYear, 
          SpCode = code,
          NativeStatus = inv_L48,
-         AcceptedSpeciesName = bestname,
-         OriginalSpeciesName = OriginalName) %>%
+         AcceptedTaxonName = bestname,
+         Original.TaxonName = OriginalName) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(AIM))
@@ -401,7 +401,7 @@ glimpse(NPS)
 Data wrangling and column selection
 ```{r}
 NPS <- NPS %>%
-  mutate(OriginalPlot = as.character(Plot),
+  mutate(Original.Plot = as.character(Plot),
          Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
          Original.Lat = Lat,
          Original.Long = Long) %>% 
@@ -412,8 +412,8 @@ NPS <- NPS %>%
          SampledArea =  Area_sampled,
          Plot = UniqueID,
          FuzzedCoord = RealCoords,
-         AcceptedSpeciesName = bestname,
-         OriginalSpeciesName = OriginalName,
+         AcceptedTaxonName = bestname,
+         Original.TaxonName = OriginalName,
          Growth.Habit = GrowthForm) %>%
   select(one_of(DesiredColumns)) %>%
   mutate(SampledArea = as.double(SampledArea))
@@ -452,14 +452,14 @@ VEGBANK <- VEGBANK %>%
   mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), NA),
          SampledArea = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
          SampledArea = ifelse(Dataset == "NCVS_WV" & SampledArea == 0, NA, SampledArea),
-         OriginalPlot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
+         Original.Plot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
   #line below removes the 3 plots that have the same information in VNHP dataset
   filter(!VegBankUniqueID %in% PlotsRemoveVegBank) %>% 
   rename(Plot = UniqueID,
          Original.Lat = Lat,
          Original.Long = Long,
-         AcceptedSpeciesName = bestname,
-         OriginalSpeciesName = OriginalName,
+         AcceptedTaxonName = bestname,
+         Original.TaxonName = OriginalName,
          NativeStatus = ExoticStatus,
          Growth.Habit = GrowthForm) %>%
   mutate(Lat = ifelse(Dataset=="NCVS_WV", round(Original.Lat, 1), Public.Latitude),
@@ -494,10 +494,10 @@ VNHP <- VNHP %>%
          Original.Lat = Lat,
          Long = round(Long, 1),
          Lat = round(Lat, 1),
-         OriginalPlot = as.character(Plot),
+         Original.Plot = as.character(Plot),
          Dataset = "VNHP") %>%
-  rename(OriginalSpeciesName = VASpeciesName,
-         AcceptedSpeciesName = bestname,
+  rename(Original.TaxonName = VASpeciesName,
+         AcceptedTaxonName = bestname,
          SampledArea = Plot.Size, 
          NativeStatus = ExoticStatus) %>%
   select(one_of(DesiredColumns))
@@ -520,13 +520,13 @@ Data wrangling and column selection
 NWCA <- NWCA %>%
   mutate(FuzzedCoord = "N",
          Dataset = "NWCA",
-         OriginalPlot = as.character(PLOT),
+         Original.Plot = as.character(PLOT),
          Original.Lat = Lat,
          Original.Long = Long) %>%
   rename(Site = SITE_ID,
          Plot = UniquePlotID,
-         OriginalSpeciesName = OriginalName,
-         AcceptedSpeciesName = bestname,
+         Original.TaxonName = OriginalName,
+         AcceptedTaxonName = bestname,
          SampledArea = PlotArea_m2,
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
@@ -554,9 +554,9 @@ IL_CTAP <- IL_CTAP %>%
          Original.Long = Long,
          Lat = round(Lat, 2),
          Long = round(Long, 2),
-         OriginalPlot = as.character(Transect)) %>%
+         Original.Plot = as.character(Transect)) %>%
   rename(Site = SiteID,
-         AcceptedSpeciesName = bestname,
+         AcceptedTaxonName = bestname,
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          Year = PYear) %>%
@@ -644,8 +644,8 @@ DataBaseCodes <- DataBaseCodes %>%
 # sub-setting the fixed ones (19608)
 DataBaseCodes_fixed <- DataBaseCodes %>% 
   filter(!is.na(Scientific.Name)) %>% 
-  rename(AcceptedSpeciesName = Scientific.Name) %>% 
-  select(SpCode, Zone, NativeStatus, AcceptedSpeciesName, Duration, Growth.Habit, Accepted.Symbol2)
+  rename(AcceptedTaxonName = Scientific.Name) %>% 
+  select(SpCode, Zone, NativeStatus, AcceptedTaxonName, Duration, Growth.Habit, Accepted.Symbol2)
 
 
 # fixing the ones with Synonyms (2141)
@@ -660,8 +660,8 @@ DataBaseCodes2 <- DataBaseCodes %>%
                                       ifelse(Zone == "PR", inv_PR, 
                                       ifelse(Zone == "HI", inv_HI, 
                                       ifelse(Zone == "MissingCoords", inv_L48, NA)))))) %>% 
-  rename(AcceptedSpeciesName = Scientific.Name) %>% 
-  select(SpCode, Zone, NativeStatus, AcceptedSpeciesName, Duration, Growth.Habit, Accepted.Symbol2)
+  rename(AcceptedTaxonName = Scientific.Name) %>% 
+  select(SpCode, Zone, NativeStatus, AcceptedTaxonName, Duration, Growth.Habit, Accepted.Symbol2)
 
 
 # getting the entire list of missing codes again (21749 species codes)
@@ -687,10 +687,10 @@ anyDuplicated(status$SpCode)
 DataBase <- DataBase %>%
   left_join(DataBaseALLCodes, by = c("SpCode", "Zone")) %>% 
   #removes SpCode that came with the datasets 
-  select(-SpCode, -NativeStatus.x, -AcceptedSpeciesName.x, -Duration.x, -Growth.Habit.x) %>% 
+  select(-SpCode, -NativeStatus.x, -AcceptedTaxonName.x, -Duration.x, -Growth.Habit.x) %>% 
   rename(SpCode = Accepted.Symbol2,
          NativeStatus = NativeStatus.y,
-         AcceptedSpeciesName = AcceptedSpeciesName.y,
+         AcceptedTaxonName = AcceptedTaxonName.y,
          Duration = Duration.y,
          Growth.Habit = Growth.Habit.y) %>% 
   left_join(status) %>%
@@ -722,7 +722,7 @@ LP: It seems to me that this is not the way to go. The "NOMATCH" codes are for b
 Checking whether there are Species with multiple exotic status: NONE!
 ```{r}
 DataBase %>%
-  group_by(Zone, SpCode, AcceptedSpeciesName) %>%
+  group_by(Zone, SpCode, AcceptedTaxonName) %>%
   summarize(nStatus = n_distinct(NativeStatus)) %>%
   filter(nStatus > 1)
 ```
@@ -1055,7 +1055,7 @@ DataBase %>%
   distinct()
 
 DataBase %>% 
-  filter(Plot == "FIA_1976", #OriginalPlot number == 24023611010478
+  filter(Plot == "FIA_1976", #Original.Plot number == 24023611010478
          !is.na(PctCov)) # all NA for this plot
 #all others belong to NWCA dataset. The plots have only one or a few species that there was no cover recorded, 
 #although the species were recorded. for example
@@ -1067,7 +1067,7 @@ DataBase %>%
 
 # drop this FIA plot with all NAs for cover
 DataBase <- DataBase %>%
-  filter(OriginalPlot != "24023611010478")
+  filter(Original.Plot != "24023611010478")
 
 DataBase %>%
   filter(is.na(PctCov)) %>%
@@ -1090,7 +1090,7 @@ DataBase <- DataBase %>%
 ```
 
 # Quality checks done by Kristen
-+ One spp per year per plot
++ One spp per year per plot (via SpCode)
 ```{r}
 duplicates <- DataBase %>% # time consuming
   group_by(Dataset, Plot, SpCode, Year) %>% 
@@ -1123,50 +1123,62 @@ table(duplicatesNoNA$Dataset)
 # manually fix some inconsistencies I found in the datasets
 DataBase <- DataBase %>% 
   mutate(#fixes error in VNHP
-         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GABO2", 
-                                      "Galium circaezans", AcceptedSpeciesName),
-         SpCode = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GABO2", "GACI2", SpCode),
+         AcceptedTaxonName = ifelse(Original.TaxonName == "Galium circaezans" & SpCode=="GABO2", 
+                                      "Galium circaezans", AcceptedTaxonName),
+         SpCode = ifelse(Original.TaxonName == "Galium circaezans" & SpCode=="GABO2", "GACI2", SpCode),
          
          #Fixes errors in NPS
-         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GACIC", 
-                                      "Galium circaezans var. circaezans", AcceptedSpeciesName),
+         AcceptedTaxonName = ifelse(Original.TaxonName == "Galium circaezans" & SpCode=="GACIC", 
+                                      "Galium circaezans var. circaezans", AcceptedTaxonName),
          
-         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Galium circaezans" & SpCode=="GACIH", 
-                                      "Galium circaezans var. hypomalacum", AcceptedSpeciesName),
+         AcceptedTaxonName = ifelse(Original.TaxonName == "Galium circaezans" & SpCode=="GACIH", 
+                                      "Galium circaezans var. hypomalacum", AcceptedTaxonName),
          
-         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Euthamia graminifolia" & SpCode=="EUCA26", 
-                                      "Euthamia graminifolia", AcceptedSpeciesName),
-         SpCode = ifelse(OriginalSpeciesName == "Euthamia graminifolia" & SpCode=="EUCA26", "EUGR5", SpCode),
+         AcceptedTaxonName = ifelse(Original.TaxonName == "Euthamia graminifolia" & SpCode=="EUCA26", 
+                                      "Euthamia graminifolia", AcceptedTaxonName),
+         SpCode = ifelse(Original.TaxonName == "Euthamia graminifolia" & SpCode=="EUCA26", "EUGR5", SpCode),
          
          #fixes error in NEON
-         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Eupatorium capillifolium (Lam.) Small" & SpCode=="EUCA26", 
-                                      "Eupatorium capillifolium", AcceptedSpeciesName),
-         SpCode = ifelse(OriginalSpeciesName == "Eupatorium capillifolium (Lam.) Small" & SpCode=="EUCA26", "EUCA5", SpCode)) 
+         AcceptedTaxonName = ifelse(Original.TaxonName == "Eupatorium capillifolium (Lam.) Small" & SpCode=="EUCA26", 
+                                      "Eupatorium capillifolium", AcceptedTaxonName),
+         SpCode = ifelse(Original.TaxonName == "Eupatorium capillifolium (Lam.) Small" & SpCode=="EUCA26", "EUCA5", SpCode)) 
 
 DataBase <- DataBase %>% # time consuming
   # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
-  group_by(Dataset, Site, Plot, OriginalPlot, Long, Lat, Original.Long, Original.Lat,
-           Year, FuzzedCoord, SampledArea, Zone, NativeStatus, AcceptedSpeciesName, 
+  group_by(Dataset, Site, Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
+           Year, FuzzedCoord, SampledArea, Zone, NativeStatus, AcceptedTaxonName, 
            Duration, Growth.Habit, SpCode) %>% 
-  summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
-            OriginalSpeciesName = dplyr::first(OriginalSpeciesName)) %>% 
+  dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
+            Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
   ungroup() %>% 
   distinct()
 
 DataBase %>%  # time consuming
   group_by(Dataset, Plot, SpCode, Year) %>% 
-  summarise(n_obs = n()) %>% 
+  dplyr::summarise(n_obs = n()) %>% 
   filter(!is.na(SpCode)) %>% 
   filter(n_obs > 1)
   
 ```
 
-+ NA for OriginalSpeciesName
++ One spp per year per plot (via Original.TaxonName)
+```{r}
+duplicates <- DataBase %>% # time consuming
+  group_by(Dataset, Plot, Original.TaxonName, Year) %>% 
+  filter(!is.na(Original.TaxonName)) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 1)
+table(duplicates$Dataset)
+
+# these duplicates are already present in the orginal datasets, assuming the ones who Id them that each entry is a different morphotype, and potentially a distinct species
+```
+
++ NA for Original.TaxonName
 ```{r}
 MissingOrigName<-DataBase %>% 
-  filter(is.na(OriginalSpeciesName)) %>% 
-  select(Dataset, OriginalSpeciesName, SpCode) %>% 
-  group_by(Dataset, OriginalSpeciesName, SpCode) %>% 
+  filter(is.na(Original.TaxonName)) %>% 
+  select(Dataset, Original.TaxonName, SpCode) %>% 
+  group_by(Dataset, Original.TaxonName, SpCode) %>% 
   summarise(n_obs = n())
 
 ## AIM, FIA and NPS ==> total of 14517 observations with no OriginalSpeciesName and SpCpde associated to them. My understand is that they represent unknown species (NEON, for instance had a written of "Unknown Plant" for those, that's why it's not showing up in this summary)
@@ -1198,6 +1210,15 @@ unique(DataBase$Duration)
 
 ```
 
++ creating a Pct Cover column %/m² and duplicating the cover column to Original.
+```{r}
+DataBase <- DataBase %>%
+  mutate(Original.PctCov = PctCov,
+         PctCov = PctCov/SampledArea,
+         Original.SampledArea = SampledArea,
+         SampledArea = 1)
+
+```
 
 # Creating the FULL Database
 ```{r}
@@ -1208,19 +1229,19 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-# write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.rds")
-# write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01252022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01312022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01312022.csv")
 ```
 
-# Creating CIPSA Database
-## Desired columns for CIPSA Database
-Columns to carry forward in combined CIPSA dataset
+# Creating  Database
+## Desired columns for SPCIS Database
+Columns to carry forward in combined SPCIS dataset
 ```{r}
 DesiredColumns2 <- c("Dataset", "Site", 
-                    "Plot", "OriginalPlot", "Long", "Lat",
-                    "Year", "SpCode", "AcceptedSpeciesName", "OriginalSpeciesName", 
-                    "NativeStatus", "Duration", "Growth.Habit",
-                    "PctCov", "FuzzedCoord", "SampledArea", "Zone" 
+                    "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", 
+                    "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
+                    "NativeStatus", "Duration", "GrowthHabit",
+                    "PctCov", "Original.SampledArea", "Zone" 
                     )
 
 ```
@@ -1247,29 +1268,29 @@ AIMALLraresppSyn <- AIMALLrarespp %>%
 # How many rare species in AIM?
 AIMrarespp <- DataBase %>%
   filter(Dataset == "AIM") %>%
-  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
-  filter(AcceptedSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
+  select(SpCode, AcceptedTaxonName, Original.TaxonName) %>%
+  filter(AcceptedTaxonName %in% AIMALLrarespp$ScientificName) %>% 
   distinct()
 glimpse(AIMrarespp)
 
 AIMrarespp2 <- DataBase %>%
   filter(Dataset == "AIM") %>%
-  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
-  filter(AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+  select(SpCode, AcceptedTaxonName, Original.TaxonName) %>%
+  filter(AcceptedTaxonName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
   distinct()
 glimpse(AIMrarespp2)
 
 AIMrarespp3 <- DataBase %>%
   filter(Dataset == "AIM") %>%
-  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
-  filter(OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+  select(SpCode, AcceptedTaxonName, Original.TaxonName) %>%
+  filter(Original.TaxonName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
   distinct()
 glimpse(AIMrarespp3)
 
 AIMrarespp4 <- DataBase %>%
   filter(Dataset == "AIM") %>%
-  select(SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>%
-  filter(OriginalSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
+  select(SpCode, AcceptedTaxonName, Original.TaxonName) %>%
+  filter(Original.TaxonName %in% AIMALLrarespp$ScientificName) %>% 
   distinct()
 glimpse(AIMrarespp4)
 
@@ -1290,84 +1311,85 @@ length(table(AIMplotsrarespp$Plot)) #6293
 ## WVNHP rare species list
 WVNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_WVNHP/WVNHPRareSpecies.xlsx")
 glimpse(WVNHPRareSpecies)
-WVNHPRareSpecies<-WVNHPRareSpecies$OriginalSpeciesName
+WVNHPRareSpecies<-WVNHPRareSpecies$Original.TaxonName
 
 ## VANHP rare species list
 VNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_VNHP/VAspeciestoexclude.xlsx")
 glimpse(VNHPRareSpecies)
 
 #Filtering out rare species
-CIPSADatabase <- DataBase %>% 
+SPCISDatabase <- DataBase %>% 
   #replaces the species original and accepted names, and species codes for NAs
-  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName, NA),
-         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName, NA),
-         AcceptedSpeciesName1 = replace(AcceptedSpeciesName, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName, NA),
-         OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym, NA),
-         SpCode = replace(SpCode, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym, NA),
-         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym |
-                                          Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym, NA)) %>% 
-  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
-         SpCode = replace(SpCode, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
-         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA)) %>%
-  mutate(OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  
-                                          Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
-         SpCode = replace(SpCode, Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies |  
-                            Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
-         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies | 
-                                          Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, NA),
-          OriginalSpeciesName1 = replace(OriginalSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES |  
-                                          Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES, NA),
-         SpCode = replace(SpCode, Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES |  
-                            Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES, NA),
-         AcceptedSpeciesName1 = replace(AcceptedSpeciesName1, Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES | 
-                                          Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES, NA)) %>%
+  mutate(Original.TaxonName1 = replace(Original.TaxonName, Dataset=="AIM" & Original.TaxonName %in% AIMALLrarespp$ScientificName |
+                                          Dataset=="AIM" & AcceptedTaxonName %in% AIMALLrarespp$ScientificName, NA),
+         SpCode = replace(SpCode, Dataset=="AIM" & Original.TaxonName %in% AIMALLrarespp$ScientificName |
+                                          Dataset=="AIM" & AcceptedTaxonName %in% AIMALLrarespp$ScientificName, NA),
+         AcceptedTaxonName1 = replace(AcceptedTaxonName, Dataset=="AIM" & Original.TaxonName %in% AIMALLrarespp$ScientificName |
+                                          Dataset=="AIM" & AcceptedTaxonName %in% AIMALLrarespp$ScientificName, NA),
+         Original.TaxonName1 = replace(Original.TaxonName1, Dataset=="AIM" & Original.TaxonName %in% AIMALLraresppSyn$ScientificNameSynonym |
+                                          Dataset=="AIM" & AcceptedTaxonName %in% AIMALLraresppSyn$ScientificNameSynonym, NA),
+         SpCode = replace(SpCode, Dataset=="AIM" & Original.TaxonName %in% AIMALLraresppSyn$ScientificNameSynonym |
+                                          Dataset=="AIM" & AcceptedTaxonName %in% AIMALLraresppSyn$ScientificNameSynonym, NA),
+         AcceptedTaxonName1 = replace(AcceptedTaxonName1, Dataset=="AIM" & Original.TaxonName %in% AIMALLraresppSyn$ScientificNameSynonym |
+                                          Dataset=="AIM" & AcceptedTaxonName %in% AIMALLraresppSyn$ScientificNameSynonym, NA)) %>% 
+  mutate(Original.TaxonName1 = replace(Original.TaxonName1, Dataset=="WVNHP" & Original.TaxonName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedTaxonName %in% WVNHPRareSpecies, NA),
+         SpCode = replace(SpCode, Dataset=="WVNHP" & Original.TaxonName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedTaxonName %in% WVNHPRareSpecies, NA),
+         AcceptedTaxonName1 = replace(AcceptedTaxonName1, Dataset=="WVNHP" & Original.TaxonName %in% WVNHPRareSpecies |  Dataset=="WVNHP" & AcceptedTaxonName %in% WVNHPRareSpecies, NA)) %>%
+  mutate(Original.TaxonName1 = replace(Original.TaxonName1, Dataset=="VNHP" & Original.TaxonName %in% WVNHPRareSpecies |  
+                                          Dataset=="VNHP" & AcceptedTaxonName %in% WVNHPRareSpecies, NA),
+         SpCode = replace(SpCode, Dataset=="VNHP" & Original.TaxonName %in% WVNHPRareSpecies |  
+                            Dataset=="VNHP" & AcceptedTaxonName %in% WVNHPRareSpecies, NA),
+         AcceptedTaxonName1 = replace(AcceptedTaxonName1, Dataset=="VNHP" & Original.TaxonName %in% WVNHPRareSpecies | 
+                                          Dataset=="VNHP" & AcceptedTaxonName %in% WVNHPRareSpecies, NA),
+          Original.TaxonName1 = replace(Original.TaxonName1, Dataset=="VNHP" & Original.TaxonName %in% VNHPRareSpecies$SPECIES |  
+                                          Dataset=="VNHP" & AcceptedTaxonName %in% VNHPRareSpecies$SPECIES, NA),
+         SpCode = replace(SpCode, Dataset=="VNHP" & Original.TaxonName %in% VNHPRareSpecies$SPECIES |  
+                            Dataset=="VNHP" & AcceptedTaxonName %in% VNHPRareSpecies$SPECIES, NA),
+         AcceptedTaxonName1 = replace(AcceptedTaxonName1, Dataset=="VNHP" & Original.TaxonName %in% VNHPRareSpecies$SPECIES | 
+                                          Dataset=="VNHP" & AcceptedTaxonName %in% VNHPRareSpecies$SPECIES, NA)) %>%
   
-  select(-OriginalSpeciesName, -AcceptedSpeciesName) %>%
-  rename(OriginalSpeciesName = OriginalSpeciesName1,
-  AcceptedSpeciesName = AcceptedSpeciesName1) %>%
+  select(-Original.TaxonName, -AcceptedTaxonName) %>%
+  rename(Original.TaxonName = Original.TaxonName1,
+  AcceptedTaxonName = AcceptedTaxonName1) %>%
+  rename(GrowthHabit = Growth.Habit) %>% 
   dplyr::select(one_of(DesiredColumns2))
 
 # checking if it worked
 ## AIM
-CIPSADatabase %>% 
-  filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
-  count(AcceptedSpeciesName)
-CIPSADatabase %>% 
-  filter(Dataset=="AIM" & AcceptedSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
-count(AcceptedSpeciesName)
+SPCISDatabase %>% 
+  filter(Dataset=="AIM" & AcceptedTaxonName %in% AIMALLrarespp$ScientificName) %>% 
+  count(AcceptedTaxonName)
+SPCISDatabase %>% 
+  filter(Dataset=="AIM" & AcceptedTaxonName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+count(AcceptedTaxonName)
 
-CIPSADatabase %>% 
-  filter(Dataset=="AIM" & OriginalSpeciesName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
-  count(OriginalSpeciesName) 
+SPCISDatabase %>% 
+  filter(Dataset=="AIM" & Original.TaxonName %in% AIMALLraresppSyn$ScientificNameSynonym) %>% 
+  count(Original.TaxonName) 
 
-CIPSADatabase %>% 
-  filter(Dataset=="AIM" & OriginalSpeciesName %in% AIMALLrarespp$ScientificName) %>% 
-  count(OriginalSpeciesName)
+SPCISDatabase %>% 
+  filter(Dataset=="AIM" & Original.TaxonName %in% AIMALLrarespp$ScientificName) %>% 
+  count(Original.TaxonName)
 
 ## WVNHP
-CIPSADatabase %>% 
-  filter(Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies)
-CIPSADatabase %>% 
-  filter(Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies)
+SPCISDatabase %>% 
+  filter(Dataset=="WVNHP" & AcceptedTaxonName %in% WVNHPRareSpecies)
+SPCISDatabase %>% 
+  filter(Dataset=="WVNHP" & Original.TaxonName %in% WVNHPRareSpecies)
 
 ## VNHP
-CIPSADatabase %>% 
-  filter(Dataset=="VNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies) %>% 
-count(AcceptedSpeciesName)
-CIPSADatabase %>% 
-  filter(Dataset=="VNHP" & OriginalSpeciesName %in% WVNHPRareSpecies) %>% 
-  count(OriginalSpeciesName) 
-CIPSADatabase %>% 
-  filter(Dataset=="VNHP" & AcceptedSpeciesName %in% VNHPRareSpecies$SPECIES) %>% 
-count(AcceptedSpeciesName)
-CIPSADatabase %>% 
-  filter(Dataset=="VNHP" & OriginalSpeciesName %in% VNHPRareSpecies$SPECIES) %>% 
-  count(OriginalSpeciesName) 
+SPCISDatabase %>% 
+  filter(Dataset=="VNHP" & AcceptedTaxonName %in% WVNHPRareSpecies) %>% 
+count(AcceptedTaxonName)
+SPCISDatabase %>% 
+  filter(Dataset=="VNHP" & Original.TaxonName %in% WVNHPRareSpecies) %>% 
+  count(Original.TaxonName) 
+SPCISDatabase %>% 
+  filter(Dataset=="VNHP" & AcceptedTaxonName %in% VNHPRareSpecies$SPECIES) %>% 
+count(AcceptedTaxonName)
+SPCISDatabase %>% 
+  filter(Dataset=="VNHP" & Original.TaxonName %in% VNHPRareSpecies$SPECIES) %>% 
+  count(Original.TaxonName) 
 
 # All worked!!!
 ```
@@ -1379,18 +1401,18 @@ Creating a final list of Rare Species handled in the DataBase
 VNHPRareSpecies2 <- VNHPRareSpecies %>% 
   select(SPECIES) %>% 
   left_join(select(tax, Accepted.Symbol, Scientific.Name), by=c("SPECIES"="Scientific.Name")) %>% 
-  mutate(OriginalSpeciesName = SPECIES,
+  mutate(Original.TaxonName = SPECIES,
          Dataset = "VNHP") %>% 
-  rename(AcceptedSpeciesName = SPECIES,
+  rename(AcceptedTaxonName = SPECIES,
          SpCode = Accepted.Symbol) %>% 
-  mutate(AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Boechera serotina", "Arabis serotina", AcceptedSpeciesName),
-         SpCode = ifelse(OriginalSpeciesName == "Boechera serotina", "ARSE9", SpCode),
-         AcceptedSpeciesName = ifelse(OriginalSpeciesName == "Phemeranthus piedmontanus", NA, AcceptedSpeciesName))
+  mutate(AcceptedTaxonName = ifelse(Original.TaxonName == "Boechera serotina", "Arabis serotina", AcceptedTaxonName),
+         SpCode = ifelse(Original.TaxonName == "Boechera serotina", "ARSE9", SpCode),
+         AcceptedTaxonName = ifelse(Original.TaxonName == "Phemeranthus piedmontanus", NA, AcceptedTaxonName))
 ## fixing WVNHP
 WVNHPRareSpecies2 <- FULLDatabase %>% 
-  filter(Dataset=="WVNHP" & AcceptedSpeciesName %in% WVNHPRareSpecies, 
-  Dataset=="WVNHP" & OriginalSpeciesName %in% WVNHPRareSpecies) %>% 
-  select(Dataset, SpCode, AcceptedSpeciesName, OriginalSpeciesName) %>% 
+  filter(Dataset=="WVNHP" & AcceptedTaxonName %in% WVNHPRareSpecies, 
+  Dataset=="WVNHP" & Original.TaxonName %in% WVNHPRareSpecies) %>% 
+  select(Dataset, SpCode, AcceptedTaxonName, Original.TaxonName) %>% 
   distinct()
   
 # FINAL
@@ -1405,8 +1427,8 @@ ListRareSpecies <- finalsAIMrareSpp %>%
 
 ```{r eval=FALSE, include=FALSE}
 #Old code, leaving here in case we need
-# CIPSADatabase <- DataBase.fill %>% 
-  # group_by(OriginalPlot) %>%
+# SPCISDatabase <- DataBase.fill %>% 
+  # group_by(Original.Plot) %>%
   # filter(is.na(OriginalSpeciesName)| # code to keep the plot with NA in the original species name column
   #          !any(OriginalSpeciesName == "Arabis serotina Steele" & Dataset == "WVNHP"),
   #        is.na(OriginalSpeciesName)|
@@ -1432,38 +1454,38 @@ ListRareSpecies <- finalsAIMrareSpp %>%
   # ungroup() 
 
 
-glimpse(CIPSADatabase)
+glimpse(SPCISDatabase)
 ```
 
-### Exporting the CIPSA Database
+### Exporting the SPCIS Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01252022.rds")
-write_csv(CIPSADatabase, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_01252022.csv")
+write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_01312022.rds")
+write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_01312022.csv")
 ```
 
-#### Exporting the CIPSA Database but AIM data only
+#### Exporting the SPCIS Database but AIM data only
 ```{r eval=FALSE, include=FALSE}
 
-CIPSADatabase_AIM <- CIPSADatabase %>% filter(Dataset == "AIM")
+SPCISDatabase_AIM <- SPCISDatabase %>% filter(Dataset == "AIM")
 
-write_rds(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01252022.rds")
-write_csv(CIPSADatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_AIM_01252022.csv")
+# write_rds(SPCISDatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_AIM_01252022.rds")
+# write_csv(SPCISDatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_AIM_01252022.csv")
 ```
 
 # **Summaries**
 ## Number of records
 ```{r}
 # number of records #
-dim(CIPSADatabase) 
+dim(SPCISDatabase) 
 
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   filter(Zone!="MissingCoords", # no coordinates
          !is.na(Year)) %>% # no year
   nrow() 
 
 #number of records per database
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   count(Dataset) %>%
   mutate(status = "All",
@@ -1473,14 +1495,14 @@ CIPSADatabase %>%
 ## Plot summaries
 ```{r}
 # number of plots #
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   select(Plot) %>%
   distinct() %>%
   nrow() 
 
 # number of invaded plots #
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   filter(NativeStatus=="I") %>%
   select(Plot) %>%
@@ -1488,7 +1510,7 @@ CIPSADatabase %>%
   nrow() 
 
 # number of plots  per Dataset#
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, Plot) %>%
   distinct() %>%
@@ -1497,14 +1519,14 @@ CIPSADatabase %>%
          pct = round((n/sum(n))*100,2))
 
 # number of plots with Fuzzed coordinates
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   select(Plot, FuzzedCoord) %>% 
   distinct() %>%
   count(FuzzedCoord) %>% 
   mutate(plotpct = round((n/sum(n))*100,2))
 
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   select(Plot, Zone) %>% 
   distinct() %>%
@@ -1513,7 +1535,7 @@ CIPSADatabase %>%
 ```
 
 ```{r echo=FALSE}
-x<-CIPSADatabase %>%
+x<-SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, Plot) %>%
   distinct() %>%
@@ -1532,7 +1554,7 @@ ggplot(x, aes(x=Dataset, y=n, fill=Dataset)) +
 
 ```{r}
 # number of invaded plots per dataset#
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   filter(NativeStatus=="I") %>%
   select(Dataset, Plot) %>%
@@ -1543,7 +1565,7 @@ CIPSADatabase %>%
 
 ```{r echo=FALSE}
 # number of invaded plots per dataset#
-y<-CIPSADatabase %>%
+y<-SPCISDatabase %>%
   ungroup() %>%
   filter(NativeStatus=="I") %>%
   select(Dataset, Plot) %>%
@@ -1579,7 +1601,7 @@ ggsave("GraphInvadedPlotsperDataset12202021.png", dpi=300)
 
 ```{r}
 # number of plots outside L48 #
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   filter(Zone!="L48",
          Zone!="MissingCoords") %>% 
@@ -1587,7 +1609,7 @@ CIPSADatabase %>%
   distinct() %>%
   nrow() #530 plots (~0.70% of the total)
 
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   filter(Zone!="L48",
          Zone!="MissingCoords") %>% # 
@@ -1599,21 +1621,21 @@ CIPSADatabase %>%
 ## Species and Native status summaries
 ```{r}
 #number of species##
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
     select(SpCode) %>%
   distinct() %>%
   nrow()
 
 #number of species per exotic status##
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   select(SpCode, NativeStatus) %>%
   distinct() %>%
   count(NativeStatus) 
 
 #species with NA exotic status per Dataset#
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, SpCode, NativeStatus) %>%
   filter(is.na(NativeStatus)) %>% # no year
@@ -1622,7 +1644,7 @@ CIPSADatabase %>%
   arrange(n) 
 # number of distinct species with NA per dataset (so, the same species can show up in more than one dataset)
 
-CIPSADatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, SpCode, NativeStatus) %>%
   distinct() %>%
@@ -1636,7 +1658,7 @@ CIPSADatabase %>%
 
 ```{r echo=FALSE}
 ##percent of species exotic status per dataset##
-DatasetNA <- CIPSADatabase %>%
+DatasetNA <- SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, SpCode, NativeStatus) %>%
   distinct() %>%
@@ -1657,23 +1679,23 @@ ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=NativeStatus)) +
 
 ```{r}
 ## Cover of invasive species per dataset
-rangecover<- CIPSADatabase %>%
+rangecover<- SPCISDatabase %>%
   group_by(Dataset, NativeStatus) %>%
   summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
             max = max(PctCov, na.rm = TRUE))
 
 ## Years of data collection ##
-table(CIPSADatabase$Year)
+table(SPCISDatabase$Year)
 
-y<- CIPSADatabase %>%
+y<- SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, Plot, Year) %>%
   distinct() 
 dim(y)
 
 ## number of resampled plots
-x<- CIPSADatabase %>%
+x<- SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, Plot, Year) %>%
   distinct() %>%
@@ -1714,7 +1736,7 @@ glimpse(ecoreg1)
 
 Joining the ecoregion spatial information
 ```{r}
-CIPSADatabaseEco <- CIPSADatabase %>% 
+SPCISDatabaseEco <- SPCISDatabase %>% 
   filter(Zone != "MissingCoords") %>% 
   # getting all data as a sf object
   st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
@@ -1731,7 +1753,7 @@ CIPSADatabaseEco <- CIPSADatabase %>%
 status <- "I"
 
 # All Ecoregions at once
-CIPSADatabaseEco %>% filter(NativeStatus == status,
+SPCISDatabaseEco %>% filter(NativeStatus == status,
                      !is.na(Ecoregion)) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram() + 
   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
@@ -1739,10 +1761,10 @@ CIPSADatabaseEco %>% filter(NativeStatus == status,
   labs(y="Frequency", x = "Non-Native Species Cover (%)") +
   ggsave('figures/AllEcoregionsNN.png', dpi = 300)
 
-table(CIPSADatabaseEco$Ecoregion)
+table(SPCISDatabaseEco$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
-graph1<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph1<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1754,7 +1776,7 @@ graph1<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
-graph2<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "GREAT PLAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1767,7 +1789,7 @@ graph2<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
-graph3<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MARINE WEST COAST FOREST"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1780,7 +1802,7 @@ graph3<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
-graph4<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1792,7 +1814,7 @@ graph4<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
-graph5<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTH AMERICAN DESERTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1805,7 +1827,7 @@ graph5<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
-graph6<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHERN FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1819,7 +1841,7 @@ graph6<-CIPSADatabaseEco %>% filter(NativeStatus == status,
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
-graph7<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph7<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1831,7 +1853,7 @@ graph7<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsNN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
-graph8<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1846,7 +1868,7 @@ graph8<-CIPSADatabaseEco %>% filter(NativeStatus == status,
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
 # TEMPERATE SIERRAS
-graph9<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph9<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "TEMPERATE SIERRAS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1880,7 +1902,7 @@ dev.off()
 status <- "N"
 
 # All Ecoregions at once
-CIPSADatabaseEco %>% filter(NativeStatus == status,
+SPCISDatabaseEco %>% filter(NativeStatus == status,
                      !is.na(Ecoregion)) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram() + 
   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
@@ -1888,10 +1910,10 @@ CIPSADatabaseEco %>% filter(NativeStatus == status,
   labs(y="Frequency", x = "Native Species Cover (%)") +
   ggsave('figures/AllEcoregionsN.png', dpi = 300)
 
-table(CIPSADatabaseEco$Ecoregion)
+table(SPCISDatabaseEco$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
-graph1<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph1<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1903,7 +1925,7 @@ graph1<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
-graph2<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "GREAT PLAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1916,7 +1938,7 @@ graph2<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
-graph3<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MARINE WEST COAST FOREST"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1929,7 +1951,7 @@ graph3<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
-graph4<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1941,7 +1963,7 @@ graph4<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
-graph5<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTH AMERICAN DESERTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1954,7 +1976,7 @@ graph5<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
-graph6<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHERN FORESTS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1968,7 +1990,7 @@ graph6<-CIPSADatabaseEco %>% filter(NativeStatus == status,
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
-graph7<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph7<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1980,7 +2002,7 @@ graph7<-CIPSADatabaseEco %>% filter(NativeStatus == status,
   ggsave('figures/ecoregionsN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
-graph8<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
@@ -1995,7 +2017,7 @@ graph8<-CIPSADatabaseEco %>% filter(NativeStatus == status,
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
 # TEMPERATE SIERRAS
-graph9<-CIPSADatabaseEco %>% filter(NativeStatus == status,
+graph9<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "TEMPERATE SIERRAS"
                      ) %>%  
   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
