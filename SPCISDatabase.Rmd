@@ -20,6 +20,7 @@ This code was adapted from Helen's code when assembling the database for the NCE
 ```{r packages and working directory, echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(readxl)
+detach("package:plyr", unload=TRUE)
 theme_set(theme_classic())
 # setwd('/home/shares/neon-inv/data_paper')
 ```
@@ -444,6 +445,203 @@ Plots to be removed from CVS as they are present in VNHP dataset
 PlotsRemoveVegBank <- c("094-01-0032", "094-01-0053", "094-01-0056")
 ```
 
+Finding resampled plots in CVS database
+```{r}
+# setting the directory with raw files
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+list.files(data_raw)
+
+# importing all the raw files from Bob Peet 
+CVS_plot_data_VAraw <- read_excel(file.path(data_raw, "CVA-VAplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_VA <- CVS_plot_data_VAraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "VA") %>% 
+  left_join(select(CVS_plot_data_VAraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+  
+
+CVS_plot_data_AKraw <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_AK <- CVS_plot_data_AKraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "AK") %>% 
+  left_join(select(CVS_plot_data_AKraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_ALraw <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_AL <- CVS_plot_data_ALraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "AL") %>% 
+  left_join(select(CVS_plot_data_ALraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_FLraw <- read_excel(file.path(data_raw, "CVS-FLplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL) ) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_FL <- CVS_plot_data_FLraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "FL") %>% 
+  left_join(select(CVS_plot_data_FLraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_GAraw <- read_excel(file.path(data_raw, "CVS-GAplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_GA <- CVS_plot_data_GAraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "GA") %>% 
+  left_join(select(CVS_plot_data_GAraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_MSraw <- read_excel(file.path(data_raw, "CVS-MSplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_MS <- CVS_plot_data_MSraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "MS") %>% 
+  left_join(select(CVS_plot_data_MSraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_NCCoastalraw <- read_excel(file.path(data_raw, "CVS-NCCoastlplainPlots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_NCCoastal <- CVS_plot_data_NCCoastalraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "NC_Coastal") %>% 
+  left_join(select(CVS_plot_data_NCCoastalraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_NCFringeraw <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_NCFringe <- CVS_plot_data_NCFringeraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "NC_Fringe") %>% 
+  left_join(select(CVS_plot_data_NCFringeraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_NCMtsraw <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_NCMts <- CVS_plot_data_NCMtsraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "NCMts") %>% 
+  left_join(select(CVS_plot_data_NCMtsraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode),
+         !is.na(Date_prev))
+
+
+CVS_plot_data_NCPPraw <- read_excel(file.path(data_raw, "CVS-NCPiedmontPlots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_NCPP <- CVS_plot_data_NCPPraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "NCPP") %>% 
+  left_join(select(CVS_plot_data_NCPPraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_Proj129raw <- read_excel(file.path(data_raw, "CVS-Project129_new.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_Proj129 <- CVS_plot_data_Proj129raw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "Proj129") %>% 
+  left_join(select(CVS_plot_data_Proj129raw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_SCraw <- read_excel(file.path(data_raw, "CVS-SCplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_SC <- CVS_plot_data_SCraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "SC") %>% 
+  left_join(select(CVS_plot_data_SCraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode)) %>% 
+  # plot 013-0K-0011 is at the edge of SC and GA. In the oldest sampling (1990) it was recorded in the GA data, now is in SC
+  left_join(select(CVS_plot_data_GAraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  mutate(Date_prev = if_else(is.na(Date_prev.y), Date_prev.x, Date_prev.y)) %>% 
+  select(-Date_prev.y, -Date_prev.x)
+
+
+CVS_plot_data_TNraw <- read_excel(file.path(data_raw, "CVS-TNplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_TN <- CVS_plot_data_TNraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "TN") %>% 
+  left_join(select(CVS_plot_data_TNraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVS_plot_data_TXraw <- read_excel(file.path(data_raw, "CVS-TXplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) %>% 
+  mutate(Date_prev = `Observation Start Date`,
+         Code_Prev = `Author Observation Code`)
+
+CVS_plot_data_TX <- CVS_plot_data_TXraw %>% 
+  select('Author Observation Code', previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "TX") %>% 
+  left_join(select(CVS_plot_data_TXraw, c(Code_Prev, Date_prev)), by = c("previousObsCode" = "Code_Prev")) %>% 
+  filter(!is.na(previousObsCode))
+
+
+CVSresampled <- rbind(CVS_plot_data_VA, CVS_plot_data_AK, CVS_plot_data_AL, CVS_plot_data_FL, 
+                      CVS_plot_data_GA, CVS_plot_data_MS, CVS_plot_data_NCCoastal, CVS_plot_data_NCFringe,
+                      CVS_plot_data_NCMts, CVS_plot_data_NCPP, CVS_plot_data_Proj129, CVS_plot_data_SC, 
+                      CVS_plot_data_TN, CVS_plot_data_TX) 
+
+# creates a list of plots to remove as they were sampled in the same year.
+# keeps the plots that were sampled later in the growing season
+CVSresampled <- CVSresampled %>% 
+  mutate(SameYear = ifelse(lubridate::year(`Observation Start Date`) == lubridate::year(Date_prev), 1, 0),
+         LaterMonth = ifelse(SameYear ==1 & month(`Observation Start Date`) > month(Date_prev), 1,
+                             ifelse(SameYear ==0, NA, 0)),
+         PlotsRemove  = ifelse(LaterMonth == 1, previousObsCode, `Author Observation Code`)) %>% 
+  group_by(Source) %>% 
+  mutate(NewPlotID = ifelse(SameYear==0, paste0("CVS_", Source, row_number()), NA)) %>% 
+  ungroup()
+#list of plots sampled twice in the same year. These ones were sampled earlier in the season.
+CVSRemove <- CVSresampled %>% 
+  select(PlotsRemove) %>% 
+  filter(!is.na(PlotsRemove))
+#list of plots resampled [in different years]
+CVSresampled2 <- CVSresampled %>%
+  select(`Author Observation Code`, previousObsCode, NewPlotID) %>% 
+  gather(key = "PlotType", value = "Original.Plot", -NewPlotID) %>% 
+  select(-PlotType)
+
+glimpse(CVSRemove)
+glimpse(CVSresampled2)
+
+```
+
 Data wrangling and column selection
 ```{r}
 VEGBANK <- VEGBANK %>% 
@@ -454,8 +652,10 @@ VEGBANK <- VEGBANK %>%
          SampledArea = ifelse(Dataset == "NCVS_WV" & SampledArea == 0, NA, SampledArea),
          Original.Plot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
   #line below removes the 3 plots that have the same information in VNHP dataset
-  filter(!VegBankUniqueID %in% PlotsRemoveVegBank) %>% 
-  rename(Plot = UniqueID,
+  filter(!Original.Plot %in% CVSRemove$PlotsRemove) %>% 
+  left_join(CVSresampled2, by = "Original.Plot") %>% 
+  mutate(Plot = ifelse(is.na(NewPlotID), Original.Plot, NewPlotID)) %>% 
+  rename(#Plot = UniqueID,
          Original.Lat = Lat,
          Original.Long = Long,
          AcceptedTaxonName = bestname,
@@ -469,7 +669,9 @@ VEGBANK <- VEGBANK %>%
          Year = ifelse(Year==2064, 1964,
                        ifelse(Year==2063, 1963, Year)),
          # change the beginning of the name of the plot from VEGBANK to CVS
-         Plot = str_replace(Plot, "^VEGBANK_", "CVS_")) %>% 
+         # Plot = str_replace(Plot, "^VEGBANK_", "CVS_")
+         # LP: removing the two above lines completely. I will keep the original plot codes as much as possible
+         ) %>% 
   dplyr::select(one_of(DesiredColumns))
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
@@ -1501,7 +1703,7 @@ SPCISDatabase %>%
   distinct() %>%
   nrow() 
 
-# number of invaded plots #
+# number of plots with at least one introduced species#
 SPCISDatabase %>%
   ungroup() %>%
   filter(NativeStatus=="I") %>%
@@ -1564,6 +1766,18 @@ SPCISDatabase %>%
 ```
 
 ```{r echo=FALSE}
+
+library(scales)
+# showing pallete of color
+show_col(viridis_pal(option = "plasma")(9)) 
+
+x<-SPCISDatabase %>%
+  ungroup() %>%
+  select(Dataset, Plot) %>%
+  distinct() %>%
+  count(Dataset) %>%
+  mutate(status = "All",
+         pct = round((n/sum(n))*100,2))
 # number of invaded plots per dataset#
 y<-SPCISDatabase %>%
   ungroup() %>%
@@ -1571,10 +1785,10 @@ y<-SPCISDatabase %>%
   select(Dataset, Plot) %>%
   distinct() %>%
   count(Dataset) %>%
-  rename(invaded = n)
+  rename(`at least one introduced species` = n)
 xx<-x %>%
   left_join(y) %>%
-  mutate(uninvaded = n-invaded) %>%
+  mutate(`native only` = n-`at least one introduced species`) %>%
   select(-n, -status) %>%
   gather("status", "n", 3:4)
 
@@ -1585,7 +1799,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
   theme_bw()+
   scale_x_discrete(expand = c(0,0)) +
   scale_y_continuous(breaks=seq(0,27000,5000)) +
-  scale_fill_viridis_d(option="B") + theme_minimal() +
+  scale_fill_viridis_d(option="plasma") + theme_minimal() +
   ylab("Number of plots") + theme(axis.title.x = element_blank(),
                                   legend.position = c(0.87, 0.87),
                                   legend.title = element_blank(),
@@ -1596,7 +1810,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("GraphInvadedPlotsperDataset12202021.png", dpi=300)
+ggsave("GraphInvadedPlotsperDataset02012022.png", dpi=300)
 ```
 
 ```{r}
@@ -1699,10 +1913,32 @@ x<- SPCISDatabase %>%
   ungroup() %>%
   select(Dataset, Plot, Year) %>%
   distinct() %>%
-  group_by(Dataset,Plot) %>% 
+  group_by(Dataset, Plot) %>% 
   count(Plot, sort = T) %>% 
   filter(n>1) 
-dim(x)
+unique(x$Dataset)
+dim(x) ## okay, but let me confirm in te next code chunck based on the Original Lat/Long
+
+xx<- DataBase %>%
+  ungroup() %>%
+  select(Dataset, Original.Lat, Original.Long, Year) %>%
+  distinct() %>%
+  group_by(Dataset, Original.Lat, Original.Long) %>% 
+  # I'm unsure why, but my summarise is not working properly. There are resampled 
+  # CVS plots that are not being grouped, even though they have the same coordinates
+  dplyr::summarise(n_obs = n()) %>% 
+  filter(n_obs>1) %>% 
+  filter(!is.na(Original.Lat)) %>% 
+  #LP: talked to Eve, and it's a precision issue. Should not worry about it
+  filter(Dataset != "NPS") %>% 
+  # it's correct, confirmed in the original data
+  filter(Dataset != "IL_CTAP",
+         Dataset != "AIM") %>% 
+  # it's correct, the renaming of resampled plots was done based on the aggregate function Jeff C built
+  filter(Dataset != "FIA") %>%  
+  left_join(distinct(select(DataBase, c("Original.Lat", "Original.Long","Year","Plot","Original.Plot"))))
+dim(xx)
+unique(xx$Dataset)
 
 ```
 
