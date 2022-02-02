@@ -580,26 +580,28 @@ sh_df <-  select(shrub, siteID, eventID, plotID, individualID=groupID, taxonID, 
 
 ####Pull in the non woody data
 
-vst_nonWoodDataProductID=as.character('DP1.10045.001')
-
-
-nonWood <- loadByProduct(dpID=vst_nonWoodDataProductID,
-                        site = if(exists('sitesSpecified')){
-                          sitesSpecified} else {
-                            'all'},
-                        package = "basic",
-                        check.size = FALSE)
+# vst_nonWoodDataProductID=as.character('DP1.10045.001')
+# 
+# 
+# nonWood <- loadByProduct(dpID=vst_nonWoodDataProductID,
+#                         site = if(exists('sitesSpecified')){
+#                           sitesSpecified} else {
+#                             'all'},
+#                         package = "basic",
+#                         check.size = FALSE)
 
 ##unlist to create separate dataframes
-nonWoodyPerPlot <- nonWood$vst_perplotperyear
-nonWoodyPerInd <- nonWood$nst_perindividual
+nonWoodyPerPlot <- df$vst_perplotperyear
+nonWoodyPerInd <- df$`vst_non-woody`
 
 ##evaluate and process non woody data in the vst data product
-nonWoodyPlot_df <- select(nonWoodyPerPlot, domainID, siteID, plotType, plotID, nlcdClass, eventID, cactiPresent,
-                          cactiAbsentList, fernsPresent, fernsAbsentList, yuccasPresent,
-                          yuccasAbsentList, palmsPresent, palmsAbsentList, ocotillosPresent, ocotillosAbsentList,
-                          xerophyllumPresent, xerophyllumAbsentList, nestedSubplotAreaOther, totalSampledAreaOther, 
+nonWoodyPlot_df <- select(nonWoodyPerPlot, domainID, siteID, plotType, plotID, nlcdClass, eventID,
+                          nonWoodyTargetTaxaPresent, 
+                          # nestedSubplotAreaOther, totalSampledAreaOther, 
                           remarks)
+
+nonWoodyPlot_df <- nonWoodyPlot_df  %>% 
+  mutate(totalSampledAreaOther = NA)
 
 print(c("this dataset contains the following growth forms:", unique(nonWoodyPerInd$growthForm)))
 
@@ -652,6 +654,8 @@ countTax <- df_outBoth%>%
 # calculate sampled area, the relevant sampling area depends on the growth form being considered
 countTax$plotAreaSampled <- NA
 countTax$plotAreaSampled <- as.numeric(countTax$plotAreaSampled)
+
+print(c("this dataset contains the following growth forms:", unique(countTax$growthForm)))
 
 for(i in 1:nrow(countTax)){
   countTax$plotAreaSampled[i] <- ifelse(countTax$growthForm[i] %in%c("multi-bole tree", "single bole tree"),
@@ -1053,11 +1057,11 @@ NEONdata_flatted <- NEON_temp %>%
               values_from = plotAreaSampled,
               values_fill = list(plotAreaSampled = 0)) %>%
   dplyr::select(-row, -metric) %>% 
-  dplyr::rename(small_tree = 24,
-         single_bole_tree = 27,
-         single_shrub = 22,
-         small_shrub = 25, 
-         multi_bole_tree = 28) %>%
+  dplyr::rename(small_tree = `small tree`,
+         single_bole_tree = `single bole tree`,
+         single_shrub = `single shrub`,
+         small_shrub = `small shrub`, 
+         multi_bole_tree = `multi-bole tree`) %>%
   #creates a dummy variable for vegetation structure to count in how many plots that data was collected from. Although for the veg str they differ in size
   dplyr::mutate(total.vegstr = ifelse(year_vegstr == 0, 0, 1)) %>%
   #mutate(subplotID = if_else(is.na(subplotID), 0, 1))
@@ -1077,8 +1081,8 @@ NEONdata_flatted <- NEON_temp %>%
     single_shrub_area = sum(single_shrub),
     small_shrub_area = sum(small_shrub),
     multi_bole_tree_area = sum(multi_bole_tree),
-    palm_area = sum(palm),
-    yucca_area = sum(yucca), 
+    # palm_area = sum(palm),
+    # yucca_area = sum(yucca), 
     year_div = max(year_div),
     year_vegstr = max(year_vegstr),
     herbaceous_area = ifelse(year_div>0 & year_vegstr>0, herbaceous_area_temp-1, herbaceous_area_temp),
@@ -1099,24 +1103,33 @@ NEONdata_flatted <- NEON_temp %>%
          single_shrub_area = replace(single_shrub_area, single_shrub_area == 0, NA),
          small_shrub_area = replace(small_shrub_area, small_shrub_area == 0, NA),
          multi_bole_tree_area = replace(multi_bole_tree_area, multi_bole_tree_area == 0, NA),
-         palm_area = replace(palm_area, palm_area == 0, NA),
-         yucca_area = replace(yucca_area, yucca_area == 0, NA),
+         # palm_area = replace(palm_area, palm_area == 0, NA),
+         # yucca_area = replace(yucca_area, yucca_area == 0, NA),
          year_div = replace(year_div, year_div == 0, NA),
          year_vegstr = replace(year_vegstr, year_vegstr == 0, NA),
          Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol),
-         SampledArea = ifelse(plotType == "distributed", 400, 800),
+         # SampledArea = ifelse(plotType == "distributed", 400, 800),
+         # gets the maximum area sampled for that particular observation (because to get the final cover value, 
+         # the %/m² was summed across layers)
+         SampledAreaVST = pmax(small_tree_area, sapling_area, single_bole_tree_area, liana_area,
+                                     single_shrub_area, small_shrub_area, multi_bole_tree_area, na.rm = TRUE),
+         SampledArea = ifelse(herbaceous_total_area == 0, SampledAreaVST, herbaceous_total_area),
+         # Y = layers were sampled for this obs; "N" = only herbaceous cover was sampled
+         Strata = ifelse(herbaceous_total_area == 0, "Y", "N"),
          year = ifelse(is.na(year_vegstr), year_div, year_vegstr)) %>%
   ungroup() %>%
-  dplyr::select(-herbaceoustemp_area, -herbaceous_area_temp) %>%
+  dplyr::select(-herbaceoustemp_area, -herbaceous_area_temp, -SampledAreaVST) %>%
   #dplyr::rename(Accepted.Symbol = Accepted.Symbol2) %>%
   #dplyr::rename(Accepted.Symbol = taxonID) %>%
-  dplyr::select(dataset, siteID, plotID, decimalLongitude, decimalLatitude, 
-         year, 
-         Accepted.Symbol, Native.Status, GrowthForm, AccSpeciesName, bestname,
-         scientificName, #Original species names from NEON
-         taxonID2,
-         plotCover,
-         SampledArea) %>%
+  ###IMPORTANT# dplyr::select(dataset, siteID, plotID, decimalLongitude, decimalLatitude,
+  #        year,
+  #        Accepted.Symbol, Native.Status, GrowthForm, AccSpeciesName, bestname,
+  #        scientificName, #Original species names from NEON
+  #        taxonID2,
+  #        plotCover,
+  #        SampledArea,
+  #        vst_status,
+  #        Strata) %>%
   #dplyr::select(-taxonID2) %>%
   ungroup() %>%
   left_join(vstStatus, by = "siteID")
