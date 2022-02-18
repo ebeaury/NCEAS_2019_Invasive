@@ -18,7 +18,8 @@ editor_options:
 This code was adapted from Helen's code when assembling the database for the NCEAS sub-groups to use. 
 
 ```{r packages and working directory, echo=FALSE, message=FALSE, warning=FALSE}
-library(tidyverse)
+library(tidyverse) 
+library(lubridate) # when library tidyverse, lubridate is not turning on
 library(readxl)
 detach("package:plyr", unload=TRUE)
 theme_set(theme_classic())
@@ -137,6 +138,7 @@ NEON <- NEON %>%
          Original.Plot = as.character(plotID),
          Original.Long = decimalLongitude,
          Original.Lat = decimalLatitude, 
+         ## area sampled needs to be fixed in the original data, so then we can have the original sampled area
          SampledArea = 1) %>%
   rename(Dataset = dataset,
          Site = siteID,
@@ -640,12 +642,31 @@ CVSresampled2 <- CVSresampled %>%
 glimpse(CVSRemove)
 glimpse(CVSresampled2)
 
+# 602 plots are present in both datasheets of NCFringe and NCCoastal
+# and they contain the same species and associated information
+
+NCCoastal <- CVS_plot_data_NCCoastalraw %>% 
+  select('Author Observation Code', province, previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "VEGBANK_NC_Coastal",
+         year= lubridate::year(`Observation Start Date`))
+
+NCFringe <- CVS_plot_data_NCFringeraw %>% 
+  select('Author Observation Code', province, previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "VEGBANK_NC_fringe",
+         year= lubridate::year(`Observation Start Date`))
+
+NCTotal <- NCCoastal %>% left_join(NCFringe, by = 'Author Observation Code') %>% 
+  filter(!is.na(Source.y)) %>% 
+  mutate(UniqueID = paste0("VEGBANK_NC_Coastal_", `Author Observation Code`))
+  
 ```
 
 Data wrangling and column selection
 ```{r}
 VEGBANK <- VEGBANK %>% 
   left_join(select(WVplotArea, UniqueID, PlotArea), by="UniqueID") %>% 
+  #remove duplicates from NCCoastal, leaving the ones in the NCFringe dataset
+  filter(!UniqueID %in% NCTotal$UniqueID) %>% 
   #extracting the first letters from the plotID to use as site info for WVNHP
   mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), NA),
          SampledArea = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
@@ -678,6 +699,24 @@ setdiff(names(VEGBANK), DesiredColumns)
 glimpse(VEGBANK)
 ```
 
+Code below finds plots with same original coordinates but with distinct plotIDs (n>1) and plots with same original coordinates but with distinct plotIDs and different year of sampling (unique_year>1)
+```{r eval=FALSE, include=FALSE}
+##DON'T RUN
+WVNHP <- filter(VEGBANK, Dataset == "WVNHP")
+
+WVNHPissues <- WVNHP %>% 
+  group_by(Year, Original.Long, Original.Lat) %>% 
+  distinct(Original.Plot) %>%
+  mutate(Original.Long = as.character(Original.Long),
+         Original.Lat = as.character(Original.Lat)) %>% 
+  group_by(Original.Long, Original.Lat) %>% 
+  add_tally() %>% 
+  mutate(unique_year = n_distinct(Year)) %>% 
+  filter(n>1) %>% 
+  arrange(Original.Long) %>% 
+  write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify.csv")
+```
+
 
 ## VANHP ##
 Imports the file
@@ -691,7 +730,7 @@ Data wrangling and column selection
 ```{r}
 VNHP <- VNHP %>%
   mutate(FuzzedCoord = "Y", 
-         Site = "NA",
+         Site = str_sub(Plot, 1, 4),
          Original.Long = Long,
          Original.Lat = Lat,
          Long = round(Long, 1),
@@ -761,7 +800,8 @@ IL_CTAP <- IL_CTAP %>%
          AcceptedTaxonName = bestname,
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
-         Year = PYear) %>%
+         Year = PYear,
+         Original.SampledArea = SampledAreaOriginal) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(IL_CTAP))
@@ -1372,7 +1412,7 @@ duplicates <- DataBase %>% # time consuming
   filter(n_obs > 1)
 table(duplicates$Dataset)
 
-# these duplicates are already present in the orginal datasets, assuming the ones who Id them that each entry is a different morphotype, and potentially a distinct species
+# these duplicates are already present in the original datasets, assuming the ones who Id them that each entry is a different morphotype, and potentially a distinct species
 ```
 
 + NA for Original.TaxonName
@@ -1416,8 +1456,8 @@ unique(DataBase$Duration)
 ```{r}
 DataBase <- DataBase %>%
   mutate(Original.PctCov = PctCov,
-         PctCov = PctCov/SampledArea,
-         Original.SampledArea = SampledArea,
+         PctCov = ifelse(Dataset == "NEON", PctCov, PctCov/SampledArea),
+         Original.SampledArea = ifelse(Dataset == "IL_CTAP", Original.SampledArea, SampledArea),
          SampledArea = 1)
 
 ```
@@ -1431,8 +1471,8 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01312022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_01312022.csv")
+# write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02172022.rds")
+# write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02172022.csv")
 ```
 
 # Creating  Database
@@ -1661,8 +1701,8 @@ glimpse(SPCISDatabase)
 
 ### Exporting the SPCIS Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_01312022.rds")
-write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_01312022.csv")
+# write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02172022.rds")
+# write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02172022.csv")
 ```
 
 #### Exporting the SPCIS Database but AIM data only
