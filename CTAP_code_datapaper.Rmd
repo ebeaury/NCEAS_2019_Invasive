@@ -225,7 +225,7 @@ IL_CTAP <- forestfinal %>%
   #
   group_by(Dataset, SiteID, Transect, PYear, OriginalSpeciesName, 
            layer, RecordedStrata, SampledArea) %>% 
-  # this is the column I need to sum
+  # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
   dplyr::summarise(PctCov = sum(PctCov),
                    # different trees were sampled in the different sampled area, I am keeping the first one
                    SampledAreaOriginal = dplyr::first(SampledAreaOriginal)) %>% 
@@ -422,6 +422,6 @@ glimpse(IL_CTAP2)
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper01202022.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper02222022.csv"))
 ```
 
