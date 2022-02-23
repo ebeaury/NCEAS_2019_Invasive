@@ -95,7 +95,9 @@ NWCA <- NWCA %>%
   group_by(UID, PLOT) %>%
   mutate(UniquePlotID = paste0("NWCA_", cur_group_id()),
          #https://www.epa.gov/sites/default/files/2013-11/documents/fom_with_errata.pdf
-         PlotArea_m2 = 100)
+         PlotArea_m2 = 100) %>% 
+  #removes true absences as no other dataset has them.
+  filter(COVER > 0)
 glimpse(NWCA)
 
 ```
@@ -157,6 +159,6 @@ NWCA2 %>% filter(Accepted.Symbol=="BRIN2")
 
 Exporting final dataset
 ```{r}
-write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_01242022.csv"))
+write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_02222022.csv"))
 ```
 
