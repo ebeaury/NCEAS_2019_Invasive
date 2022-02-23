@@ -34,7 +34,7 @@ DesiredColumns <- c("Dataset", "Site",
                     "Plot", "Original.Plot", "Long", "Lat", "Original.Long", "Original.Lat",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Original.PctCov", "PctCov", "FuzzedCoord", "Original.SampledArea", "SampledArea", 
-                    "Duration", "Growth.Habit" 
+                    "Duration", "Growth.Habit", "RecordedStrata", "SamplingMethod"
                     )
 
 ```
@@ -73,7 +73,7 @@ tax <- tax %>%
 ## NEON ##
 Imports the file
 ```{r}
-NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210810.csv")
+NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220223.csv")
 glimpse(NEON) 
 ```
 
@@ -118,15 +118,6 @@ NEON <- NEON %>%
          Accepted.Symbol = ifelse(!is.na(Accepted.SymbolNEW), Accepted.SymbolNEW, Accepted.Symbol),
          AccSpeciesName = ifelse(!is.na(genus), genus, AccSpeciesName))  
 
-
-
-## NEXT STEPS:
-# filter the Original.TaxonName with sp. or spp. by the end --> create a new object
-# remove the "ceae sp."
-# separate the genus from sp/spp, keep the orginal column
-# find the USDA species codes for them based on tax
-# left_join the new SpCodes and mutate the "old" SpCode column to keep the new match
-
 ```
 
 Data wrangling and column selection
@@ -137,9 +128,10 @@ NEON <- NEON %>%
          year = ifelse(siteID == "ABBY" | siteID == "SJER" | siteID == "WREF", 2017, year),
          Original.Plot = as.character(plotID),
          Original.Long = decimalLongitude,
-         Original.Lat = decimalLatitude, 
-         ## area sampled needs to be fixed in the original data, so then we can have the original sampled area
-         SampledArea = 1) %>%
+         Original.Lat = decimalLatitude,
+         # it's 1 because the %cover is on the m² basis.
+         SampledArea = 1,
+         RecordedStrata = ifelse(vst_status == "div_vst", "Y", "N")) %>%
   rename(Dataset = dataset,
          Site = siteID,
          Plot = plotID,
@@ -152,9 +144,6 @@ NEON <- NEON %>%
          PctCov = plotCover,
          Original.TaxonName = scientificName) %>%
   select(one_of(DesiredColumns), 
-         #next line of code carries whether cover of a particular species in a plot was based on basal areas and/or canopy cover (sum)
-         # if 0 in both, it came from the 1m2 plots
-         # NEONvst_status = if a plot should have veg structure data, but it was not collected yet
          contains("NEON", ignore.case = FALSE))
 
 setdiff(DesiredColumns, names(NEON))
@@ -407,19 +396,18 @@ NPS <- NPS %>%
   mutate(Original.Plot = as.character(Plot),
          Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
          Original.Lat = Lat,
-         Original.Long = Long) %>% 
+         Original.Long = Long,
+         SampledArea = as.double(Area_sampled)) %>% 
   select(-Plot) %>%
   rename(NativeStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
-         SampledArea =  Area_sampled,
          Plot = UniqueID,
          FuzzedCoord = RealCoords,
          AcceptedTaxonName = bestname,
          Original.TaxonName = OriginalName,
          Growth.Habit = GrowthForm) %>%
-  select(one_of(DesiredColumns)) %>%
-  mutate(SampledArea = as.double(SampledArea))
+  select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(NPS))
 setdiff(names(NPS), DesiredColumns)
@@ -718,7 +706,7 @@ WVNHPissues <- WVNHP %>%
 ```
 
 
-## VANHP ##
+## VNHP ##
 Imports the file
 ```{r}
 VNHP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/VANHP_datapaper_06_16_21_EB.csv", 
@@ -751,7 +739,7 @@ glimpse(VNHP)
 ## NWCA ##
 Imports the file
 ```{r}
-NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_01242022.csv", 
+NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_02222022.csv", 
                   na = c('', 'NA')) 
 glimpse(NWCA)
 ```
@@ -782,7 +770,7 @@ glimpse(NWCA)
 ## IL_CTAP ##
 Imports the file
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper01202022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper02222022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
@@ -801,7 +789,8 @@ IL_CTAP <- IL_CTAP %>%
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          Year = PYear,
-         Original.SampledArea = SampledAreaOriginal) %>%
+         Original.SampledArea = SampledAreaOriginal,
+         Original.TaxonName = OriginalSpeciesName) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(IL_CTAP))
@@ -1412,6 +1401,7 @@ duplicates <- DataBase %>% # time consuming
   filter(n_obs > 1)
 table(duplicates$Dataset)
 
+# RECHECK THIS, AND MAKE SURE THESE ARE NOT SHOWING UP ANYMORE
 # these duplicates are already present in the original datasets, assuming the ones who Id them that each entry is a different morphotype, and potentially a distinct species
 ```
 
@@ -1456,9 +1446,26 @@ unique(DataBase$Duration)
 ```{r}
 DataBase <- DataBase %>%
   mutate(Original.PctCov = PctCov,
-         PctCov = ifelse(Dataset == "NEON", PctCov, PctCov/SampledArea),
-         Original.SampledArea = ifelse(Dataset == "IL_CTAP", Original.SampledArea, SampledArea),
-         SampledArea = 1)
+         # NEON cover is already given on the basis of cover/m²
+         PctCov = ifelse(Dataset == "NEON", PctCov, 
+                         #Some datasets (NPS & XX) plots we couldn't retrieve the SampledArea (there were 0, I changed to NA as 0 does not make sense)
+                         #for these plots, I am keeping the cover as they are, and I point that out in the paper description
+                         ifelse(is.na(Original.SampledArea), PctCov, PctCov/SampledArea)),
+         ## check if only for IL_CTAP I have a original sampled area column. I think so
+         Original.SampledArea = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", Original.SampledArea, SampledArea),
+         SampledArea = 1,
+         SamplingMethod = ifelse(Dataset == "AIM", "Line-point intercept transect",
+                                 ifelse(Dataset == "FIA", "Circular plots in a fixed pattern",
+                                        ifelse(Dataset == "IL_CTAP", "Transect",
+                                               ifelse(Dataset == "NPS", "Square or retangle plot",
+                                                      ifelse(Dataset == "NWCA", "Square plot", "Nested plot"))))))
+
+#summary of how many plots per dataset the original sampled area couldn't be retrieved.
+DataBase %>% 
+  filter(is.na(Original.SampledArea)) %>% 
+  select(Dataset, Plot) %>% 
+  disitnct() %>% 
+  count(Plot)
 
 ```
 
@@ -1480,10 +1487,10 @@ glimpse(FULLDatabase)
 Columns to carry forward in combined SPCIS dataset
 ```{r}
 DesiredColumns2 <- c("Dataset", "Site", 
-                    "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", 
+                    "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Duration", "GrowthHabit",
-                    "PctCov", "Original.SampledArea", "Zone" 
+                    "PctCov", "RecordedStrata", "Original.SampledArea", "SamplingMethod"
                     )
 
 ```
@@ -1773,6 +1780,14 @@ SPCISDatabase %>%
   select(Plot, Zone) %>% 
   distinct() %>%
   count(Zone)
+
+# number of plots with no Original sampled Area 
+#SPCISDatabase of how many plots per dataset the original sampled area couldn't be retrieved.
+SPCISDatabase %>% 
+  filter(is.na(Original.SampledArea)) %>% 
+  select(Dataset, Plot) %>% 
+  disitnct() %>% 
+  count(Plot)
 
 ```
 
