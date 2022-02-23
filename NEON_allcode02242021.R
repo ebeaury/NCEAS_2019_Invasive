@@ -580,6 +580,9 @@ sh_df <-  select(shrub, siteID, eventID, plotID, individualID=groupID, taxonID, 
 
 ####Pull in the non woody data
 
+#code below is not working, even when I select which Release I want. 
+#Downloaded the data through the website and imported into the server, but the files I need are empty
+# Emailed Courtney again to try to find a solution
 # vst_nonWoodDataProductID=as.character('DP1.10045.001')
 # 
 # 
@@ -588,20 +591,39 @@ sh_df <-  select(shrub, siteID, eventID, plotID, individualID=groupID, taxonID, 
 #                           sitesSpecified} else {
 #                             'all'},
 #                         package = "basic",
-#                         check.size = FALSE)
+#                         check.size = FALSE, 
+#                         release = "RELEASE-2021")
+
+nonWood <- neonUtilities::loadByProduct(
+  dpID = "DP1.10045.001",
+  site = "all",
+  startdate = "2015-01",
+  enddate = "2019-12",
+  package = "basic",
+  release = "RELEASE-2021",
+  check.size = FALSE,
+  token = Sys.getenv('NEON_PAT')
+)
+
+# nonWood <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NEON/XXXX.csv")
+
+#Courtney response "Use the older RELEASE-2021 and use DP1.10045.001 to find the `totalSampledAreaOther` data"
+#so the old code should work just fine, just need to add an argument "release = 'RELEASE-2021'"
 
 ##unlist to create separate dataframes
-nonWoodyPerPlot <- df$vst_perplotperyear
-nonWoodyPerInd <- df$`vst_non-woody`
+
+nonWoodyPerPlot <- nonWood$vst_perplotperyear
+nonWoodyPerInd <- nonWood$nst_perindividual
+
+# nonWoodyPerPlot <- df$vst_perplotperyear
+# nonWoodyPerInd <- df$`vst_non-woody`
 
 ##evaluate and process non woody data in the vst data product
-nonWoodyPlot_df <- select(nonWoodyPerPlot, domainID, siteID, plotType, plotID, nlcdClass, eventID,
-                          nonWoodyTargetTaxaPresent, 
-                          # nestedSubplotAreaOther, totalSampledAreaOther, 
+nonWoodyPlot_df <- dplyr::select(nonWoodyPerPlot, domainID, siteID, plotType, plotID, nlcdClass, eventID, cactiPresent,
+                          cactiAbsentList, fernsPresent, fernsAbsentList, yuccasPresent,
+                          yuccasAbsentList, palmsPresent, palmsAbsentList, ocotillosPresent, ocotillosAbsentList,
+                          xerophyllumPresent, xerophyllumAbsentList, nestedSubplotAreaOther, totalSampledAreaOther, 
                           remarks)
-
-nonWoodyPlot_df <- nonWoodyPlot_df  %>% 
-  mutate(totalSampledAreaOther = NA)
 
 print(c("this dataset contains the following growth forms:", unique(nonWoodyPerInd$growthForm)))
 
@@ -1081,8 +1103,8 @@ NEONdata_flatted <- NEON_temp %>%
     single_shrub_area = sum(single_shrub),
     small_shrub_area = sum(small_shrub),
     multi_bole_tree_area = sum(multi_bole_tree),
-    # palm_area = sum(palm),
-    # yucca_area = sum(yucca), 
+    palm_area = sum(palm),
+    yucca_area = sum(yucca), 
     year_div = max(year_div),
     year_vegstr = max(year_vegstr),
     herbaceous_area = ifelse(year_div>0 & year_vegstr>0, herbaceous_area_temp-1, herbaceous_area_temp),
@@ -1103,8 +1125,8 @@ NEONdata_flatted <- NEON_temp %>%
          single_shrub_area = replace(single_shrub_area, single_shrub_area == 0, NA),
          small_shrub_area = replace(small_shrub_area, small_shrub_area == 0, NA),
          multi_bole_tree_area = replace(multi_bole_tree_area, multi_bole_tree_area == 0, NA),
-         # palm_area = replace(palm_area, palm_area == 0, NA),
-         # yucca_area = replace(yucca_area, yucca_area == 0, NA),
+         palm_area = replace(palm_area, palm_area == 0, NA),
+         yucca_area = replace(yucca_area, yucca_area == 0, NA),
          year_div = replace(year_div, year_div == 0, NA),
          year_vegstr = replace(year_vegstr, year_vegstr == 0, NA),
          Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol),
@@ -1113,9 +1135,9 @@ NEONdata_flatted <- NEON_temp %>%
          # the %/m² was summed across layers)
          SampledAreaVST = pmax(small_tree_area, sapling_area, single_bole_tree_area, liana_area,
                                      single_shrub_area, small_shrub_area, multi_bole_tree_area, na.rm = TRUE),
-         SampledArea = ifelse(herbaceous_total_area == 0, SampledAreaVST, herbaceous_total_area),
+         Original.SampledArea = ifelse(herbaceous_total_area == 0, SampledAreaVST, herbaceous_total_area),
          # Y = layers were sampled for this obs; "N" = only herbaceous cover was sampled
-         Strata = ifelse(herbaceous_total_area == 0, "Y", "N"),
+         RecordedStrata = ifelse(herbaceous_total_area == 0, "Y", "N"),
          year = ifelse(is.na(year_vegstr), year_div, year_vegstr)) %>%
   ungroup() %>%
   dplyr::select(-herbaceoustemp_area, -herbaceous_area_temp, -SampledAreaVST) %>%
@@ -1133,6 +1155,8 @@ NEONdata_flatted <- NEON_temp %>%
   #dplyr::select(-taxonID2) %>%
   ungroup() %>%
   left_join(vstStatus, by = "siteID")
+
+glimpse(NEONdata_flatted)
 
 ##NEONdata_flatted missing Native.status
 taxneoncode <- tax2 %>%
@@ -1167,7 +1191,7 @@ NEONdata_flatted <- NEONdata_flatted %>%
 
 #exporting final file
 # write.csv(NEONdata_flatted,
-#           '/home/shares/neon-inv/data_paper/data_by_dataset/NEONdata_flatted20210810.csv',
+#           '/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220223.csv',
 #           row.names = FALSE)
 
 
