@@ -419,9 +419,48 @@ IL_CTAP2 <- IL_CTAP2 %>%
 glimpse(IL_CTAP2)
 ```
 
+After standardizing taxonomy there are four instances in which species with the same accepted name are duplicated.
+```{r}
+# are there multiple species code per plot? Yes
+IL_CTAP2 %>% 
+  group_by(Dataset, Plot, Accepted.Symbol, PYear) %>% 
+  filter(!is.na(Accepted.Symbol)) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 1)
+
+#fixing it
+IL_CTAP2 <- IL_CTAP2 %>% 
+  ## check if all columns are listed here
+  group_by(Dataset, SiteID, Transect, PYear, 
+           RecordedStrata, SampledArea,
+           Accepted.Symbol, inv_L48, Lat, Long, Plot) %>% 
+  # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
+  dplyr::summarise(PctCov = sum(PctCov),
+                   # different trees were sampled in the different sampled area, I am keeping the first one
+                   SampledAreaOriginal = which.max(SampledAreaOriginal),
+                   OriginalSpeciesName = dplyr::first(OriginalSpeciesName),
+                   layer = dplyr::first(layer),
+                   # the tax file I am using here is returning multiple Scientific or bestname for the same species code. This is fixed when dataset is incorporated to the Database
+                   Scientific.Name = dplyr::first(Scientific.Name),
+                   bestname = dplyr::first(bestname)) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  #
+  select(Dataset, everything())
+
+length(colnames(IL_CTAP2))
+
+## checking for duplicates per species per plot per year
+IL_CTAP2 %>% 
+  group_by(Dataset, Plot, Accepted.Symbol, PYear) %>% 
+  filter(!is.na(Accepted.Symbol)) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 1)
+```
+
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper02222022.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper02242022.csv"))
 ```
 
