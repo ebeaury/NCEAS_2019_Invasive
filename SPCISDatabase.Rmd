@@ -770,7 +770,7 @@ glimpse(NWCA)
 ## IL_CTAP ##
 Imports the file
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper02222022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper02242022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
@@ -1309,11 +1309,11 @@ DataBase %>%
   ungroup() %>% 
   select(Dataset, SampledArea, Plot) %>% 
   distinct() %>% 
-  filter(SampledArea <= 0) %>% 
-  group_by(Dataset, SampledArea) %>% 
+  filter(SampledArea <= 0) %>%
+  group_by(Dataset, SampledArea) %>%
   count(Plot) %>%
   nrow()
-## 38 plots from NPS with zeros.
+## 5005 plots from NPS and WVNHP with zeros.
 
 # substitutes SampledArea of zero per NA (38plots from NPS)
 DataBase <- DataBase %>% 
@@ -1377,7 +1377,7 @@ DataBase <- DataBase %>%
 DataBase <- DataBase %>% # time consuming
   # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
   group_by(Dataset, Site, Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
-           Year, FuzzedCoord, SampledArea, Zone, NativeStatus, AcceptedTaxonName, 
+           Year, FuzzedCoord, SampledArea, RecordedStrata, Original.SampledArea, Zone, NativeStatus, AcceptedTaxonName, 
            Duration, Growth.Habit, SpCode) %>% 
   dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
             Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
@@ -1395,14 +1395,13 @@ DataBase %>%  # time consuming
 + One spp per year per plot (via Original.TaxonName)
 ```{r}
 duplicates <- DataBase %>% # time consuming
-  group_by(Dataset, Plot, Original.TaxonName, Year) %>% 
+  group_by(Dataset, Plot, SpCode, Original.TaxonName, Year) %>% 
   filter(!is.na(Original.TaxonName)) %>% 
   summarise(n_obs = n()) %>% 
   filter(n_obs > 1)
 table(duplicates$Dataset)
 
-# RECHECK THIS, AND MAKE SURE THESE ARE NOT SHOWING UP ANYMORE
-# these duplicates are already present in the original datasets, assuming the ones who Id them that each entry is a different morphotype, and potentially a distinct species
+# these duplicates are already present in the original datasets, assuming the ones who identified them that each entry is a different morphotype, and potentially a distinct species
 ```
 
 + NA for Original.TaxonName
@@ -1412,6 +1411,7 @@ MissingOrigName<-DataBase %>%
   select(Dataset, Original.TaxonName, SpCode) %>% 
   group_by(Dataset, Original.TaxonName, SpCode) %>% 
   summarise(n_obs = n())
+table(MissingOrigName$Dataset)
 
 ## AIM, FIA and NPS ==> total of 14517 observations with no OriginalSpeciesName and SpCpde associated to them. My understand is that they represent unknown species (NEON, for instance had a written of "Unknown Plant" for those, that's why it's not showing up in this summary)
 
@@ -1445,32 +1445,40 @@ unique(DataBase$Duration)
 + creating a Pct Cover column %/m² and duplicating the cover column to Original.
 ```{r}
 DataBase <- DataBase %>%
-  mutate(Original.PctCov = PctCov,
-         # NEON cover is already given on the basis of cover/m²
-         PctCov = ifelse(Dataset == "NEON", PctCov, 
-                         #Some datasets (NPS & XX) plots we couldn't retrieve the SampledArea (there were 0, I changed to NA as 0 does not make sense)
-                         #for these plots, I am keeping the cover as they are, and I point that out in the paper description
-                         ifelse(is.na(Original.SampledArea), PctCov, PctCov/SampledArea)),
-         ## check if only for IL_CTAP I have a original sampled area column. I think so
-         Original.SampledArea = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", Original.SampledArea, SampledArea),
-         SampledArea = 1,
+  mutate(Original.SampledArea = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", Original.SampledArea, SampledArea),
+         # NEON and FIA cover is already given on the basis of cover/m²
          SamplingMethod = ifelse(Dataset == "AIM", "Line-point intercept transect",
                                  ifelse(Dataset == "FIA", "Circular plots in a fixed pattern",
                                         ifelse(Dataset == "IL_CTAP", "Transect",
                                                ifelse(Dataset == "NPS", "Square or retangle plot",
                                                       ifelse(Dataset == "NWCA", "Square plot", "Nested plot"))))))
 
+# min and max values of cover per dataset
+# I wanna make sure I am dividing by sampled area to get %/m² for the datasets that this is not done before grouping in the database
+DataBase %>%
+  group_by(Dataset) %>%
+  mutate(
+    MaxPctCover = max(PctCov, na.rm = T),
+    MinPctCover = min(PctCov, na.rm = T),
+    ) %>%
+  select(Dataset, MaxPctCover, MinPctCover) %>% 
+  distinct() %>% 
+  arrange(Dataset)
+
+
 #summary of how many plots per dataset the original sampled area couldn't be retrieved.
 DataBase %>% 
   filter(is.na(Original.SampledArea)) %>% 
   select(Dataset, Plot) %>% 
-  disitnct() %>% 
-  count(Plot)
+  distinct() %>% 
+  count(Dataset)
 
 ```
 
 # Creating the FULL Database
 ```{r}
+remove<-"SampledArea"
+DesiredColumns <- setdiff(DesiredColumns, remove)
 FULLDatabase <- DataBase %>%
   select(one_of(DesiredColumns))
 glimpse(FULLDatabase)
@@ -1788,6 +1796,13 @@ SPCISDatabase %>%
   select(Dataset, Plot) %>% 
   disitnct() %>% 
   count(Plot)
+
+## how many plots per dataset does not have information on area sampled?
+SPCISDatabase %>% 
+  filter(is.na(Original.SampledArea)) %>% 
+  select(Dataset, Plot) %>% 
+  distinct() %>% 
+  count(Dataset)
 
 ```
 
