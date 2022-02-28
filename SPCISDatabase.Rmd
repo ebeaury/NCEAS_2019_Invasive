@@ -2113,8 +2113,8 @@ graph1<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   facet_wrap(~Dataset, scales="free_y") +
   ggtitle("Eastern Temperate Forests") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
-  theme(legend.position = "none") +
-  ggsave('figures/ecoregionsNN/EasTemFor.png', width = 8, height = 4, dpi = 300)
+  theme(legend.position = "none") 
+# ggsave('figures/ecoregionsNN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
 graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2126,8 +2126,8 @@ graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Great Plains") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsNN/GrePla.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+# ggsave('figures/ecoregionsNN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
 graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2139,8 +2139,8 @@ graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Marine West Coast Forest") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsNN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+# ggsave('figures/ecoregionsNN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
 graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2151,8 +2151,8 @@ graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   facet_wrap(~Dataset, scales="free_y") +
   ggtitle("Mediterranean California") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
-  theme(legend.position = "none") +
-  ggsave('figures/ecoregionsNN/MedCal.png', width = 8, height = 4, dpi = 300)
+  theme(legend.position = "none") 
+# ggsave('figures/ecoregionsNN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
 graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2164,8 +2164,8 @@ graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("North American Deserts") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsNN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+# ggsave('figures/ecoregionsNN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
 graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2177,8 +2177,8 @@ graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Northern Forests") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsNN/NorFor.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+# ggsave('figures/ecoregionsNN/NorFor.png', width = 8, height = 4, dpi = 300)
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
@@ -2190,8 +2190,8 @@ graph7<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   facet_wrap(~Dataset, scales="free_y") +
   ggtitle("Northwestern Forested Mountains") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
-  theme(legend.position = "none") +
-  ggsave('figures/ecoregionsNN/NorForMou.png', width = 8, height = 4, dpi = 300)
+  theme(legend.position = "none") 
+# ggsave('figures/ecoregionsNN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
 graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2203,8 +2203,8 @@ graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Southern Semiarid Highlands") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) +
-  ggsave('figures/ecoregionsNN/SouSemHig.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank()) 
+# ggsave('figures/ecoregionsNN/SouSemHig.png', width = 8, height = 4, dpi = 300)
 
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
@@ -2218,8 +2218,8 @@ graph9<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Temperate Sierras") + 
   labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) +
-  ggsave('figures/ecoregionsNN/TemSie.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank()) 
+# ggsave('figures/ecoregionsNN/TemSie.png', width = 8, height = 4, dpi = 300)
 
 # TROPICAL WET FORESTS --> only NWCA, no point of showing
 
@@ -2232,7 +2232,7 @@ all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, g
           # labels = c("A", "B", "C", "D", "F"),
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('figures/ecoregionsNN/graphcomginedNN12232021.png', width = 1920,height = 1080)
+png('figures/ecoregionsNN/graphcomginedNN020282022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
@@ -2262,8 +2262,8 @@ graph1<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   facet_wrap(~Dataset, scales="free_y") +
   ggtitle("Eastern Temperate Forests") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
-  theme(legend.position = "none") +
-  ggsave('figures/ecoregionsN/EasTemFor.png', width = 8, height = 4, dpi = 300)
+  theme(legend.position = "none") 
+  # ggsave('figures/ecoregionsN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
 graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2275,8 +2275,8 @@ graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Great Plains") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsN/GrePla.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+  # ggsave('figures/ecoregionsN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
 graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2288,8 +2288,8 @@ graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Marine West Coast Forest") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+  # ggsave('figures/ecoregionsN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
 graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2300,8 +2300,8 @@ graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   facet_wrap(~Dataset, scales="free_y") +
   ggtitle("Mediterranean California") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
-  theme(legend.position = "none") +
-  ggsave('figures/ecoregionsN/MedCal.png', width = 8, height = 4, dpi = 300)
+  theme(legend.position = "none") 
+  # ggsave('figures/ecoregionsN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
 graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2313,8 +2313,8 @@ graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("North American Deserts") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+  # ggsave('figures/ecoregionsN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
 graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2326,8 +2326,8 @@ graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Northern Forests") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) +
-  ggsave('figures/ecoregionsN/NorFor.png', width = 8, height = 4, dpi = 300)
+        axis.title = element_blank()) 
+  # ggsave('figures/ecoregionsN/NorFor.png', width = 8, height = 4, dpi = 300)
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
@@ -2338,9 +2338,9 @@ graph7<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
   ggtitle("Northwestern Forested Mountains") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
-  theme(legend.position = "none") +
-  ggsave('figures/ecoregionsN/NorForMou.png', width = 8, height = 4, dpi = 300)
+  labs(y="Frequency", x = "Native Species Cover (%)")  
+  # theme(legend.position = "none") 
+  # ggsave('figures/ecoregionsN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
 graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
@@ -2352,8 +2352,8 @@ graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Southern Semiarid Highlands") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) +
-  ggsave('figures/ecoregionsN/SouSemHig.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank()) 
+  # ggsave('figures/ecoregionsN/SouSemHig.png', width = 8, height = 4, dpi = 300)
 
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
@@ -2367,8 +2367,8 @@ graph9<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   ggtitle("Temperate Sierras") + 
   labs(y="Frequency", x = "Native Species Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) +
-  ggsave('figures/ecoregionsN/TemSie.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank()) 
+  # ggsave('figures/ecoregionsN/TemSie.png', width = 8, height = 4, dpi = 300)
 
 # TROPICAL WET FORESTS --> only NWCA, no point of showing
 
@@ -2380,7 +2380,7 @@ library(cowplot)
 all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('figures/ecoregionsN/graphcomginedN12232021.png', width = 1920,height = 1080)
+png('figures/ecoregionsN/graphcomginedN02282022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
