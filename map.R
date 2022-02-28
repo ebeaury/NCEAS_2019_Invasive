@@ -55,7 +55,7 @@ puerto_rico = subset(us_states,
 puerto_rico_2163 = st_transform(puerto_rico, crs = 2163)
 
 #### Point data
-DAIAS <- readRDS("/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_02282022.rds")
+DAIAS <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02282022.rds")
 glimpse(DAIAS)
 DAIAS <- DAIAS %>% 
   ungroup() %>% 
@@ -167,4 +167,4 @@ gg_inset_map
 
 
 # The line below is not working, so I am manually saving the plot
-# ggsave("MapAllPlots12202021.png", dpi = 300)
+# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots02282022.png", dpi = 300)
