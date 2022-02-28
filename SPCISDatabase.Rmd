@@ -610,6 +610,7 @@ CVSresampled <- rbind(CVS_plot_data_VA, CVS_plot_data_AK, CVS_plot_data_AL, CVS_
 # creates a list of plots to remove as they were sampled in the same year.
 # keeps the plots that were sampled later in the growing season
 CVSresampled <- CVSresampled %>% 
+  distinct() %>% 
   mutate(SameYear = ifelse(lubridate::year(`Observation Start Date`) == lubridate::year(Date_prev), 1, 0),
          LaterMonth = ifelse(SameYear ==1 & month(`Observation Start Date`) > month(Date_prev), 1,
                              ifelse(SameYear ==0, NA, 0)),
@@ -617,15 +618,56 @@ CVSresampled <- CVSresampled %>%
   group_by(Source) %>% 
   mutate(NewPlotID = ifelse(SameYear==0, paste0("CVS_", Source, row_number()), NA)) %>% 
   ungroup()
+
+previousObsCode <- CVSresampled %>% select(previousObsCode, `Author Observation Code`)
+
+# plots resampled 3 and 4 times. For the ones resampled 4 times, I manually created a column with the correspondent plotIDs because I could not think of an easy way to code it.
+CVSresampled3 <- CVSresampled %>%
+  left_join(previousObsCode, by = c(`Author Observation Code` = "previousObsCode")) %>% 
+  mutate(`Author Observation Code.y` = ifelse(previousObsCode == "013-0K-0001", "140-06-0001",
+                           ifelse(previousObsCode == "013-0K-0002", "140-06-0002",
+                           ifelse(previousObsCode == "013-0K-0011", "140-06-0011",
+                           ifelse(previousObsCode == "013-0K-0016", "140-06-0016", 
+                           ifelse(previousObsCode == "116-01-0104" | 
+                                  previousObsCode == "116-01-0105" |
+                                  previousObsCode == "116-03-0101" | 
+                                  previousObsCode == "116-04-0103", NA, `Author Observation Code.y`))))),
+         NewCode4 = ifelse(`Author Observation Code` == "116-01-0104", "116-D1-0104",
+                    ifelse(`Author Observation Code` == "116-01-0105", "116-D1-0105",
+                    ifelse(`Author Observation Code` == "116-03-0101", "116-D3-0101", 
+                    ifelse(`Author Observation Code` == "116-04-0103", "116-D4-0103", NA)))),
+         remove = ifelse(`Author Observation Code.y` == `Author Observation Code`, 1, NA)) %>% 
+  filter(!is.na(`Author Observation Code.y`), 
+         is.na(remove)) %>% 
+  select(-remove)
+
+# plots resampled twice and add the ones sampled 3 times
+CVSresampled4 <- CVSresampled %>% 
+  filter(!`Author Observation Code` %in% CVSresampled3$`Author Observation Code`) %>% 
+  filter(!previousObsCode %in% CVSresampled3$previousObsCode) %>% 
+  filter(!previousObsCode %in% CVSresampled3$`Author Observation Code`) %>% 
+  filter(!previousObsCode %in% CVSresampled3$`Author Observation Code.y`) %>%
+  filter(!`Author Observation Code` %in% CVSresampled3$`Author Observation Code.y`) %>%
+    filter(!`Author Observation Code` %in% CVSresampled3$NewCode4) %>%
+    filter(!previousObsCode %in% CVSresampled3$NewCode4) %>%
+  mutate(`Author Observation Code.y` = NA,
+         NewCode4 = NA) %>% 
+  rbind(CVSresampled3) %>% 
+  group_by(Source) %>% 
+  mutate(NewPlotID = ifelse(SameYear==0, paste0("CVS_", Source, row_number()), NA)) %>% 
+  ungroup()
+  
 #list of plots sampled twice in the same year. These ones were sampled earlier in the season.
 CVSRemove <- CVSresampled %>% 
   select(PlotsRemove) %>% 
   filter(!is.na(PlotsRemove))
 #list of plots resampled [in different years]
-CVSresampled2 <- CVSresampled %>%
-  select(`Author Observation Code`, previousObsCode, NewPlotID) %>% 
+CVSresampled2 <- CVSresampled4 %>%
+  select(`Author Observation Code`, previousObsCode, `Author Observation Code.y`, NewCode4, NewPlotID) %>% 
   gather(key = "PlotType", value = "Original.Plot", -NewPlotID) %>% 
-  select(-PlotType)
+  select(-PlotType) %>%
+  filter(!is.na(NewPlotID),
+         !is.na(Original.Plot)) 
 
 glimpse(CVSRemove)
 glimpse(CVSresampled2)
@@ -1442,7 +1484,7 @@ unique(DataBase$Duration)
 
 ```
 
-+ creating a Pct Cover column %/m² and duplicating the cover column to Original.
++ creating a Sampling method column.
 ```{r}
 DataBase <- DataBase %>%
   mutate(Original.SampledArea = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", Original.SampledArea, SampledArea),
@@ -1486,8 +1528,8 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-# write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02172022.rds")
-# write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02172022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02282022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02282022.csv")
 ```
 
 # Creating  Database
@@ -1609,6 +1651,7 @@ SPCISDatabase <- DataBase %>%
   rename(Original.TaxonName = Original.TaxonName1,
   AcceptedTaxonName = AcceptedTaxonName1) %>%
   rename(GrowthHabit = Growth.Habit) %>% 
+  #selects the columns for the final dataset
   dplyr::select(one_of(DesiredColumns2))
 
 # checking if it worked
@@ -1708,16 +1751,18 @@ ListRareSpecies <- finalsAIMrareSpp %>%
   #          !any(OriginalSpeciesName == "Panax quinquefolius" & Dataset == "WVNHP"),
   #        is.na(OriginalSpeciesName)|
   #          !any(OriginalSpeciesName == "Hydrastis canadensis" & Dataset == "WVNHP")) %>%
-  # ungroup() 
+  # ungroup()
+```
 
 
+```{r echo=FALSE}
 glimpse(SPCISDatabase)
 ```
 
 ### Exporting the SPCIS Database
 ```{r eval=FALSE, include=FALSE}
-# write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02172022.rds")
-# write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02172022.csv")
+write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02282022.rds")
+write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02282022.csv")
 ```
 
 #### Exporting the SPCIS Database but AIM data only
@@ -1880,7 +1925,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("GraphInvadedPlotsperDataset02012022.png", dpi=300)
+ggsave("GraphInvadedPlotsperDataset02282022.png", dpi=300)
 ```
 
 ```{r}
@@ -1962,6 +2007,17 @@ ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=NativeStatus)) +
 
 
 ```{r}
+## Cover range per dataset
+SPCISDatabase %>%
+  group_by(Dataset) %>%
+  mutate(
+    MaxPctCover = max(PctCov, na.rm = T),
+    MinPctCover = min(PctCov, na.rm = T),
+    ) %>%
+  select(Dataset, MaxPctCover, MinPctCover) %>% 
+  distinct() %>% 
+  arrange(Dataset)
+
 ## Cover of invasive species per dataset
 rangecover<- SPCISDatabase %>%
   group_by(Dataset, NativeStatus) %>%
@@ -1972,43 +2028,22 @@ rangecover<- SPCISDatabase %>%
 ## Years of data collection ##
 table(SPCISDatabase$Year)
 
-y<- SPCISDatabase %>%
-  ungroup() %>%
-  select(Dataset, Plot, Year) %>%
-  distinct() 
-dim(y)
-
 ## number of resampled plots
-x<- SPCISDatabase %>%
+SPCISDatabase %>%
   ungroup() %>%
-  select(Dataset, Plot, Year) %>%
+  select(Plot, Year) %>%
   distinct() %>%
-  group_by(Dataset, Plot) %>% 
+  group_by(Plot) %>% 
   count(Plot, sort = T) %>% 
-  filter(n>1) 
-unique(x$Dataset)
-dim(x) ## okay, but let me confirm in te next code chunck based on the Original Lat/Long
+  filter(n>1) %>% 
+  nrow()
 
-xx<- DataBase %>%
+# why are there any rows with NA cover
+SPCISDatabase %>%
   ungroup() %>%
-  select(Dataset, Original.Lat, Original.Long, Year) %>%
-  distinct() %>%
-  group_by(Dataset, Original.Lat, Original.Long) %>% 
-  # I'm unsure why, but my summarise is not working properly. There are resampled 
-  # CVS plots that are not being grouped, even though they have the same coordinates
-  dplyr::summarise(n_obs = n()) %>% 
-  filter(n_obs>1) %>% 
-  filter(!is.na(Original.Lat)) %>% 
-  #LP: talked to Eve, and it's a precision issue. Should not worry about it
-  filter(Dataset != "NPS") %>% 
-  # it's correct, confirmed in the original data
-  filter(Dataset != "IL_CTAP",
-         Dataset != "AIM") %>% 
-  # it's correct, the renaming of resampled plots was done based on the aggregate function Jeff C built
-  filter(Dataset != "FIA") %>%  
-  left_join(distinct(select(DataBase, c("Original.Lat", "Original.Long","Year","Plot","Original.Plot"))))
-dim(xx)
-unique(xx$Dataset)
+  filter(is.na(PctCov)) %>%
+  select(Site, Plot) %>%
+  distinct()
 
 ```
 
