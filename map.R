@@ -55,7 +55,7 @@ puerto_rico = subset(us_states,
 puerto_rico_2163 = st_transform(puerto_rico, crs = 2163)
 
 #### Point data
-DAIAS <- readRDS("/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_12232021.rds")
+DAIAS <- readRDS("/home/shares/neon-inv/data_paper/final_data/CIPSADatabase_02282022.rds")
 glimpse(DAIAS)
 DAIAS <- DAIAS %>% 
   ungroup() %>% 
