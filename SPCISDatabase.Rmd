@@ -276,9 +276,9 @@ FIA <- FIA_final %>%
   mutate(FuzzedCoord = "Y",
          Original.Plot = as.character(PLT_CN),
          Original.Lat = LAT,
-         Original.Long = LON) %>%
-  rename(Site = PLOT,
-         Plot = NewPlot,
+         Original.Long = LON,
+         Site = NA) %>%
+  rename(Plot = NewPlot,
          SpCode = VEG_SPCD, 
          PctCov = PctCover,
          Long = LON,
@@ -288,7 +288,7 @@ FIA <- FIA_final %>%
          AcceptedTaxonName = bestname,
          Original.TaxonName = SciName) %>%
   mutate(Dataset = "FIA",
-         Site = as.character(Site),
+         # Site = as.character(Site),
          Plot = as.character(Plot)) %>%
   select(one_of(DesiredColumns))
 
@@ -754,6 +754,23 @@ Imports the file
 VNHP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/VANHP_datapaper_06_16_21_EB.csv", 
                     na = c('', 'NA')) 
 glimpse(VNHP)
+```
+
+Finding resampled plots
+```{r}
+VNHPresample <- VNHP %>% 
+  group_by(Year, Long, Lat) %>% 
+  distinct(Plot) %>%
+  mutate(Long = as.character(Long),
+         Lat = as.character(Lat)) %>% 
+  group_by(Long, Lat) %>% 
+  add_tally() %>% 
+  mutate(unique_year = n_distinct(Year)) %>% 
+  filter(n>1) %>% 
+  arrange(Long)  %>% 
+  write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_VNHP/VNHPPlotVerify.csv")
+
+## where n >1 and unique_year >1 ==> resampled plots. Change their plot IDs to have a single id across years. For  >1 and unique_year = 1, Jeff will confirm what to do.
 ```
 
 Data wrangling and column selection
