@@ -430,6 +430,27 @@ WVplotArea <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra
   distinct()
 ```
 
+Plots to be removed from WVNHP because they have partial floristics (who sampled them at that time could have misidentified or missed species)
+```{r}
+PlotsRemoveWVNHP <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_data.csv") %>% 
+  select(`Plot Code`, `Vascular data quality`) %>% 
+  filter(`Vascular data quality` == "partial") %>% 
+  distinct()
+```
+
+Imports data on resampled plots for WVNHP and creates a new plot ID for them
+```{r}
+PlotsResampleWVNHP <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerifyLP.csv") %>% 
+  filter(resample == 1) %>% 
+   mutate(Original.Long = as.character(Original.Long),
+         Original.Lat = as.character(Original.Lat)) %>%
+  group_by(Original.Long, Original.Lat) %>% 
+  mutate(NewPlot = paste0("WVNHP_", cur_group_id())) %>% 
+  ungroup() %>% 
+  select(Original.Plot, NewPlot)
+```
+
+
 Plots to be removed from CVS as they are present in VNHP dataset
 ```{r}
 PlotsRemoveVegBank <- c("094-01-0032", "094-01-0053", "094-01-0056")
@@ -723,6 +744,9 @@ VEGBANK <- VEGBANK %>%
          # Plot = str_replace(Plot, "^VEGBANK_", "CVS_")
          # LP: removing the two above lines completely. I will keep the original plot codes as much as possible
          ) %>% 
+  filter(!Original.Plot %in% PlotsRemoveWVNHP$`Plot Code`) %>% 
+  left_join(PlotsResampleWVNHP, by = "Original.Plot") %>% 
+  mutate(Plot = ifelse(is.na(NewPlot), Original.Plot, NewPlot)) %>%
   dplyr::select(one_of(DesiredColumns))
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
@@ -744,7 +768,7 @@ WVNHPissues <- WVNHP %>%
   mutate(unique_year = n_distinct(Year)) %>% 
   filter(n>1) %>% 
   arrange(Original.Long) %>% 
-  write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify.csv")
+  write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify2.csv")
 ```
 
 
@@ -768,9 +792,22 @@ VNHPresample <- VNHP %>%
   mutate(unique_year = n_distinct(Year)) %>% 
   filter(n>1) %>% 
   arrange(Long)  %>% 
-  write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_VNHP/VNHPPlotVerify.csv")
+  filter(unique_year>1,
+         !grepl("^GRAF", Plot)) %>% 
+  mutate(NewPlotID = ifelse(str_detect(Plot, "R$") | str_detect(Plot, "P$") |
+                              str_detect(Plot, "D$") | str_detect(Plot, "S$"), str_sub(Plot, 1,-2), Plot)) %>% 
+  ungroup() %>%
+  rename(Original.Plot = Plot) %>% 
+  select(Original.Plot, NewPlotID)
+  # write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_VNHP/VNHPPlotVerify.csv")
 
-## where n >1 and unique_year >1 ==> resampled plots. Change their plot IDs to have a single id across years. For  >1 and unique_year = 1, Jeff will confirm what to do.
+## where n >1 and unique_year >1 ==> resampled plots (with the exception of GRAF). Change their plot IDs to have a single id across years.
+
+## 8th character for Resamples - final character = permanent (P), composite (C), duplicate (D) or resampled (R,S,T,...) plot
+### Resample is when the original plot was permanently marked and the exact same area was sampled in the "resample"
+### Duplicate is used when the location is thought to be the same area, based on a GPS point (and trees and veg and memory)  i.e.(the original sample was not permanently marked)
+### I will consider both Resample and Duplicate as resamples
+### ?? Not sure what to do with Composite --> asked Jeff, waiting his reply [PWFP016, PWFP016C ==> same year of data sampling]
 ```
 
 Data wrangling and column selection
@@ -788,6 +825,8 @@ VNHP <- VNHP %>%
          AcceptedTaxonName = bestname,
          SampledArea = Plot.Size, 
          NativeStatus = ExoticStatus) %>%
+  left_join(VNHPresample, by = "Original.Plot") %>% 
+  mutate(Plot = ifelse(is.na(NewPlotID), Original.Plot, NewPlotID)) %>%
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(VNHP))
