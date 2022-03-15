@@ -430,6 +430,13 @@ WVplotArea <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra
   distinct()
 ```
 
+Correction on the coordinates of two plots
+```{r}
+WVPlotCoord <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify (1) JV.csv") %>% 
+  select(Original.Plot, Correct.Lat, Correct.Lon) %>% 
+  filter(!is.na(Correct.Lon))
+```
+
 Plots to be removed from WVNHP because they have partial floristics (who sampled them at that time could have misidentified or missed species)
 ```{r}
 PlotsRemoveWVNHP <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_data.csv") %>% 
@@ -726,7 +733,11 @@ VEGBANK <- VEGBANK %>%
   #line below removes the 3 plots that have the same information in VNHP dataset
   filter(!Original.Plot %in% CVSRemove$PlotsRemove) %>% 
   left_join(CVSresampled2, by = "Original.Plot") %>% 
-  mutate(Plot = ifelse(is.na(NewPlotID), Original.Plot, NewPlotID)) %>% 
+  left_join(WVPlotCoord, by = "Original.Plot") %>% 
+  mutate(Plot = ifelse(is.na(NewPlotID), Original.Plot, NewPlotID),
+         Correct.Lat = as.numeric(Correct.Lat),
+         Lat = ifelse(is.na(Correct.Lat), Lat, Correct.Lat),
+         Lon = ifelse(is.na(Correct.Lon), Lat, Correct.Lon)) %>% 
   rename(#Plot = UniqueID,
          Original.Lat = Lat,
          Original.Long = Long,
@@ -786,17 +797,18 @@ VNHPresample <- VNHP %>%
   group_by(Year, Long, Lat) %>% 
   distinct(Plot) %>%
   mutate(Long = as.character(Long),
-         Lat = as.character(Lat)) %>% 
-  group_by(Long, Lat) %>% 
+         Lat = as.character(Lat),
+         Site = str_sub(Plot, 1, 4)) %>% 
+  group_by(Long, Lat, Site) %>% 
   add_tally() %>% 
   mutate(unique_year = n_distinct(Year)) %>% 
   filter(n>1) %>% 
   arrange(Long)  %>% 
   filter(unique_year>1,
          !grepl("^GRAF", Plot)) %>% 
-  mutate(NewPlotID = ifelse(str_detect(Plot, "R$") | str_detect(Plot, "P$") |
-                              str_detect(Plot, "D$") | str_detect(Plot, "S$"), str_sub(Plot, 1,-2), Plot)) %>% 
-  ungroup() %>%
+  group_by(Long, Lat) %>% 
+  mutate(NewPlotID = paste0("VNHP_", cur_group_id())) %>% 
+  ungroup() %>% 
   rename(Original.Plot = Plot) %>% 
   select(Original.Plot, NewPlotID)
   # write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_VNHP/VNHPPlotVerify.csv")
@@ -807,7 +819,7 @@ VNHPresample <- VNHP %>%
 ### Resample is when the original plot was permanently marked and the exact same area was sampled in the "resample"
 ### Duplicate is used when the location is thought to be the same area, based on a GPS point (and trees and veg and memory)  i.e.(the original sample was not permanently marked)
 ### I will consider both Resample and Duplicate as resamples
-### ?? Not sure what to do with Composite --> asked Jeff, waiting his reply [PWFP016, PWFP016C ==> same year of data sampling]
+### Composite --> where we combine data from n adjacent and contiguous plots along a transect into one plot sample for entry into the database
 ```
 
 Data wrangling and column selection
