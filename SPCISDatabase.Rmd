@@ -398,7 +398,7 @@ NPS <- NPS %>%
          Original.Lat = Lat,
          Original.Long = Long,
          SampledArea = as.double(Area_sampled),
-         FuzzedCoord = ifelse(RealCoords = "Y", "N", "Missing")) %>% 
+         FuzzedCoord = ifelse(RealCoords == "Y", "N", "Missing")) %>% 
   select(-Plot) %>%
   rename(NativeStatus = Exotic,
          SpCode = Species,
@@ -748,7 +748,13 @@ VEGBANK <- VEGBANK %>%
   mutate(Lat = ifelse(Dataset=="NCVS_WV", round(Original.Lat, 1), Public.Latitude),
          Long = ifelse(Dataset=="NCVS_WV", round(Original.Long, 1), Public.Longitude),
          Dataset = ifelse(grepl("VEGBANK", Dataset), "CVS", "WVNHP"),
-         FuzzedCoord = "Y",
+         TempLat = as.character(Original.Lat),
+         TempLong = as.character(Original.Long), 
+         TempPublic.Latitude = as.character(Public.Latitude),
+         TempPublic.Longitude = as.character(Public.Longitude),
+         TempFuzzedCoord = ifelse(TempLong == Public.Longitude & TempLat == TempPublic.Latitude, "N", "Y"),
+         FuzzedCoord = ifelse(Dataset=="WVNHP", "Y", 
+                              ifelse(is.na(TempFuzzedCoord), "Missing", TempFuzzedCoord)),
          Year = ifelse(Year==2064, 1964,
                        ifelse(Year==2063, 1963, Year)),
          # change the beginning of the name of the plot from VEGBANK to CVS
@@ -767,19 +773,19 @@ glimpse(VEGBANK)
 Code below finds plots with same original coordinates but with distinct plotIDs (n>1) and plots with same original coordinates but with distinct plotIDs and different year of sampling (unique_year>1)
 ```{r eval=FALSE, include=FALSE}
 ##DON'T RUN
-WVNHP <- filter(VEGBANK, Dataset == "WVNHP")
-
-WVNHPissues <- WVNHP %>% 
-  group_by(Year, Original.Long, Original.Lat) %>% 
-  distinct(Original.Plot) %>%
-  mutate(Original.Long = as.character(Original.Long),
-         Original.Lat = as.character(Original.Lat)) %>% 
-  group_by(Original.Long, Original.Lat) %>% 
-  add_tally() %>% 
-  mutate(unique_year = n_distinct(Year)) %>% 
-  filter(n>1) %>% 
-  arrange(Original.Long) %>% 
-  write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify2.csv")
+# WVNHP <- filter(VEGBANK, Dataset == "WVNHP")
+# 
+# WVNHPissues <- WVNHP %>% 
+#   group_by(Year, Original.Long, Original.Lat) %>% 
+#   distinct(Original.Plot) %>%
+#   mutate(Original.Long = as.character(Original.Long),
+#          Original.Lat = as.character(Original.Lat)) %>% 
+#   group_by(Original.Long, Original.Lat) %>% 
+#   add_tally() %>% 
+#   mutate(unique_year = n_distinct(Year)) %>% 
+#   filter(n>1) %>% 
+#   arrange(Original.Long) %>% 
+#   write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify2.csv")
 ```
 
 
@@ -926,7 +932,13 @@ DataBase <- DataBase %>%
                           Lat < 50 & Lat > 19 & Long > -130 ~ "L48",
                           Long < -150 & Lat < 25 ~ "HI",
                           Lat < 20 & Long < -65 & Long > -70 ~ "PR",
-                          TRUE ~ "MissingCoords")) 
+                          TRUE ~ "MissingCoords"),
+         #assigning Zone to missing coordinates. I think this will remove this category "MissingCoords"
+         Zone = ifelse(Zone == "MissingCoords" & Dataset == "NWCA"|
+                         Zone == "MissingCoords" & Dataset == "IL_CTAP"|
+                         Zone == "MissingCoords" & Dataset == "CVS"| 
+                       Zone == "MissingCoords" & Dataset == "NPS" & Site != "HALE", "L48",
+                       ifelse(Zone == "MissingCoords" & Site == "HALE", "HI", Zone)))
 
 DataBase %>%
   select(Dataset, Site, Plot, Zone) %>%
@@ -1370,12 +1382,21 @@ DataBase %>%
   distinct() %>%
   count(FuzzedCoord)
 
-## they differ. Need to fix this
+DataBase %>% filter(FuzzedCoord=="Missing") %>% nrow()
+DataBase %>% filter(is.na(Lat)) %>% nrow()
+DataBase %>% filter(is.na(Long)) %>% nrow()
+DataBase %>% filter(is.na(Long)|is.na(Long)) %>% distinct(Dataset)
+
+# it seems that for some datasets, missing coordinates were mistakenly classified as "Y" or "N" in the FuzzedCoord, instead of being "Missing"
 DataBase <- DataBase %>% 
-  mutate(FuzzedCoord = ifelse(is.na(Lat) & is.na(Long), "Missing", FuzzedCoord))
-table(DataBase$FuzzedCoord)
-table(DataBase$Zone)
-##FIXED!
+  mutate(FuzzedCoord = ifelse(Dataset == "NWCA" & is.na(Lat) |
+                                Dataset == "IL_CTAP" & is.na(Lat), "Missing", FuzzedCoord))
+
+
+DataBase %>% filter(FuzzedCoord=="Missing") %>% nrow()
+DataBase %>% filter(is.na(Lat)) %>% nrow()
+DataBase %>% filter(is.na(Long)) %>% nrow()
+# all three have the same length now, it should be fixed
 
 ```
 
