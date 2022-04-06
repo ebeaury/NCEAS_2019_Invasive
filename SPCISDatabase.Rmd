@@ -397,13 +397,13 @@ NPS <- NPS %>%
          Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
          Original.Lat = Lat,
          Original.Long = Long,
-         SampledArea = as.double(Area_sampled)) %>% 
+         SampledArea = as.double(Area_sampled),
+         FuzzedCoord = ifelse(RealCoords = "Y", "N", "Missing")) %>% 
   select(-Plot) %>%
   rename(NativeStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
          Plot = UniqueID,
-         FuzzedCoord = RealCoords,
          AcceptedTaxonName = bestname,
          Original.TaxonName = OriginalName,
          Growth.Habit = GrowthForm) %>%
@@ -1560,7 +1560,7 @@ DataBase <- DataBase %>%
          SamplingMethod = ifelse(Dataset == "AIM", "Line-point intercept transect",
                                  ifelse(Dataset == "FIA", "Circular plots in a fixed pattern",
                                         ifelse(Dataset == "IL_CTAP", "Transect",
-                                               ifelse(Dataset == "NPS", "Square or retangle plot",
+                                               ifelse(Dataset == "NPS", "Square or rectangle plot",
                                                       ifelse(Dataset == "NWCA", "Square plot", "Nested plot"))))))
 
 # min and max values of cover per dataset
@@ -1596,8 +1596,8 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02282022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_02282022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_03152022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_03152022.csv")
 ```
 
 # Creating  Database
@@ -1829,8 +1829,8 @@ glimpse(SPCISDatabase)
 
 ### Exporting the SPCIS Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02282022.rds")
-write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02282022.csv")
+write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_03152022.rds")
+write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_03152022.csv")
 ```
 
 #### Exporting the SPCIS Database but AIM data only
