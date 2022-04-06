@@ -1573,6 +1573,29 @@ unique(DataBase$Duration)
 
 ```
 
++ rechecking percent cover again
+```{r}
+range(DataBase$PctCov)
+# why zeros?
+DataBase %>% filter(PctCov==0) %>% nrow()
+DataBase %>% filter(PctCov==0) %>% distinct(Dataset)
+# write a file that contain those plots per dataset with zero percent cover
+# DataBase %>% filter(PctCov==0) %>% group_by(Plot) %>% add_tally() %>% distinct(Dataset, Plot,n) %>% write_csv("ZeroPctCover.csv")
+missing = DataBase %>% filter(PctCov==0) %>% group_by(Plot) %>% add_tally() %>% distinct(Dataset, Plot,n)
+
+#removes observations with zero percent cover.
+DataBase <- DataBase %>% 
+  filter(PctCov!=0)
+```
+
++ fixing RecordedStrata terminology
+```{r}
+table(DataBase$RecordedStrata, exclude=NULL)
+DataBase %>% group_by(Dataset, RecordedStrata) %>% summarise(nobs = n())
+
+DataBase <- DataBase %>% mutate(RecordedStrata = ifelse(is.na(RecordedStrata), "N", RecordedStrata))
+```
+
 + creating a Sampling method column.
 ```{r}
 DataBase <- DataBase %>%
