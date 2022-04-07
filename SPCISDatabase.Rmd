@@ -44,6 +44,9 @@ DesiredColumns <- c("Dataset", "Site",
 # organizing Ian's taxonomy
 
 tax<-read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/usc.csv', as.is=T)
+#substitute (I,N) per (NI)
+tax$Native.Status <- gsub("\\(I,N\\)", "(NI)", tax$Native.Status, ignore.case = FALSE)
+
 tax$inv_PR<-NA
 tax$inv_PR[grep(pattern="PR.I.", x=tax$Native.Status)]<-"I"
 tax$inv_PR[grep(pattern="PR.N.", x=tax$Native.Status)]<-"N"
@@ -1588,12 +1591,20 @@ DataBase <- DataBase %>%
   filter(PctCov!=0)
 ```
 
-+ fixing RecordedStrata terminology
++ CONTINUE HERE fixing RecordedStrata terminology
 ```{r}
+#checking which are the categories and by dataset
 table(DataBase$RecordedStrata, exclude=NULL)
 DataBase %>% group_by(Dataset, RecordedStrata) %>% summarise(nobs = n())
 
+# fixing the NAs and changing them to N [No]
 DataBase <- DataBase %>% mutate(RecordedStrata = ifelse(is.na(RecordedStrata), "N", RecordedStrata))
+
+DataBase %>% filter(RecordedStrata=="Y") %>% summarise(max = max(PctCov))
+DataBase %>% filter(RecordedStrata=="N") %>% summarise(max = max(PctCov)) # exceeds 100%
+DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% nrow()
+DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset) 
+DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset) 
 ```
 
 + creating a Sampling method column.
