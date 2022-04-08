@@ -1135,7 +1135,7 @@ NEONdata_flatted <- NEON_temp %>%
          year_div = replace(year_div, year_div == 0, NA),
          year_vegstr = replace(year_vegstr, year_vegstr == 0, NA),
          Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol),
-         SampledArea.m2 = ifelse(plotType == "distributed", 400, 800),
+         PlotArea.m2 = ifelse(plotType == "distributed", 400, 800),
          # gets the maximum area sampled for that particular observation (because to get the final cover value, 
          # the %/m² was summed across layers)
          SampledAreaVST = pmax(small_tree_area, sapling_area, single_bole_tree_area, liana_area,
@@ -1178,7 +1178,7 @@ uniquespp <- data2 %>%
 NEONdata_flattedmissing <- NEONdata_flatted %>%
   filter(is.na(Native.Status)) %>%
   group_by(taxonID2) %>%
-  summarise(totalcover_sum = round(sum(totalcover_sum), 2),
+  summarise(plotCover = round(sum(plotCover), 2),
             number = n()) %>%
   #excludes codes that return NA as native status from Ian's taxonomy table
   anti_join(taxneoncode, by = c("taxonID2" = "neon_code")) %>%
@@ -1196,7 +1196,7 @@ NEONdata_flatted <- NEONdata_flatted %>%
 
 #exporting final file
 # write.csv(NEONdata_flatted,
-#           '/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220223.csv',
+#           '/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220408.csv',
 #           row.names = FALSE)
 
 
