@@ -95,6 +95,8 @@ allDiv <- loadByProduct(dpID = presDataProductID,
 ###extract 1m2 data from list of lists and some processing
 data_1m2 <- allDiv[["div_1m2Data"]]
 
+data_1m2 <- data_1m2 %>% filter(boutNumber == 1)
+
 #clean some errors that are not yet removed
 data_1m2 <- data_1m2 %>% filter(!(siteID == "WOOD" & boutNumber == 2))
 data_1m2 <- data_1m2 %>% filter(!(siteID == "TALL" & boutNumber == 3))
@@ -181,6 +183,9 @@ data_10_100m2 <- allDiv[["div_10m2Data100m2Data"]]
 
 ##stash a copy for plot filtering 
 data_10_100m2Stash <- data_10_100m2
+
+# keeping only the first bout (bout = sequenced numbers of sampling event in a year)
+data_10_100m2 <- data_10_100m2 %>% filter(boutNumber == 1)
 
 #clean some errors that are not yet removed
 data_10_100m2 <- data_10_100m2 %>% filter(!(siteID == "TALL" & boutNumber == 3))
@@ -1130,7 +1135,7 @@ NEONdata_flatted <- NEON_temp %>%
          year_div = replace(year_div, year_div == 0, NA),
          year_vegstr = replace(year_vegstr, year_vegstr == 0, NA),
          Accepted.Symbol = ifelse(is.na(Accepted.Symbol), taxonID2, Accepted.Symbol),
-         # SampledArea = ifelse(plotType == "distributed", 400, 800),
+         SampledArea.m2 = ifelse(plotType == "distributed", 400, 800),
          # gets the maximum area sampled for that particular observation (because to get the final cover value, 
          # the %/m² was summed across layers)
          SampledAreaVST = pmax(small_tree_area, sapling_area, single_bole_tree_area, liana_area,
