@@ -100,6 +100,9 @@ wetfinal <- wet %>%
   group_by(SiteID, PYear) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
+  ungroup() %>% 
+  mutate(PlotArea.m2 = 50*41, 
+         Transect = 1) %>% 
   select(-code)
   
 ```
@@ -155,6 +158,9 @@ grassfinal <- grass %>%
   group_by(SiteID, PYear) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
+  ungroup() %>% 
+  mutate(PlotArea.m2 = 50*41,
+         Transect = 1) %>% 
   select(-code)
 
 ```
@@ -207,7 +213,9 @@ forestfinal <- forest %>%
   ungroup() %>% 
   group_by(SiteID, PYear, Transect) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
-  mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>%
+  mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
+  ungroup() %>% 
+  mutate(PlotArea.m2 = 50*10) %>%
   select(-code)
 
 ```
@@ -220,11 +228,10 @@ IL_CTAP <- forestfinal %>%
   rbind(grassfinal) %>% 
   rbind(wetfinal) %>% 
   mutate(Dataset = "IL_CTAP",
-         SampledArea = 0.25,
-         Transect = ifelse(is.na(Transect), 1, Transect)) %>% 
+         SampledArea = 0.25) %>% 
   #
   group_by(Dataset, SiteID, Transect, PYear, OriginalSpeciesName, 
-           layer, RecordedStrata, SampledArea) %>% 
+           layer, RecordedStrata, SampledArea, PlotArea.m2) %>% 
   # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
   dplyr::summarise(PctCov = sum(PctCov),
                    # different trees were sampled in the different sampled area, I am keeping the first one
@@ -235,10 +242,10 @@ IL_CTAP <- forestfinal %>%
   select(Dataset, everything())
 
 ## checking for duplicates per species per plot per year
-duplicatesILCTAP <- IL_CTAP %>% 
+IL_CTAP %>% 
   group_by(SiteID, Transect, OriginalSpeciesName, PYear) %>% 
   summarise(n_obs = n()) %>% 
-  filter(n_obs > 1)
+  filter(n_obs > 1) #None!
 ```
 
 Matching species names
@@ -432,7 +439,7 @@ IL_CTAP2 %>%
 IL_CTAP2 <- IL_CTAP2 %>% 
   ## check if all columns are listed here
   group_by(Dataset, SiteID, Transect, PYear, 
-           RecordedStrata, SampledArea,
+           RecordedStrata, SampledArea, PlotArea.m2,
            Accepted.Symbol, inv_L48, Lat, Long, Plot) %>% 
   # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
   dplyr::summarise(PctCov = sum(PctCov),
@@ -461,6 +468,6 @@ IL_CTAP2 %>%
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper02242022.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper04082022.csv"))
 ```
 
