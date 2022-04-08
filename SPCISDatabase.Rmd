@@ -460,6 +460,21 @@ PlotsResampleWVNHP <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset
   select(Original.Plot, NewPlot)
 ```
 
+Finding observations that were sampled across strata for WVNHP
+```{r}
+WVNHPStrata <- read.csv("/home/shares/neon-inv/raw_VegBank_data/WV_species_data.csv") %>% 
+  select(Plot.Code, Scientific.Name, Stratum, Real.Cover) %>% 
+  group_by(Plot.Code, Scientific.Name) %>% 
+  add_tally() %>% 
+  summarise(Real.Cover = sum(Real.Cover)) %>% 
+  mutate(RecordedStrata = ifelse(n == 1, "N", "Y")) %>% 
+  ungroup()
+
+WVNHPStrata %>% 
+  filter(Real.Cover>100) %>% 
+  distinct(RecordedStrata)
+```
+
 
 Plots to be removed from CVS as they are present in VNHP dataset
 ```{r}
@@ -725,17 +740,17 @@ NCTotal <- NCCoastal %>% left_join(NCFringe, by = 'Author Observation Code') %>%
 
 NCPP <- CVS_plot_data_NCPPraw %>% 
   select('Author Observation Code', province, previousObsCode, 'Observation Start Date') %>% 
-  mutate(Source = "VEGBANK_NC_Coastal",
+  mutate(Source = "VEGBANK_NCPP",
          year= lubridate::year(`Observation Start Date`))
 
 Proj129 <- CVS_plot_data_Proj129raw %>% 
   select('Author Observation Code', province, previousObsCode, 'Observation Start Date') %>% 
-  mutate(Source = "VEGBANK_NC_fringe",
+  mutate(Source = "VEGBANK_Proj129",
          year= lubridate::year(`Observation Start Date`))
 
 NCPPTotal <- NCPP %>% left_join(Proj129, by = 'Author Observation Code') %>% 
   filter(!is.na(Source.y)) %>% 
-  mutate(UniqueID = paste0("VEGBANK_NC_Coastal_", `Author Observation Code`))
+  mutate(UniqueID = paste0("VEGBANK_NCPP_", `Author Observation Code`))
   
 ```
 
@@ -745,6 +760,8 @@ VEGBANK <- VEGBANK %>%
   left_join(select(WVplotArea, UniqueID, PlotArea), by="UniqueID") %>% 
   #remove duplicates from NCCoastal, leaving the ones in the NCFringe dataset
   filter(!UniqueID %in% NCTotal$UniqueID) %>% 
+  #remove duplicates from NCPP, leaving the ones in the Proj129 dataset
+  filter(!UniqueID %in% NCPPTotal$UniqueID) %>%
   #extracting the first letters from the plotID to use as site info for WVNHP
   mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), NA),
          SampledArea = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
@@ -906,7 +923,7 @@ glimpse(NWCA)
 ## IL_CTAP ##
 Imports the file
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper02242022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper04082022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
@@ -925,7 +942,7 @@ IL_CTAP <- IL_CTAP %>%
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          Year = PYear,
-         PlotArea.m2 = SampledAreaOriginal,
+         # PlotArea.m2 = SampledAreaOriginal,
          Original.TaxonName = OriginalSpeciesName) %>%
   select(one_of(DesiredColumns))
 
