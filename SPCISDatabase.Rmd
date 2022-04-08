@@ -33,7 +33,7 @@ Columns to carry forward in combined dataset
 DesiredColumns <- c("Dataset", "Site", 
                     "Plot", "Original.Plot", "Long", "Lat", "Original.Long", "Original.Lat",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
-                    "NativeStatus", "Original.PctCov", "PctCov", "FuzzedCoord", "Original.SampledArea", "SampledArea", 
+                    "NativeStatus", "Original.PctCov", "PctCov", "FuzzedCoord", "PlotArea.m2", "SampledArea", 
                     "Duration", "Growth.Habit", "RecordedStrata", "SamplingMethod"
                     )
 
@@ -76,7 +76,7 @@ tax <- tax %>%
 ## NEON ##
 Imports the file
 ```{r}
-NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220223.csv")
+NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220408.csv")
 glimpse(NEON) 
 ```
 
@@ -133,7 +133,7 @@ NEON <- NEON %>%
          Original.Long = decimalLongitude,
          Original.Lat = decimalLatitude,
          # it's 1 because the %cover is on the m² basis.
-         SampledArea = 1,
+         # SampledArea = 1,
          RecordedStrata = ifelse(vst_status == "div_vst", "Y", "N")) %>%
   rename(Dataset = dataset,
          Site = siteID,
@@ -719,6 +719,23 @@ NCFringe <- CVS_plot_data_NCFringeraw %>%
 NCTotal <- NCCoastal %>% left_join(NCFringe, by = 'Author Observation Code') %>% 
   filter(!is.na(Source.y)) %>% 
   mutate(UniqueID = paste0("VEGBANK_NC_Coastal_", `Author Observation Code`))
+
+# XXX plots are present in both datasheets of NCPP and Proj129
+# and they contain the same species and associated information
+
+NCPP <- CVS_plot_data_NCPPraw %>% 
+  select('Author Observation Code', province, previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "VEGBANK_NC_Coastal",
+         year= lubridate::year(`Observation Start Date`))
+
+Proj129 <- CVS_plot_data_Proj129raw %>% 
+  select('Author Observation Code', province, previousObsCode, 'Observation Start Date') %>% 
+  mutate(Source = "VEGBANK_NC_fringe",
+         year= lubridate::year(`Observation Start Date`))
+
+NCPPTotal <- NCPP %>% left_join(Proj129, by = 'Author Observation Code') %>% 
+  filter(!is.na(Source.y)) %>% 
+  mutate(UniqueID = paste0("VEGBANK_NC_Coastal_", `Author Observation Code`))
   
 ```
 
@@ -908,7 +925,7 @@ IL_CTAP <- IL_CTAP %>%
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          Year = PYear,
-         Original.SampledArea = SampledAreaOriginal,
+         PlotArea.m2 = SampledAreaOriginal,
          Original.TaxonName = OriginalSpeciesName) %>%
   select(one_of(DesiredColumns))
 
@@ -1511,7 +1528,7 @@ DataBase <- DataBase %>%
 DataBase <- DataBase %>% # time consuming
   # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
   group_by(Dataset, Site, Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
-           Year, FuzzedCoord, SampledArea, RecordedStrata, Original.SampledArea, Zone, NativeStatus, AcceptedTaxonName, 
+           Year, FuzzedCoord, SampledArea, RecordedStrata, PlotArea.m2, Zone, NativeStatus, AcceptedTaxonName, 
            Duration, Growth.Habit, SpCode) %>% 
   dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
             Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
@@ -1607,10 +1624,26 @@ DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset)
 DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset) 
 ```
 
++ creating a Resampled column.
+```{r}
+DataBase <- DataBase %>%
+  group_by(Plot, Year) %>%
+  add_tally() %>% 
+  mutate(Resampled = ifelse(n>1, "Y", "N"))
+
+## CHECK whether the code is working as expected
+```
+
++ fixing site terminology
+```{r}
+# fixing the NAs and changing them to N [No]
+DataBase <- DataBase %>% mutate(Site = ifelse(is.na(Site), "N", Site))
+```
+
 + creating a Sampling method column.
 ```{r}
 DataBase <- DataBase %>%
-  mutate(Original.SampledArea = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", Original.SampledArea, SampledArea),
+  mutate(PlotArea.m2 = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", PlotArea.m2, SampledArea),
          # NEON and FIA cover is already given on the basis of cover/m²
          SamplingMethod = ifelse(Dataset == "AIM", "Line-point intercept transect",
                                  ifelse(Dataset == "FIA", "Circular plots in a fixed pattern",
@@ -1633,7 +1666,7 @@ DataBase %>%
 
 #summary of how many plots per dataset the original sampled area couldn't be retrieved.
 DataBase %>% 
-  filter(is.na(Original.SampledArea)) %>% 
+  filter(is.na(PlotArea.m2)) %>% 
   select(Dataset, Plot) %>% 
   distinct() %>% 
   count(Dataset)
@@ -1663,7 +1696,7 @@ DesiredColumns2 <- c("Dataset", "Site",
                     "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Duration", "GrowthHabit",
-                    "PctCov", "RecordedStrata", "Original.SampledArea", "SamplingMethod"
+                    "PctCov", "RecordedStrata", "PlotArea.m2", "SamplingMethod"
                     )
 
 ```
@@ -1960,14 +1993,14 @@ SPCISDatabase %>%
 # number of plots with no Original sampled Area 
 #SPCISDatabase of how many plots per dataset the original sampled area couldn't be retrieved.
 SPCISDatabase %>% 
-  filter(is.na(Original.SampledArea)) %>% 
+  filter(is.na(PlotArea.m2)) %>% 
   select(Dataset, Plot) %>% 
   disitnct() %>% 
   count(Plot)
 
 ## how many plots per dataset does not have information on area sampled?
 SPCISDatabase %>% 
-  filter(is.na(Original.SampledArea)) %>% 
+  filter(is.na(PlotArea.m2)) %>% 
   select(Dataset, Plot) %>% 
   distinct() %>% 
   count(Dataset)
