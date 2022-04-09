@@ -31,7 +31,8 @@ Columns to carry forward in combined dataset
 
 ```{r}
 DesiredColumns <- c("Dataset", "Site", 
-                    "Plot", "Original.Plot", "Long", "Lat", "Original.Long", "Original.Lat",
+                    "Plot", "Original.Plot", "Long", "Lat", "Zone",
+                    "Original.Long", "Original.Lat", # not going to SPCIS
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "PctCov", "FuzzedCoord", "PlotArea.m2", 
                     "Duration", "Growth.Habit", "RecordedStrata", "SamplingMethod", "Resampled"
@@ -800,7 +801,11 @@ VEGBANK <- VEGBANK %>%
   filter(!Original.Plot %in% PlotsRemoveWVNHP$`Plot Code`) %>% 
   left_join(PlotsResampleWVNHP, by = "Original.Plot") %>% 
   mutate(Plot = ifelse(is.na(NewPlot), Original.Plot, NewPlot)) %>%
-  left_join(WVNHPStrata, by = c("Original.Plot" = "Plot.Code", "Original.TaxonName" = "Scientific.Name")) %>% 
+  left_join(WVNHPStrata, by = c("Original.Plot" = "Plot.Code", "Original.TaxonName" = "Scientific.Name")) %>%
+  mutate(Original.TaxonName = ifelse(is.na(Original.TaxonName) & Original.Plot == "SHMO.9", "Aster",
+                                     ifelse(is.na(Original.TaxonName) & Original.Plot == "GRAN.31", "Cladonia P. Browne", Original.TaxonName)),
+         RecordedStrata = ifelse(is.na(RecordedStrata) & Original.Plot == "SHMO.9", "N",
+                                     ifelse(is.na(RecordedStrata) & Original.Plot == "GRAN.31", "Y", RecordedStrata))) %>% 
   dplyr::select(one_of(DesiredColumns))
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
@@ -1648,7 +1653,7 @@ DataBase %>%
             max = max(PctCov, na.rm = TRUE)) 
 ```
 
-+ CONTINUE HERE fixing RecordedStrata terminology
++ RecordedStrata terminology
 ```{r}
 #checking which are the categories and by dataset
 table(DataBase$RecordedStrata, exclude=NULL)
@@ -1660,19 +1665,32 @@ DataBase <- DataBase %>% mutate(RecordedStrata = ifelse(is.na(RecordedStrata), "
 DataBase %>% filter(RecordedStrata=="Y") %>% summarise(max = max(PctCov))
 DataBase %>% filter(RecordedStrata=="N") %>% summarise(max = max(PctCov)) # exceeds 100%
 DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% nrow()
-DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset) 
+DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset) # one occurrence, same genus was recorded twice in data collection
 DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset) 
 ```
 
 + creating a Resampled column.
 ```{r}
-DataBase <- DataBase %>%
-  group_by(Plot, Year) %>%
-  add_tally() %>% 
-  mutate(Resampled = ifelse(n>1, "Y", "N")) %>% 
-  select(-n)
+#creates a list of plots there were resampled
+ResampledList<-DataBase %>%
+  ungroup() %>%
+  select(Plot, Year) %>%
+  distinct() %>%
+  group_by(Plot) %>% 
+  count(Plot, sort = T) %>% 
+  filter(n>1) %>% 
+  select(-n) %>% 
+  mutate(Resampled = "Y") %>% 
+  distinct()
 
-## CHECK whether the code is working as expected
+#adds a column to the database with the resampled code
+DataBase <- DataBase %>%
+  ungroup() %>% 
+  left_join(ResampledList, by = "Plot") %>% 
+  mutate(Resampled = ifelse(is.na(Resampled), "N", Resampled))
+
+DataBase %>% ungroup() %>% filter(Resampled=="Y") %>% distinct(Plot) %>% nrow()
+nrow(ResampledList)
 ```
 
 + fixing site terminology
@@ -1692,8 +1710,7 @@ DataBase <- DataBase %>%
                                                ifelse(Dataset == "NPS", "Square or rectangle plot",
                                                       ifelse(Dataset == "NWCA", "Square plot", "Nested plot"))))))
 
-# min and max values of cover per dataset
-# I wanna make sure I am dividing by sampled area to get %/m² for the datasets that this is not done before grouping in the database
+# another check min and max values of cover per dataset
 DataBase %>%
   group_by(Dataset) %>%
   mutate(
@@ -1716,8 +1733,6 @@ DataBase %>%
 
 # Creating the FULL Database
 ```{r}
-remove<-"SampledArea"
-DesiredColumns <- setdiff(DesiredColumns, remove)
 FULLDatabase <- DataBase %>%
   select(one_of(DesiredColumns))
 glimpse(FULLDatabase)
@@ -1725,8 +1740,8 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_03152022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_03152022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04092022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04092022.csv")
 ```
 
 # Creating  Database
@@ -1737,7 +1752,7 @@ DesiredColumns2 <- c("Dataset", "Site",
                     "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Duration", "GrowthHabit",
-                    "PctCov", "RecordedStrata", "PlotArea.m2", "SamplingMethod"
+                    "PctCov", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
 
 ```
@@ -1918,7 +1933,7 @@ ListRareSpecies <- finalsAIMrareSpp %>%
   rbind(VNHPRareSpecies2, WVNHPRareSpecies2) %>% 
   select(Dataset, everything()) 
 
-# write.csv(ListRareSpecies, "final_data/ListRareSpecies_01072022.csv", row.names = F)
+# write.csv(ListRareSpecies, "final_data/ListRareSpecies_04092022.csv", row.names = F)
 ```
 
 
@@ -1958,8 +1973,8 @@ glimpse(SPCISDatabase)
 
 ### Exporting the SPCIS Database
 ```{r eval=FALSE, include=FALSE}
-write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_03152022.rds")
-write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_03152022.csv")
+write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_04092022.rds")
+write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_04092022.csv")
 ```
 
 #### Exporting the SPCIS Database but AIM data only
