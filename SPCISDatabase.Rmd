@@ -21,7 +21,7 @@ This code was adapted from Helen's code when assembling the database for the NCE
 library(tidyverse) 
 library(lubridate) # when library tidyverse, lubridate is not turning on
 library(readxl)
-detach("package:plyr", unload=TRUE)
+# detach("package:plyr", unload=TRUE)
 theme_set(theme_classic())
 # setwd('/home/shares/neon-inv/data_paper')
 ```
@@ -33,8 +33,8 @@ Columns to carry forward in combined dataset
 DesiredColumns <- c("Dataset", "Site", 
                     "Plot", "Original.Plot", "Long", "Lat", "Original.Long", "Original.Lat",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
-                    "NativeStatus", "Original.PctCov", "PctCov", "FuzzedCoord", "PlotArea.m2", "SampledArea", 
-                    "Duration", "Growth.Habit", "RecordedStrata", "SamplingMethod"
+                    "NativeStatus", "PctCov", "FuzzedCoord", "PlotArea.m2", 
+                    "Duration", "Growth.Habit", "RecordedStrata", "SamplingMethod", "Resampled"
                     )
 
 ```
@@ -420,7 +420,7 @@ glimpse(NPS)
 ## CVS & WVNHP ##
 Imports the file
 ```{r}
-VEGBANK <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced.csv", 
+VEGBANK <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced2.csv", 
                     na = c('', 'NA')) # this data includes repeated samples
 glimpse(VEGBANK)
 ```
@@ -463,16 +463,13 @@ PlotsResampleWVNHP <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset
 Finding observations that were sampled across strata for WVNHP
 ```{r}
 WVNHPStrata <- read.csv("/home/shares/neon-inv/raw_VegBank_data/WV_species_data.csv") %>% 
-  select(Plot.Code, Scientific.Name, Stratum, Real.Cover) %>% 
+  select(Plot.Code, Scientific.Name, Stratum) %>% 
   group_by(Plot.Code, Scientific.Name) %>% 
   add_tally() %>% 
-  summarise(Real.Cover = sum(Real.Cover)) %>% 
   mutate(RecordedStrata = ifelse(n == 1, "N", "Y")) %>% 
-  ungroup()
-
-WVNHPStrata %>% 
-  filter(Real.Cover>100) %>% 
-  distinct(RecordedStrata)
+  ungroup() %>% 
+  select(-Stratum, -n) %>% 
+  distinct()
 ```
 
 
@@ -764,8 +761,8 @@ VEGBANK <- VEGBANK %>%
   filter(!UniqueID %in% NCPPTotal$UniqueID) %>%
   #extracting the first letters from the plotID to use as site info for WVNHP
   mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), NA),
-         SampledArea = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
-         SampledArea = ifelse(Dataset == "NCVS_WV" & SampledArea == 0, NA, SampledArea),
+         PlotArea.m2 = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
+         PlotArea.m2 = ifelse(Dataset == "NCVS_WV" & PlotArea.m2 == 0, NA, PlotArea.m2),
          Original.Plot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
   #line below removes the 3 plots that have the same information in VNHP dataset
   filter(!Original.Plot %in% CVSRemove$PlotsRemove) %>% 
@@ -801,6 +798,7 @@ VEGBANK <- VEGBANK %>%
   filter(!Original.Plot %in% PlotsRemoveWVNHP$`Plot Code`) %>% 
   left_join(PlotsResampleWVNHP, by = "Original.Plot") %>% 
   mutate(Plot = ifelse(is.na(NewPlot), Original.Plot, NewPlot)) %>%
+  left_join(WVNHPStrata, by = c("Original.Plot" = "Plot.Code", "Original.TaxonName" = "Scientific.Name")) %>% 
   dplyr::select(one_of(DesiredColumns))
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
@@ -1646,7 +1644,8 @@ DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset)
 DataBase <- DataBase %>%
   group_by(Plot, Year) %>%
   add_tally() %>% 
-  mutate(Resampled = ifelse(n>1, "Y", "N"))
+  mutate(Resampled = ifelse(n>1, "Y", "N")) %>% 
+  select(-n)
 
 ## CHECK whether the code is working as expected
 ```
