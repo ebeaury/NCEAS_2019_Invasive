@@ -1702,7 +1702,7 @@ DataBase <- DataBase %>% mutate(Site = ifelse(is.na(Site), "N", Site))
 + creating a Sampling method column.
 ```{r}
 DataBase <- DataBase %>%
-  mutate(PlotArea.m2 = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", PlotArea.m2, SampledArea),
+  mutate(PlotArea.m2 = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", PlotArea.m2, PlotArea.m2),
          # NEON and FIA cover is already given on the basis of cover/m²
          SamplingMethod = ifelse(Dataset == "AIM", "Line-point intercept transect",
                                  ifelse(Dataset == "FIA", "Circular plots in a fixed pattern",
@@ -1762,7 +1762,7 @@ DesiredColumns2 <- c("Dataset", "Site",
 ```{r}
 # removes species names and codes but keep them in the plot
 
-AIMALLrarespp <- read_excel("code_by_dataset/extra_csv_AIM/FINAL_National_SSS_List_November_21_2019.xlsx", sheet = "Update_2019_FINAL")
+AIMALLrarespp <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_AIM/FINAL_National_SSS_List_November_21_2019.xlsx", sheet = "Update_2019_FINAL")
 glimpse(AIMALLrarespp) 
 
 # Select necessary columns for the filtering
@@ -1820,12 +1820,12 @@ AIMplotsrarespp <- DataBase %>%
 length(table(AIMplotsrarespp$Plot)) #6293
 
 ## WVNHP rare species list
-WVNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_WVNHP/WVNHPRareSpecies.xlsx")
+WVNHPRareSpecies <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPRareSpecies.xlsx")
 glimpse(WVNHPRareSpecies)
 WVNHPRareSpecies<-WVNHPRareSpecies$Original.TaxonName
 
 ## VANHP rare species list
-VNHPRareSpecies <- read_excel("code_by_dataset/extra_csv_VNHP/VAspeciestoexclude.xlsx")
+VNHPRareSpecies <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_VNHP/VAspeciestoexclude.xlsx")
 glimpse(VNHPRareSpecies)
 
 #Filtering out rare species
