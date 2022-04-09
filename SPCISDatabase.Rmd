@@ -134,7 +134,9 @@ NEON <- NEON %>%
          Original.Lat = decimalLatitude,
          # it's 1 because the %cover is on the m² basis.
          # SampledArea = 1,
-         RecordedStrata = ifelse(vst_status == "div_vst", "Y", "N")) %>%
+         RecordedStrata = ifelse(vst_status == "div_vst", "Y", "N"),
+         PlotArea.m2 = ifelse(is.na(PlotArea.m2) & siteID == "BLAN", 800,
+                              ifelse(is.na(PlotArea.m2) & siteID != "BLAN", 400, PlotArea.m2))) %>%
   rename(Dataset = dataset,
          Site = siteID,
          Plot = plotID,
@@ -171,7 +173,7 @@ FIA <- FIA %>%
                           TRUE ~ "MissingCoords"),
          NativeStatus = ifelse(Zone == "L48", inv_L48,
                                ifelse(Zone == "AK", inv_AK, NA))) %>% 
-  select(-X1)
+  select(-...1)
 ```
 
 Fixes taxonomy - species codes with missing native status
@@ -287,7 +289,7 @@ FIA <- FIA_final %>%
          Long = LON,
          Lat = LAT,
          Year = INVYR,
-         SampledArea = PlotArea,
+         PlotArea.m2 = PlotArea,
          AcceptedTaxonName = bestname,
          Original.TaxonName = SciName) %>%
   mutate(Dataset = "FIA",
@@ -365,7 +367,7 @@ AIM <- AIM  %>%
   mutate(PctCov = 100*prop.cover,
          FuzzedCoord = "N",
          Site = NA,
-         SampledArea = ifelse(DataSet == "BLM_LMF", 3000, 10000),
+         PlotArea.m2 = ifelse(DataSet == "BLM_LMF", 3000, 10000),
          Dataset = "AIM",
          Original.Plot = as.character(PLOTKEY),
          Plot = ifelse(is.na(NewPlotID), PLOTKEY, NewPlotID),
@@ -400,7 +402,7 @@ NPS <- NPS %>%
          Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
          Original.Lat = Lat,
          Original.Long = Long,
-         SampledArea = as.double(Area_sampled),
+         PlotArea.m2 = as.double(Area_sampled),
          FuzzedCoord = ifelse(RealCoords == "Y", "N", "Missing")) %>% 
   select(-Plot) %>%
   rename(NativeStatus = Exotic,
@@ -876,7 +878,7 @@ VNHP <- VNHP %>%
          Dataset = "VNHP") %>%
   rename(Original.TaxonName = VASpeciesName,
          AcceptedTaxonName = bestname,
-         SampledArea = Plot.Size, 
+         PlotArea.m2 = Plot.Size, 
          NativeStatus = ExoticStatus) %>%
   left_join(VNHPresample, by = "Original.Plot") %>% 
   mutate(Plot = ifelse(is.na(NewPlotID), Original.Plot, NewPlotID)) %>%
@@ -907,7 +909,7 @@ NWCA <- NWCA %>%
          Plot = UniquePlotID,
          Original.TaxonName = OriginalName,
          AcceptedTaxonName = bestname,
-         SampledArea = PlotArea_m2,
+         PlotArea.m2 = PlotArea_m2,
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          PctCov = COVER) %>%
@@ -1473,17 +1475,34 @@ DataBase %>%
 ## sampled area has some weird values (-40 (Fixed), and 0 (from NPS, substituting info for NA))
 DataBase %>% 
   ungroup() %>% 
-  select(Dataset, SampledArea, Plot) %>% 
+  select(Dataset, PlotArea.m2, Plot) %>% 
   distinct() %>% 
-  filter(SampledArea <= 0) %>%
-  group_by(Dataset, SampledArea) %>%
+  filter(PlotArea.m2 == 0) %>%
+  group_by(Dataset, PlotArea.m2) %>%
   count(Plot) %>%
   nrow()
-## 5005 plots from NPS and WVNHP with zeros.
+
+range(DataBase$PlotArea.m2)
+range(DataBase$PlotArea.m2, na.rm = T)
+## 38 plots from NPS with zeros.
+
+DataBase %>% 
+  ungroup() %>% 
+  select(Dataset, PlotArea.m2, Plot) %>% 
+  distinct() %>% 
+  filter(is.na(PlotArea.m2)) %>%
+  group_by(Dataset) %>%
+  count()
+
+missing = DataBase %>% 
+  ungroup() %>% 
+  select(Dataset, PlotArea.m2, Plot) %>% 
+  distinct() %>% 
+  filter(is.na(PlotArea.m2)& Dataset == "NEON")
 
 # substitutes SampledArea of zero per NA (38plots from NPS)
 DataBase <- DataBase %>% 
-  mutate(SampledArea = ifelse(SampledArea == 0, NA, SampledArea))
+  mutate(PlotArea.m2 = ifelse(PlotArea.m2 == 0, NA, PlotArea.m2))
 ```
 
 # Quality checks done by Kristen
@@ -1543,7 +1562,7 @@ DataBase <- DataBase %>%
 DataBase <- DataBase %>% # time consuming
   # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
   group_by(Dataset, Site, Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
-           Year, FuzzedCoord, SampledArea, RecordedStrata, PlotArea.m2, Zone, NativeStatus, AcceptedTaxonName, 
+           Year, FuzzedCoord, RecordedStrata, PlotArea.m2, Zone, NativeStatus, AcceptedTaxonName, 
            Duration, Growth.Habit, SpCode) %>% 
   dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
             Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
@@ -1621,6 +1640,12 @@ missing = DataBase %>% filter(PctCov==0) %>% group_by(Plot) %>% add_tally() %>% 
 #removes observations with zero percent cover.
 DataBase <- DataBase %>% 
   filter(PctCov!=0)
+
+DataBase %>%
+  group_by(Dataset) %>%
+  summarize(min = min(PctCov, na.rm = TRUE),
+            mean = mean(PctCov, na.rm = TRUE),
+            max = max(PctCov, na.rm = TRUE)) 
 ```
 
 + CONTINUE HERE fixing RecordedStrata terminology
