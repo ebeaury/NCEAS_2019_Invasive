@@ -15,7 +15,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-This code was adapted from Helen's code when assembling the database for the NCEAS sub-groups to use. 
+This code was adapted from Helen's code when assembling the database for the NCEAS sub-groups to use.
 
 ```{r packages and working directory, echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse) 
@@ -27,6 +27,7 @@ theme_set(theme_classic())
 ```
 
 # Desired columns for FULL Database
+
 Columns to carry forward in combined dataset
 
 ```{r}
@@ -41,6 +42,7 @@ DesiredColumns <- c("Dataset", "Site",
 ```
 
 # Full species list from USDA that Ian extracted the info from their website
+
 ```{r}
 # organizing Ian's taxonomy
 
@@ -74,14 +76,18 @@ tax <- tax %>%
 ```
 
 # Individual datasets
-## NEON ##
+
+## NEON
+
 Imports the file
+
 ```{r}
 NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220408.csv")
 glimpse(NEON) 
 ```
 
 Fixing errors in taxonomy
+
 ```{r}
 NEONspp <- NEON %>% 
   ## \\s = white space between the word and sp. or spp.
@@ -125,6 +131,7 @@ NEON <- NEON %>%
 ```
 
 Data wrangling and column selection
+
 ```{r}
 NEON <- NEON %>%
   mutate(FuzzedCoord = "N",
@@ -157,14 +164,17 @@ setdiff(names(NEON), DesiredColumns)
 glimpse(NEON)
 ```
 
-## FIA ##
+## FIA
+
 Imports the file
+
 ```{r}
 FIA <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/archived/FIA Veg data 12-21-21.csv") #ALL data including repeated samples (3207 plots)
 glimpse(FIA)
 ```
 
-# created a zone column
+# creates a zone column
+
 ```{r}
 FIA <- FIA %>% 
   mutate(Zone = case_when(LAT > 50 ~ "AK",
@@ -178,6 +188,7 @@ FIA <- FIA %>%
 ```
 
 Fixes taxonomy - species codes with missing native status
+
 ```{r}
 #distinct species codes with no NativeStatus by Zone
 FIA2 <- FIA %>% 
@@ -187,8 +198,8 @@ FIA2 <- FIA %>%
 glimpse(FIA2)
 ```
 
+-   getting the missing info from it
 
-* getting the missing info from it
 ```{r}
 # only unique accepted symbols
 
@@ -224,7 +235,8 @@ FIA_missingcodes <- rbind(FIA2_fixed, FIA3)
   
 ```
 
-* imports the file we manually changed species native status
+-   imports the file we manually changed species native status
+
 ```{r}
 # importing the taxonomy we manually changed
 status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
@@ -236,7 +248,8 @@ status <- status %>%
 anyDuplicated(status$SpCode)
 ```
 
-* fixes the missing native status and make sure the ones we changed manually are also fixed
+-   fixes the missing native status and make sure the ones we changed manually are also fixed
+
 ```{r}
 # fixing the missing native status codes
 
@@ -260,8 +273,8 @@ FIA_final <- FIA %>%
 
 ```
 
-
 Merges the new plotID to the FIA data
+
 ```{r}
 # finding the number of plots that were resampled
 Resample <- aggregate(INVYR ~ PLOT+STATECD+LAT+LON, data=unique(FIA_final[c("PLOT","INVYR", "STATECD", "LAT", "LON")]), FUN=length)
@@ -277,6 +290,7 @@ FIA_final <- FIA_final %>%
 ```
 
 Data wrangling and column selection
+
 ```{r}
 FIA <- FIA_final %>%
   mutate(FuzzedCoord = "Y",
@@ -303,14 +317,17 @@ setdiff(names(FIA), DesiredColumns)
 glimpse(FIA)
 ```
 
-## AIM ##
+## AIM
+
 Imports the file
+
 ```{r warning=FALSE}
 AIM <- read_csv("/home/shares/neon-inv/data_paper/data_by_dataset/AIM_AllSpTax_LP_20Aug2021.csv") 
 glimpse(AIM)
 ```
 
 Making sure plotID is unique to plots with the same coordinate across years
+
 ```{r}
 # table that I have created before on the plots that match coordinates & earlier visits for resampled plots
 # I used this one just to manually check my work below
@@ -359,6 +376,7 @@ excludePlotIDAIMSameYear <- c("14031706564266912014-03-01","14041413200089512014
 ```
 
 Data wrangling and column selection
+
 ```{r}
 AIM <- AIM  %>%
   filter(!PLOTKEY %in% excludePlotIDAIM$PLOTKEY) %>% 
@@ -388,8 +406,10 @@ setdiff(names(AIM), DesiredColumns)
 glimpse(AIM)
 ```
 
-## NPS ##
+## NPS
+
 Imports the file
+
 ```{r}
 NPS <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NPS_DataPaper_27July2021.csv", 
                 na = c('', 'NA'))
@@ -397,6 +417,7 @@ glimpse(NPS)
 ```
 
 Data wrangling and column selection
+
 ```{r}
 NPS <- NPS %>%
   mutate(Original.Plot = as.character(Plot),
@@ -420,8 +441,10 @@ setdiff(names(NPS), DesiredColumns)
 glimpse(NPS)
 ```
 
-## CVS & WVNHP ##
+## CVS & WVNHP
+
 Imports the file
+
 ```{r}
 VEGBANK <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced2.csv", 
                     na = c('', 'NA')) # this data includes repeated samples
@@ -429,6 +452,7 @@ glimpse(VEGBANK)
 ```
 
 Updated information on plot area for WVNHP
+
 ```{r}
 WVplotArea <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVplotArea.xlsx") %>% 
   rename(UniqueID = `Plot Code`, 
@@ -437,6 +461,7 @@ WVplotArea <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra
 ```
 
 Correction on the coordinates of two plots
+
 ```{r}
 WVPlotCoord <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify (1) JV.csv") %>% 
   select(Original.Plot, Correct.Lat, Correct.Lon) %>% 
@@ -444,6 +469,7 @@ WVPlotCoord <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_
 ```
 
 Plots to be removed from WVNHP because they have partial floristics (who sampled them at that time could have misidentified or missed species)
+
 ```{r}
 PlotsRemoveWVNHP <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_data.csv") %>% 
   select(`Plot Code`, `Vascular data quality`) %>% 
@@ -452,6 +478,7 @@ PlotsRemoveWVNHP <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_dat
 ```
 
 Imports data on resampled plots for WVNHP and creates a new plot ID for them
+
 ```{r}
 PlotsResampleWVNHP <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerifyLP.csv") %>% 
   filter(resample == 1) %>% 
@@ -464,6 +491,7 @@ PlotsResampleWVNHP <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset
 ```
 
 Finding observations that were sampled across strata for WVNHP
+
 ```{r}
 WVNHPStrata <- read.csv("/home/shares/neon-inv/raw_VegBank_data/WV_species_data.csv") %>% 
   select(Plot.Code, Scientific.Name, Stratum) %>% 
@@ -475,13 +503,14 @@ WVNHPStrata <- read.csv("/home/shares/neon-inv/raw_VegBank_data/WV_species_data.
   distinct()
 ```
 
-
 Plots to be removed from CVS as they are present in VNHP dataset
+
 ```{r}
 PlotsRemoveVegBank <- c("094-01-0032", "094-01-0053", "094-01-0056")
 ```
 
 Finding resampled plots in CVS database
+
 ```{r}
 # setting the directory with raw files
 shared_data_dir <- "/home/shares/neon-inv"
@@ -755,6 +784,7 @@ NCPPTotal <- NCPP %>% left_join(Proj129, by = 'Author Observation Code') %>%
 ```
 
 Data wrangling and column selection
+
 ```{r}
 VEGBANK <- VEGBANK %>% 
   left_join(select(WVplotArea, UniqueID, PlotArea), by="UniqueID") %>% 
@@ -812,7 +842,8 @@ setdiff(names(VEGBANK), DesiredColumns)
 glimpse(VEGBANK)
 ```
 
-Code below finds plots with same original coordinates but with distinct plotIDs (n>1) and plots with same original coordinates but with distinct plotIDs and different year of sampling (unique_year>1)
+Code below finds plots with same original coordinates but with distinct plotIDs (n\>1) and plots with same original coordinates but with distinct plotIDs and different year of sampling (unique_year\>1)
+
 ```{r eval=FALSE, include=FALSE}
 ##DON'T RUN
 # WVNHP <- filter(VEGBANK, Dataset == "WVNHP")
@@ -830,9 +861,10 @@ Code below finds plots with same original coordinates but with distinct plotIDs 
 #   write_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPlotVerify2.csv")
 ```
 
+## VNHP
 
-## VNHP ##
 Imports the file
+
 ```{r}
 VNHP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/VANHP_datapaper_06_16_21_EB.csv", 
                     na = c('', 'NA')) 
@@ -840,6 +872,7 @@ glimpse(VNHP)
 ```
 
 Finding resampled plots
+
 ```{r}
 VNHPresample <- VNHP %>% 
   group_by(Year, Long, Lat) %>% 
@@ -871,6 +904,7 @@ VNHPresample <- VNHP %>%
 ```
 
 Data wrangling and column selection
+
 ```{r}
 VNHP <- VNHP %>%
   mutate(FuzzedCoord = "Y", 
@@ -894,8 +928,10 @@ setdiff(names(VNHP), DesiredColumns)
 glimpse(VNHP)
 ```
 
-## NWCA ##
+## NWCA
+
 Imports the file
+
 ```{r}
 NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_02222022.csv", 
                   na = c('', 'NA')) 
@@ -903,6 +939,7 @@ glimpse(NWCA)
 ```
 
 Data wrangling and column selection
+
 ```{r}
 NWCA <- NWCA %>%
   mutate(FuzzedCoord = "N",
@@ -925,8 +962,10 @@ setdiff(names(NWCA), DesiredColumns)
 glimpse(NWCA)
 ```
 
-## IL_CTAP ##
+## IL_CTAP
+
 Imports the file
+
 ```{r}
 IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper04082022.csv", 
                  na = c('', 'NA')) 
@@ -934,6 +973,7 @@ glimpse(IL_CTAP)
 ```
 
 Data wrangling and column selection
+
 ```{r}
 IL_CTAP <- IL_CTAP %>%
   mutate(FuzzedCoord = "Y",
@@ -956,8 +996,8 @@ setdiff(names(IL_CTAP), DesiredColumns)
 glimpse(IL_CTAP)
 ```
 
-
 # Join
+
 ```{r}
 DataBase <- bind_rows(AIM, NPS, FIA, NEON, VEGBANK, VNHP, NWCA, IL_CTAP)
 glimpse(DataBase)
@@ -968,6 +1008,7 @@ DataBase %>% select(Plot) %>% distinct() %>% nrow()
 # Update native status to be consistent
 
 ## Creating a "Zone" Column
+
 ```{r}
 DataBase <- DataBase %>%
   mutate(Zone = case_when(Lat > 50 ~ "AK",
@@ -1003,7 +1044,8 @@ DataBase %>%
 
 ## Fix taxonomy errors and inconsistencies
 
-* get all the unique species codes by zone
+-   get all the unique species codes by zone
+
 ```{r}
 #distinct species codes with no NativeStatus by Zone
 DataBaseCodes <- DataBase %>% 
@@ -1015,9 +1057,8 @@ glimpse(DataBaseCodes)
 
 ```
 
-* getting native status and needed columns
-*important:* SpCode will be changed to Accepted.Symbol from USDA for all datasets. This is because some datasets (for instance, AIM) kept its original SpCode, but others updated to the Accepted. Symbol from Ian's taxonomy table. As I cannot retrieve this info, I'm making it consistent 
-*important2:* I'll use the Scientific.Name species column from USDA. In case there are synonyms, I will use the species from the Accepted.Symbol of that species.
+-   getting native status and needed columns *important:* SpCode will be changed to Accepted.Symbol from USDA for all datasets. This is because some datasets (for instance, AIM) kept its original SpCode, but others updated to the Accepted. Symbol from Ian's taxonomy table. As I cannot retrieve this info, I'm making it consistent *important2:* I'll use the Scientific.Name species column from USDA. In case there are synonyms, I will use the species from the Accepted.Symbol of that species.
+
 ```{r}
 # only unique accepted symbols
 
@@ -1065,7 +1106,6 @@ DataBaseALLCodes <- rbind(DataBaseCodes_fixed, DataBaseCodes2)
 
 ```
 
-
 ```{r}
 # file with manually changed native status
 status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
@@ -1078,6 +1118,7 @@ anyDuplicated(status$SpCode)
 ```
 
 *Option1*: Uses USDA PLANTS species code from Accepted.Symbol2 even if the original dataset have a particular code for that species
+
 ```{r}
 DataBase <- DataBase %>%
   left_join(DataBaseALLCodes, by = c("SpCode", "Zone")) %>% 
@@ -1095,8 +1136,8 @@ DataBase <- DataBase %>%
 
 ```
 
-*Option2*: Uses SpCode from the original dataset and replaces the NA from Accepted.Symbol2 (PLANTS codes)
-LP: It seems to me that this is not the way to go. The "NOMATCH" codes are for both species that USDA PLANTS don't have but was identified by researchers at the source [mainly CVS, WVNHP, VNHP] or clearly stated as Unknown [in CVS it's {Unkown}]
+*Option2*: Uses SpCode from the original dataset and replaces the NA from Accepted.Symbol2 (PLANTS codes) LP: It seems to me that this is not the way to go. The "NOMATCH" codes are for both species that USDA PLANTS don't have but was identified by researchers at the source [mainly CVS, WVNHP, VNHP] or clearly stated as Unknown [in CVS it's {Unkown}]
+
 ```{r eval=FALSE, include=FALSE}
 ## SpCode from the original dataset and replaces the NA from Accepted.Symbol2 (PLANTS codes)
 # DataBase <- DataBase %>%
@@ -1115,6 +1156,7 @@ LP: It seems to me that this is not the way to go. The "NOMATCH" codes are for b
 ```
 
 Checking whether there are Species with multiple exotic status: NONE!
+
 ```{r}
 DataBase %>%
   group_by(Zone, SpCode, AcceptedTaxonName) %>%
@@ -1380,8 +1422,8 @@ DataBase %>%
 
 ```
 
-
 # Checking missing data for Year column
+
 ```{r}
 ####checking missing data for Year column####
 DataBase %>% 
@@ -1442,7 +1484,8 @@ DataBase %>% filter(is.na(Long)) %>% nrow()
 
 ```
 
-#  Check that all datasets are percent cover, not proportion
+# Check that all datasets are percent cover, not proportion
+
 ```{r}
 
 DataBase %>%
@@ -1511,7 +1554,9 @@ DataBase <- DataBase %>%
 ```
 
 # Quality checks done by Kristen
-+ One spp per year per plot (via SpCode)
+
+-   One spp per year per plot (via SpCode)
+
 ```{r}
 duplicates <- DataBase %>% # time consuming
   group_by(Dataset, Plot, SpCode, Year) %>% 
@@ -1582,7 +1627,8 @@ DataBase %>%  # time consuming
   
 ```
 
-+ One spp per year per plot (via Original.TaxonName)
+-   One spp per year per plot (via Original.TaxonName)
+
 ```{r}
 duplicates <- DataBase %>% # time consuming
   group_by(Dataset, Plot, SpCode, Original.TaxonName, Year) %>% 
@@ -1594,7 +1640,8 @@ table(duplicates$Dataset)
 # these duplicates are already present in the original datasets, assuming the ones who identified them that each entry is a different morphotype, and potentially a distinct species
 ```
 
-+ NA for Original.TaxonName
+-   NA for Original.TaxonName
+
 ```{r}
 MissingOrigName<-DataBase %>% 
   filter(is.na(Original.TaxonName)) %>% 
@@ -1611,7 +1658,9 @@ table(MissingOrigName$Dataset)
 
 ```
 
-+ weird commas where they shouldn't be
+
+- weird commas where they shouldn't be
+
 ```{r}
 # Growth.Habit
 ## there is a "Shrub," category
@@ -1632,7 +1681,49 @@ unique(DataBase$Duration)
 
 ```
 
-+ rechecking percent cover again
+- checking for multiple duration and/or growth forms for a particular AcceptedTaxonName [Helen]
+
+```{r}
+## unique species
+no.syn <- DataBase %>%
+  select(SpCode, AcceptedTaxonName, Duration, Growth.Habit) %>%
+  distinct()
+anyDuplicated(no.syn$AcceptedTaxonName)
+
+haveDup <- no.syn %>%
+  group_by(AcceptedTaxonName) %>%
+  count() %>%
+  filter(n > 1) #only one species
+
+haveDup2 <- no.syn %>%
+  group_by(SpCode) %>%
+  count() %>%
+  filter(n > 1) #same species
+
+no.syn %>%
+  filter(AcceptedTaxonName %in% haveDup$AcceptedTaxonName) %>%
+  arrange(AcceptedTaxonName)
+
+GCobs <- DataBase %>% 
+  filter(AcceptedTaxonName %in% haveDup$AcceptedTaxonName,
+         Growth.Habit == "Forb/herb, Subshrub")
+table(GCobs$Growth.Habit) # Galium circaezans
+
+# not sure why this is happening as tax file has a single associated growth habit for this spp. Fixing manually the issue
+DataBase <- DataBase %>% 
+  mutate(Growth.Habit = ifelse(SpCode == "GACI2", "Subshrub, Forb/herb", Growth.Habit))
+
+#checking if it worked
+DataBase %>%
+  select(SpCode, AcceptedTaxonName, Duration, Growth.Habit) %>%
+  distinct() %>%
+  filter(AcceptedTaxonName %in% haveDup$AcceptedTaxonName) %>%
+  arrange(AcceptedTaxonName) # None!
+
+```
+
+-   rechecking percent cover again
+
 ```{r}
 range(DataBase$PctCov)
 # why zeros?
@@ -1653,7 +1744,8 @@ DataBase %>%
             max = max(PctCov, na.rm = TRUE)) 
 ```
 
-+ RecordedStrata terminology
+-   RecordedStrata terminology
+
 ```{r}
 #checking which are the categories and by dataset
 table(DataBase$RecordedStrata, exclude=NULL)
@@ -1669,7 +1761,8 @@ DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset) # o
 DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset) 
 ```
 
-+ creating a Resampled column.
+-   creating a Resampled column.
+
 ```{r}
 #creates a list of plots there were resampled
 ResampledList<-DataBase %>%
@@ -1693,13 +1786,15 @@ DataBase %>% ungroup() %>% filter(Resampled=="Y") %>% distinct(Plot) %>% nrow()
 nrow(ResampledList)
 ```
 
-+ fixing site terminology
+-   fixing site terminology
+
 ```{r}
 # fixing the NAs and changing them to N [No]
 DataBase <- DataBase %>% mutate(Site = ifelse(is.na(Site), "N", Site))
 ```
 
-+ creating a Sampling method column.
+-   creating a Sampling method column.
+
 ```{r}
 DataBase <- DataBase %>%
   mutate(PlotArea.m2 = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", PlotArea.m2, PlotArea.m2),
@@ -1732,6 +1827,7 @@ DataBase %>%
 ```
 
 # Creating the FULL Database
+
 ```{r}
 FULLDatabase <- DataBase %>%
   select(one_of(DesiredColumns))
@@ -1739,14 +1835,18 @@ glimpse(FULLDatabase)
 ```
 
 ## Exporting the FULL Database
+
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04092022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04092022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04122022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04122022.csv")
 ```
 
-# Creating  Database
+# Creating Database
+
 ## Desired columns for SPCIS Database
+
 Columns to carry forward in combined SPCIS dataset
+
 ```{r}
 DesiredColumns2 <- c("Dataset", "Site", 
                     "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
@@ -1757,8 +1857,8 @@ DesiredColumns2 <- c("Dataset", "Site",
 
 ```
 
-
 ### Selecting columns and dealing with plots with rare species
+
 ```{r}
 # removes species names and codes but keep them in the plot
 
@@ -1907,6 +2007,7 @@ SPCISDatabase %>%
 ```
 
 Creating a final list of Rare Species handled in the DataBase
+
 ```{r}
 # creating a final list of species removed per dataset
 ## fixing VNHP
@@ -1935,7 +2036,6 @@ ListRareSpecies <- finalsAIMrareSpp %>%
 
 # write.csv(ListRareSpecies, "final_data/ListRareSpecies_04092022.csv", row.names = F)
 ```
-
 
 ```{r eval=FALSE, include=FALSE}
 #Old code, leaving here in case we need
@@ -1966,18 +2066,19 @@ ListRareSpecies <- finalsAIMrareSpp %>%
   # ungroup()
 ```
 
-
 ```{r echo=FALSE}
 glimpse(SPCISDatabase)
 ```
 
 ### Exporting the SPCIS Database
+
 ```{r eval=FALSE, include=FALSE}
-write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_04092022.rds")
-write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_04092022.csv")
+write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_0412022.rds")
+write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_04122022.csv")
 ```
 
 #### Exporting the SPCIS Database but AIM data only
+
 ```{r eval=FALSE, include=FALSE}
 
 SPCISDatabase_AIM <- SPCISDatabase %>% filter(Dataset == "AIM")
@@ -1987,7 +2088,9 @@ SPCISDatabase_AIM <- SPCISDatabase %>% filter(Dataset == "AIM")
 ```
 
 # **Summaries**
+
 ## Number of records
+
 ```{r}
 # number of records #
 dim(SPCISDatabase) 
@@ -2007,6 +2110,7 @@ SPCISDatabase %>%
 ```
 
 ## Plot summaries
+
 ```{r}
 # number of plots #
 SPCISDatabase %>%
@@ -2160,6 +2264,7 @@ SPCISDatabase %>%
 ```
 
 ## Species and Native status summaries
+
 ```{r}
 #number of species##
 SPCISDatabase %>%
@@ -2196,7 +2301,6 @@ SPCISDatabase %>%
 #for VegBank, species with associated NAs for exotic status are around 88% of all species id for VegBank
 ```
 
-
 ```{r echo=FALSE}
 ##percent of species exotic status per dataset##
 DatasetNA <- SPCISDatabase %>%
@@ -2216,7 +2320,6 @@ ggplot(data=DatasetNA, aes(x=Dataset, y=pct, fill=NativeStatus)) +
   ylab("% of species nativeness status per dataset") + theme(axis.title.x = element_blank(),
                                                          legend.position="bottom")
 ```
-
 
 ```{r}
 ## Cover range per dataset
@@ -2262,6 +2365,7 @@ SPCISDatabase %>%
 # **Differences among Datasets**
 
 Defining colors
+
 ```{r}
 library(viridis)
 #finding the color codes to add to the database
@@ -2278,7 +2382,8 @@ VNHPc<-"#FDC328FF"
 WNHPc<-"#F0F921FF"
 ```
 
-Importing ecoregions level1 (https://www.epa.gov/eco-research/ecoregions-north-america) 
+Importing ecoregions level1 (<https://www.epa.gov/eco-research/ecoregions-north-america>)
+
 ```{r}
 library(sf)
 # import the vector into R as an sf object
@@ -2286,11 +2391,11 @@ ecoreg1 <- st_read("/home/shares/neon-inv/data_paper/env_code_data/gis_layers/ec
 glimpse(ecoreg1)
 ```
 
-
 Joining the ecoregion spatial information
+
 ```{r}
 SPCISDatabaseEco <- SPCISDatabase %>% 
-  filter(Zone != "MissingCoords") %>% 
+  filter(FuzzedCoord != "Missing") %>% 
   # getting all data as a sf object
   st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
   #sets the same projections
@@ -2302,6 +2407,7 @@ SPCISDatabaseEco <- SPCISDatabase %>%
 ```
 
 ## Graphs - Non-native cover
+
 ```{r}
 status <- "I"
 
@@ -2451,6 +2557,7 @@ dev.off()
 ```
 
 ## Grphs - Native cover
+
 ```{r}
 status <- "N"
 
