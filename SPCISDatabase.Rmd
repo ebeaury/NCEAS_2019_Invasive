@@ -1711,14 +1711,16 @@ table(GCobs$Growth.Habit) # Galium circaezans
 
 # not sure why this is happening as tax file has a single associated growth habit for this spp. Fixing manually the issue
 DataBase <- DataBase %>% 
-  mutate(Growth.Habit = ifelse(SpCode == "GACI2", "Subshrub, Forb/herb", Growth.Habit))
+  mutate(Growth.Habit = ifelse(SpCode == "GACI2", "Subshrub, Forb/herb", Growth.Habit),
+         #also fixes the issue with a particular species code that always get switched to date
+         SpCode = ifelse(SpCode == "7-Feb", "FEBR7", SpCode))
 
 #checking if it worked
 DataBase %>%
   select(SpCode, AcceptedTaxonName, Duration, Growth.Habit) %>%
   distinct() %>%
   filter(AcceptedTaxonName %in% haveDup$AcceptedTaxonName) %>%
-  arrange(AcceptedTaxonName) # None!
+  arrange(AcceptedTaxonName) # None! This was the species giving trouble, now there is a single obs
 
 ```
 
@@ -2070,11 +2072,56 @@ ListRareSpecies <- finalsAIMrareSpp %>%
 glimpse(SPCISDatabase)
 ```
 
+- creates the two files as Bethany suggested
+```{r}
+SPCIS_plant_taxa <- SPCISDatabase %>% 
+  select(Dataset, Plot, Year, SpCode, AcceptedTaxonName, Original.TaxonName, 
+         NativeStatus, Duration, GrowthHabit, PctCov, RecordedStrata) %>% 
+  as_tibble()
+
+SPCIS_plots <- SPCISDatabase %>% 
+  select(Plot, Year, Original.Plot, Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
+  # FIA_2099 plot was duplicated even after using the distinct() function 
+  # the issue was on the decimals of the plot area column
+  mutate(PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>% 
+    distinct() %>% 
+  as_tibble()
+
+SPCISrecreated <- SPCIS_plant_taxa %>% 
+  left_join(SPCIS_plots) 
+
+all_equal(SPCISDatabase, SPCISrecreated)
+
+results1 = setdiff(SPCISDatabase, SPCISrecreated) # elements in SPCISDatabase NOT in SPCISrecreated
+results2 = setdiff(SPCISrecreated, SPCISDatabase) # elements in SPCISDatabase NOT in SPCISrecreated
+
+#both rows are exactly the same and showing in both dataframes when I search for them. I think it should be ok.
+
+# code to find the differences
+# x<-SPCIS_plots %>% 
+#   filter(Plot == "FIA_2099")
+# glimpse(x)
+# # diff(x$PlotArea.m2) #to find which column has differences
+
+nrow(SPCISDatabase) == nrow(SPCISrecreated)
+```
+
 ### Exporting the SPCIS Database
 
+```{r}
+#plant data
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0412022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04122022.csv")
+
+#plot data
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_0412022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04122022.csv")
+```
+
+
 ```{r eval=FALSE, include=FALSE}
-write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_0412022.rds")
-write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_04122022.csv")
+# write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_0412022.rds")
+# write_csv(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_04122022.csv")
 ```
 
 #### Exporting the SPCIS Database but AIM data only
