@@ -1828,6 +1828,83 @@ DataBase %>%
 
 ```
 
+- Are there any duplicates of plots? (I've found some for CVS, but unsure it here are more?)
+```{r}
+
+DuplicatedPlots <- DataBase %>% 
+  select(Dataset, Plot, Long, Lat, Year, AcceptedTaxonName, PctCov) %>% 
+  distinct() %>% 
+  filter(!is.na(Long), !is.na(Lat)) %>% 
+  group_by(Long, Lat, Year, AcceptedTaxonName, PctCov) %>% 
+  add_tally() %>%
+  filter(n > 1) %>% 
+  arrange(Long, Lat, Year, AcceptedTaxonName, PctCov)
+
+DataBaseDuplicated <- DataBase %>% 
+  filter(Plot %in% DuplicatedPlots$Plot) %>% 
+  group_by(Plot, Year) %>% 
+  count() %>% 
+  rename(numberObs = n)
+
+DuplicatedPlots <- DuplicatedPlots %>% 
+  left_join(DataBaseDuplicated) %>% 
+  group_by(Long, Lat, Year, AcceptedTaxonName, PctCov) %>%
+  #idea: if average number of Obs was the same as both entries given the grouping above, those plots need to be further checked
+  #calculate the average number of observations within a plot across the 2 observations that share the same info
+  mutate(avgObs = mean(numberObs)) %>% 
+  ungroup() %>% 
+  #adds a columns that if the average values is the same as the number of obs of a particular plot, adds 1, otherwise 0
+  mutate(equal = ifelse(numberObs == avgObs, 1, 0)) %>% 
+  group_by(Long, Lat, Year, AcceptedTaxonName, PctCov) %>%
+  #sum across the observations with the same info
+  # if 2 or more, plots have the same number of observations
+  mutate(codeDuplicate = ifelse(sum(equal) >1, 1, 0)) %>% 
+  filter(codeDuplicate == 1) %>% 
+  group_by(Long, Lat, Year, AcceptedTaxonName, PctCov) %>%
+  mutate(NewPlotID = cur_group_id()) %>% ungroup()
+  
+DataBaseDuplicated2 <- DataBase %>% 
+  filter(Plot %in% DuplicatedPlots$Plot) %>% 
+  left_join(select(DuplicatedPlots, Plot, NewPlotID)) %>% 
+  arrange(NewPlotID, Plot, Long, Lat, Year, AcceptedTaxonName, PctCov) %>% 
+  group_by(NewPlotID) %>% 
+  add_count(AcceptedTaxonName, PctCov) 
+
+#plots that are not all the same observations
+DataBaseDuplicated3 <- DataBaseDuplicated2 %>% 
+  filter(any(n == 1)) 
+
+# plots in which all observations are equal
+DataBaseDuplicated4 <- DataBaseDuplicated2 %>% 
+  filter(!NewPlotID %in% DataBaseDuplicated3$NewPlotID) %>% 
+  select(Plot, NewPlotID) %>% 
+  distinct() %>% 
+  left_join(select(DuplicatedPlots, c(Plot, numberObs, Dataset))) %>% 
+  ungroup() %>% 
+  select(-NewPlotID) %>% 
+  distinct() %>% 
+  arrange(Dataset, numberObs)
+#It seems that for NWCA the plots have very low richness, and those species dominate, so the obs should be right
+#but for NPS and VNHP, those plots seems incorrect
+  write_csv("/home/shares/neon-inv/data_paper/datachecks/PlotDuplicates.csv")
+```
+
+- fix ALFL plot names from for example "ALFL_ALFL.48" to "ALFL.48"
+```{r}
+DataBase %>% filter(Site == "ALFL") %>% select(Plot) %>% distinct() #identifies the plots with wrong spelling
+
+DataBase <- DataBase %>% 
+  mutate(Plot = ifelse(Plot=="ALFL_ALFL.142", "ALFL.142",
+                ifelse(Plot=="ALFL_ALFL.47", "ALFL.47",
+                ifelse(Plot=="ALFL_ALFL.48", "ALFL.48",
+                ifelse(Plot=="ALFL_ALFL.49", "ALFL.49",
+                ifelse(Plot=="ALFL_ALFL.50", "ALFL.50",
+                ifelse(Plot=="ALFL_ALFL.51", "ALFL.51", Plot))))))) #fixes
+
+DataBase %>% filter(Site == "ALFL") %>% select(Plot) %>% distinct() #no more errors
+```
+
+
 # Creating the FULL Database
 
 ```{r}
