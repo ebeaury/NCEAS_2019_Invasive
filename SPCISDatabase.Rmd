@@ -2105,6 +2105,9 @@ SPCIS_plots <- SPCISDatabase %>%
 SPCISrecreated <- SPCIS_plant_taxa %>% 
   left_join(SPCIS_plots) 
 
+glimpse(SPCIS_plots)
+glimpse(SPCIS_plant_taxa)
+
 all_equal(SPCISDatabase, SPCISrecreated)
 
 results1 = setdiff(SPCISDatabase, SPCISrecreated) # elements in SPCISDatabase NOT in SPCISrecreated
@@ -2303,7 +2306,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("GraphInvadedPlotsperDataset02282022.png", dpi=300)
+ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset04132022.png", dpi=300)
 ```
 
 ```{r}
@@ -2404,6 +2407,7 @@ rangecover<- SPCISDatabase %>%
 
 ## Years of data collection ##
 table(SPCISDatabase$Year)
+quantile(SPCISDatabase$Year, na.rm = T)
 
 ## number of resampled plots
 SPCISDatabase %>%
@@ -2612,7 +2616,7 @@ all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, g
           # labels = c("A", "B", "C", "D", "F"),
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('figures/ecoregionsNN/graphcomginedNN020282022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcomginedNN04132022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
@@ -2719,8 +2723,8 @@ graph7<-SPCISDatabaseEco %>% filter(NativeStatus == status,
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
   ggtitle("Northwestern Forested Mountains") + 
-  labs(y="Frequency", x = "Native Species Cover (%)")  
-  # theme(legend.position = "none") 
+  labs(y="Frequency", x = "Native Species Cover (%)")  +
+  theme(legend.position = "none")
   # ggsave('figures/ecoregionsN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
@@ -2761,7 +2765,7 @@ library(cowplot)
 all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('figures/ecoregionsN/graphcomginedN02282022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcomginedNat4132022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
