@@ -26,42 +26,45 @@ data_output <- file.path(shared_data_dir,"data_by_dataset")
 
 Importing dataset 2011
 ```{r}
-NWCA2011 <- read.delim(file.path(data_raw, "epa wetland surveys.txt"), header = TRUE)
+NWCA2011 <- read_xlsx(file.path(data_raw, "nwca11_plant_wide.xlsx"), sheet = "nwca11_plant_wide")
 glimpse(NWCA2011)
 
 NWCA2011 <- NWCA2011 %>%
-  mutate(Date = as.Date(DATE_COL, format = "%d-%B-%Y"),
-         Year = 2011) %>%
+  rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
-  select(UID, PLOT, Date, Year, SITE_ID, COVER, SPECIES) %>%
+  #unique id matches sites across years
+  #plots were not exactly the same location within site across years
+  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES) %>%
   rename(OriginalName = SPECIES) %>%
   #code below fixes species (same SPECIES name) that are recorded more than once in a plot
-  group_by(UID, PLOT, Date, Year, SITE_ID, OriginalName) %>% 
+  #it seems that the updated file Gregg sent us has this issue fixed
+  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName) %>% 
   summarise(COVER = sum(COVER, na.rm=TRUE)) %>% 
   ungroup()
 ```
 
 Importing dataset 2016
 ```{r}
-NWCA2016 <- read.csv(file.path(data_raw, "nwca_2016_plant_species_cover_height_-_data_csv.csv"), header = TRUE)
+NWCA2016 <- read_xlsx(file.path(data_raw, "nwca16_plant_wide.xlsx"), sheet = "nwca16_plant_wide")
 glimpse(NWCA2016)
 
 NWCA2016 <- NWCA2016 %>%
-  mutate(Date = as.Date(DATE_COL, format = "%m/%d/%Y"),
-         Year = 2016) %>%
-  filter(!is.na(COVER)) %>%
-  select(UID, PLOT, Date, Year, SITE_ID, COVER, SPECIES) %>%
-  rename(OriginalName = SPECIES) #%>%
-  # group_by(UID, PLOT) %>%
-  # mutate(UniquePlotID = paste0("NWCA_", cur_group_id()),
-  #        #https://www.epa.gov/sites/default/files/2013-11/documents/fom_with_errata.pdf
-  #        PlotArea_m2 = 100)
-glimpse(NWCA2016)
+  rename(Year = DSGN_CYCLE) %>%
+  filter(!is.na(COVER)) %>% 
+  #unique id matches sites across years
+  #plots were not exactly the same location within site across years
+  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES) %>%
+  rename(OriginalName = SPECIES) %>%
+  #code below fixes species (same SPECIES name) that are recorded more than once in a plot
+  #it seems that the updated file Gregg sent us has this issue fixed
+  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName) %>% 
+  summarise(COVER = sum(COVER, na.rm=TRUE)) %>% 
+  ungroup()
+
 ```
 
 Importing information on site lat/long
 ```{r}
-
 latlong2011 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2011_siteinfo.csv"))
 glimpse(latlong2011)
 latlong2011 <- latlong2011 %>% select(SITE_ID, AA_CENTER_LAT, AA_CENTER_LON) %>%
@@ -69,13 +72,39 @@ latlong2011 <- latlong2011 %>% select(SITE_ID, AA_CENTER_LAT, AA_CENTER_LON) %>%
          Long = AA_CENTER_LON) %>% 
   distinct(SITE_ID, .keep_all = T)
 
-latlong2016 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2016_siteinfo.csv"))
+latlong2016 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca_2016_site_information_-_data_csv.csv"))
 glimpse(latlong2016)
-latlong2016 <- latlong2016 %>% select(SITE_ID, VEG_PLOT_LAT, VEG_PLOT_LON, PLOT) %>%
-  rename(Lat = VEG_PLOT_LAT,
-         Long = VEG_PLOT_LON)  %>% 
-  distinct(SITE_ID, PLOT, .keep_all = T)
+latlong2016 <- latlong2016 %>% select(SITE_ID, LAT_DD83, LON_DD83) %>%
+  rename(Lat = LAT_DD83,
+         Long = LON_DD83)  %>% 
+  distinct(SITE_ID, .keep_all = T)
+```
 
+Finding resampled sites and giving them unique IDs
+```{r}
+#finding sites that were resampled in 2016, and giving them a single site ID across years
+#plots were likely not resurveyed in the exact same location in between the two campaigns
+
+#getting distinct UNIQUE_ID per Site_ID
+UniqueIDs <- NWCA2011 %>% 
+  select(UNIQUE_ID) %>% 
+  rbind(select(NWCA2016, UNIQUE_ID)) %>% 
+  distinct()  
+  
+
+ResampledSites <- read_xlsx(file.path(data_raw, "nars_allsurvey_site_id_crosswalk-wide-and-long-250122.xlsx"), sheet = "WIDE_NARS_ALLSurvey_SITE_ID CRO") %>% 
+  filter(UNIQUE_ID %in% UniqueIDs$UNIQUE_ID) %>% 
+  select(UNIQUE_ID, `2011`, `2016`) %>% 
+  mutate(code = ifelse(`2011` == "NA" | `2016` == "NA", 0, 1),
+         stateID = str_sub(UNIQUE_ID, 5, -7)) %>% 
+  filter(code==1) %>% 
+  group_by(stateID, UNIQUE_ID) %>% 
+  mutate(UniqueSiteID = paste0("NWCA_",stateID, "_", cur_group_id())) %>% 
+  ungroup() %>% 
+  rename(SiteID2011 = `2011`,
+         SiteID2016 = `2016`) %>% 
+  select(-stateID)
+  
 ```
 
 Adding lat/long info
@@ -83,16 +112,34 @@ Adding lat/long info
 NWCA2011 <- left_join(NWCA2011, latlong2011, by = "SITE_ID")
 glimpse(NWCA2011)
 
-NWCA2016 <- left_join(NWCA2016, latlong2016, by = c("SITE_ID", "PLOT"))
+NWCA2016 <- left_join(NWCA2016, latlong2016, by = c("SITE_ID"))
 glimpse(NWCA2016)
 ```
+
+Adding new site ID information
+```{r}
+NWCA2011 <- NWCA2011 %>% 
+  left_join(select(ResampledSites, c(SiteID2011, UniqueSiteID)), by = c("SITE_ID"="SiteID2011")) %>% 
+  rename(Original.Site = SITE_ID) %>% 
+  mutate(UniqueSiteID = ifelse(is.na(UniqueSiteID), Original.Site, UniqueSiteID)) %>% 
+  select(-UNIQUE_ID)
+glimpse(NWCA2011)
+
+NWCA2016 <- NWCA2016 %>% 
+  left_join(select(ResampledSites, c(SiteID2016, UniqueSiteID)), by = c("SITE_ID"="SiteID2016")) %>% 
+  rename(Original.Site = SITE_ID) %>% 
+  mutate(UniqueSiteID = ifelse(is.na(UniqueSiteID), Original.Site, UniqueSiteID)) %>%
+  select(-UNIQUE_ID)
+glimpse(NWCA2016)
+```
+
 
 Merging the two datasets
 ```{r}
 
 NWCA <- bind_rows(NWCA2011, NWCA2016) 
 NWCA <- NWCA %>% 
-  group_by(UID, PLOT) %>%
+  group_by(Original.Site, PLOT) %>%
   mutate(UniquePlotID = paste0("NWCA_", cur_group_id()),
          #https://www.epa.gov/sites/default/files/2013-11/documents/fom_with_errata.pdf
          PlotArea_m2 = 100) %>% 
@@ -117,7 +164,7 @@ sppcodes <- sppcodes %>% select(-Synonym.Symbol)
 NWCAspp <- data.frame(unique(NWCA$OriginalName))
 NWCAspp <- NWCAspp %>%
   rename(OriginalName = 1) %>%
-  mutate(OriginalName = ifelse(OriginalName=="ACER ?<f9>FREEMANII", "Acer freemanii", OriginalName)) %>%
+  # mutate(OriginalName = ifelse(OriginalName=="ACER xFREEMANII", "Acer freemanii", OriginalName)) %>%
   mutate(Scientific.Name = str_to_lower(OriginalName),
          Scientific.Name = str_to_sentence(Scientific.Name)) %>%
   left_join(tax) %>%
@@ -133,7 +180,7 @@ Joining the fixed species table to the main database
 ```{r}
 NWCA2 <- left_join(NWCA, NWCAspp)
 glimpse(NWCA2)
-is.na(NWCA2) <- NWCA2==''
+is.na(NWCA2) <- NWCA2=='' ## ISSUE - this seems to not be working
 
 NWCA2 %>% group_by(inv_L48) %>% tally()
 ```
@@ -152,13 +199,25 @@ NWCA2 <- NWCA2 %>% left_join(hand_exo)
 NWCA2 <- NWCA2 %>% mutate(inv_L48 = ifelse(is.na(`FINAL DECISION (L48)`), inv_L48, `FINAL DECISION (L48)`)) %>% select(-`FINAL DECISION (L48)`)
 
 #check one that was NA and should now be I
-NWCA2 %>% filter(Accepted.Symbol=="BRIN2")
+NWCA2 %>% filter(Accepted.Symbol=="BRIN2") %>% select(Accepted.Symbol, COVER, inv_L48)
+
+glimpse(NWCA2)
+
+```
+
+Data checks
+```{r}
+#how many plots have no coordinate info
+NWCA2 %>% 
+  select(UniquePlotID, Lat, Long) %>% 
+  filter(is.na(Lat) | is.na(Long)) %>% 
+  count() ## NONE!
 
 ```
 
 
 Exporting final dataset
 ```{r}
-write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_02222022.csv"))
+write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_04202022.csv"))
 ```
 
