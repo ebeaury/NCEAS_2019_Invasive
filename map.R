@@ -38,7 +38,13 @@ hawaii = subset(us_states,
                      "Hawaii"
                    ))
 
-hawaii_2163 = st_transform(hawaii, crs = 2163)
+#I'll need to crop Hawaii, to exclude the little islands
+ggplot() + geom_sf(data = hawaii) + theme_bw()
+hawaii_2 <- st_crop(hawaii, xmin = -161, xmax = -153,
+                            ymin = 18, ymax = 23)
+ggplot() + geom_sf(data = hawaii_2) + theme_bw()
+
+hawaii_2163 = st_transform(hawaii_2, crs = 2163)
 
 alaska = subset(us_states, 
                 NAME %in% c(
@@ -55,16 +61,18 @@ puerto_rico = subset(us_states,
 puerto_rico_2163 = st_transform(puerto_rico, crs = 2163)
 
 #### Point data
-DAIAS <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_02282022.rds")
-glimpse(DAIAS)
-DAIAS <- DAIAS %>% 
+SPCIS_plant_taxa <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0413022.rds")
+SPCIS_plots <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_0413022.rds")
+SPCIS <- SPCIS_plant_taxa %>% left_join(SPCIS_plots)
+glimpse(SPCIS)
+SPCIS <- SPCIS %>% 
   ungroup() %>% 
-  filter(Zone != "MissingCoords") %>% 
+  filter(FuzzedCoord != "Missing") %>% 
   select(Dataset, Plot, Long, Lat, Zone) %>% 
   distinct() %>% 
   st_as_sf(coords = c("Long", "Lat"), crs=4326)
 
-DAIAS_2163 = st_transform(DAIAS, crs = 2163)
+SPCIS_2163 = st_transform(SPCIS, crs = 2163)
 
 #creating a box around the Conterminous US
 us_states_2163_bb = st_as_sfc(st_bbox(us_states_2163))
@@ -76,7 +84,7 @@ alaska_2163_bb = st_buffer(alaska_2163_bb, dist = 100000)
 
 #creating a box around the HI
 hawaii_2163_bb = st_as_sfc(st_bbox(hawaii_2163))
-hawaii_2163_bb = st_buffer(hawaii_2163_bb, dist = 100000)
+hawaii_2163_bb = st_buffer(hawaii_2163_bb, dist = 10000)
 
 #creating a box around the PR
 puerto_rico_2163_bb = st_as_sfc(st_bbox(puerto_rico_2163))
@@ -89,7 +97,7 @@ show_col(viridis_pal(option = "plasma")(9))
 #### Conterminous US
 ggm1 <- ggplot() + 
   geom_sf(data = us_states_2163, fill = "white", size = 0.2) + 
-  geom_sf(data = filter(DAIAS_2163, Zone == "L48"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
+  geom_sf(data = filter(SPCIS_2163, Zone == "L48"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
   scale_colour_manual(values=c("#0D0887FF", "#4C02A1FF", "#7E03A8FF", "#A92395FF",
                                "#CC4678FF", "#E56B5DFF", "#F89441FF", "#FDC328FF", "#F0F921FF")) +
@@ -110,7 +118,7 @@ ggm1
 #### Hawaii
 ggm2 <- ggplot() + 
   geom_sf(data = hawaii_2163, fill = "white", size = 0.2) + 
-  geom_sf(data = filter(DAIAS_2163, Zone == "HI"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
+  geom_sf(data = filter(SPCIS_2163, Zone == "HI"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
   scale_colour_manual(values=c("#E56B5DFF", "#CC4678FF")) +
   geom_sf(data = hawaii_2163_bb, fill = NA, color = "black", size = 0.1) +
@@ -124,7 +132,7 @@ ggm2
 #### Alaska
 ggm3 <- ggplot() + 
   geom_sf(data = alaska_2163, fill = "white", size = 0.2) + 
-  geom_sf(data = filter(DAIAS_2163, Zone == "AK"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
+  geom_sf(data = filter(SPCIS_2163, Zone == "AK"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
   scale_colour_manual(values=c("#7E03A8FF", "#CC4678FF")) +
   geom_sf(data = alaska_2163_bb, fill = NA, color = "black", size = 0.1) +
@@ -138,7 +146,7 @@ ggm3
 #### Puerto Rico
 ggm4 <- ggplot() + 
   geom_sf(data = puerto_rico_2163, fill = "white", size = 0.2) + 
-  geom_sf(data = filter(DAIAS_2163, Zone == "PR"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
+  geom_sf(data = filter(SPCIS_2163, Zone == "PR"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
   geom_sf(data = puerto_rico_2163_bb, fill = NA, color = "black", size = 0.1) +
   scale_colour_manual(values=c("#7E03A8FF", "#CC4678FF")) +
@@ -167,4 +175,4 @@ gg_inset_map
 
 
 # The line below is not working, so I am manually saving the plot
-# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots02282022.png", dpi = 300)
+# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots04132022.png", dpi = 300)
