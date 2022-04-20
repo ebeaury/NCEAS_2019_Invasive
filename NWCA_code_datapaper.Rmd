@@ -29,6 +29,18 @@ Importing dataset 2011
 NWCA2011 <- read_xlsx(file.path(data_raw, "nwca11_plant_wide.xlsx"), sheet = "nwca11_plant_wide")
 glimpse(NWCA2011)
 
+NWCA2011 %>% distinct(UID) %>% count()
+NWCA2011 %>% distinct(SITE_ID) %>% count()
+NWCA2011 %>% group_by(UID, PLOT) %>% count() %>% nrow()
+NWCA2011 %>% group_by(SITE_ID, PLOT) %>% count() %>% nrow()
+
+x<-NWCA2011 %>% group_by(UID, SITE_ID, PLOT) %>% add_tally() 
+x<-x%>% group_by(SITE_ID) %>% count(UID)
+# the issue is that SITE_ID and UID have different number of categories. For the previous data, I was giving the plots new names based on UID & PLOT, but it should have been SITE_ID & PLOT
+# this will affect the total number of plots, total number of observations and the summaries of the very final database!!!!!!
+
+
+
 NWCA2011 <- NWCA2011 %>%
   rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
@@ -138,13 +150,24 @@ Merging the two datasets
 ```{r}
 
 NWCA <- bind_rows(NWCA2011, NWCA2016) 
+
+NWCA %>% distinct(Original.Site) %>% count()
+NWCA2011_2016_02222022 %>% distinct(SITE_ID) %>% count()
+
+glimpse(NWCA)
 NWCA <- NWCA %>% 
-  group_by(Original.Site, PLOT) %>%
+  group_by(as.factor(Original.Site), as.factor(PLOT)) %>%
   mutate(UniquePlotID = paste0("NWCA_", cur_group_id()),
          #https://www.epa.gov/sites/default/files/2013-11/documents/fom_with_errata.pdf
          PlotArea_m2 = 100) %>% 
+  ungroup() %>% 
   #removes true absences as no other dataset has them.
   filter(COVER > 0)
+
+NWCA %>% distinct(UniquePlotID) %>%  count()
+
+NWCA2011_2016_02222022 %>% distinct(UniquePlotID) %>% count()
+
 glimpse(NWCA)
 
 ```
@@ -213,6 +236,85 @@ NWCA2 %>%
   filter(is.na(Lat) | is.na(Long)) %>% 
   count() ## NONE!
 
+```
+
+Comparing file before the updated NWCA raw data
+```{r}
+#most recent file prior to Gregg's new raw data
+NWCA2011_2016_02222022 <- read_csv("data_by_dataset/archived/NWCA2011-2016_02222022.csv")
+glimpse(NWCA2011_2016_02222022)
+
+NWCA2011_2016_02222022 %>% 
+  distinct(UniquePlotID) %>% 
+  count() ##11845 plots
+
+NWCA2011_2016_02222022 %>% 
+  distinct(SITE_ID) %>% 
+  count() ##2194 sites
+
+NWCA2011_2016_02222022 %>% 
+  count(PLOT) 
+#    PLOT     n
+#   <dbl> <int>
+# 1     1 38739
+# 2     2 38990
+# 3     3 38060
+# 4     4 37319
+# 5     5 37336
+
+NWCA2011_2016_02222022 %>% 
+  group_by(Year) %>% 
+  count(PLOT)
+#     Year  PLOT     n
+#    <dbl> <dbl> <int>
+#  1  2011     1 18208
+#  2  2011     2 18458
+#  3  2011     3 17745
+#  4  2011     4 17419
+#  5  2011     5 17728
+#  6  2016     1 20531
+#  7  2016     2 20532
+#  8  2016     3 20315
+#  9  2016     4 19900
+# 10  2016     5 19608
+
+NWCA2 %>% 
+  ungroup() %>% 
+  distinct(Original.Site) %>% 
+  count() ##2194 sites
+
+NWCA2 %>% 
+    ungroup() %>% 
+  distinct(UniquePlotID) %>% 
+  count() ##10896 plots
+
+NWCA2 %>% 
+  ungroup() %>% 
+  count(PLOT)
+#    PLOT     n
+#   <dbl> <int>
+# 1     1 38739
+# 2     2 38990
+# 3     3 38060
+# 4     4 37319
+# 5     5 37336
+
+NWCA2 %>% 
+  ungroup() %>% 
+  group_by(Year) %>% 
+  count(PLOT)
+#     Year  PLOT     n
+#    <dbl> <dbl> <int>
+#  1  2011     1 18208
+#  2  2011     2 18458
+#  3  2011     3 17745
+#  4  2011     4 17419
+#  5  2011     5 17728
+#  6  2016     1 20531
+#  7  2016     2 20532
+#  8  2016     3 20315
+#  9  2016     4 19900
+# 10  2016     5 19608
 ```
 
 
