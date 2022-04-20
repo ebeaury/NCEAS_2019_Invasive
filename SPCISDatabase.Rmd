@@ -31,7 +31,7 @@ theme_set(theme_classic())
 Columns to carry forward in combined dataset
 
 ```{r}
-DesiredColumns <- c("Dataset", "Site", 
+DesiredColumns <- c("Dataset", "Site", "Original.Site",
                     "Plot", "Original.Plot", "Long", "Lat", "Zone",
                     "Original.Long", "Original.Lat", # not going to SPCIS
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
@@ -64,11 +64,13 @@ tax$inv_L48<-NA
 tax$inv_L48[grep(pattern="L48.I.", x=tax$Native.Status)]<-"I"
 tax$inv_L48[grep(pattern="L48.N.", x=tax$Native.Status)]<-"N"
 tax$inv_L48[grep(pattern="L48.NI.", x=tax$Native.Status)]<-"NI"
+tax$inv_L48[grep(pattern="NA.N.", x=tax$Native.Status)]<-"N" # nonvascular plants have the native status defined for North America
 
 tax$inv_AK<-NA
 tax$inv_AK[grep(pattern="AK.I.", x=tax$Native.Status)]<-"I"
 tax$inv_AK[grep(pattern="AK.N.", x=tax$Native.Status)]<-"N"
 tax$inv_AK[grep(pattern="AK.NI.", x=tax$Native.Status)]<-"NI"
+tax$inv_AK[grep(pattern="NA.N.", x=tax$Native.Status)]<-"N" # nonvascular plants have the native status defined for North America
 
 tax <- tax %>% 
   separate(Scientific.Name, c("genus", "epithet"), remove = F) %>% 
@@ -933,7 +935,7 @@ glimpse(VNHP)
 Imports the file
 
 ```{r}
-NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_02222022.csv", 
+NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_04202022.csv", 
                   na = c('', 'NA')) 
 glimpse(NWCA)
 ```
@@ -1843,6 +1845,16 @@ DataBase <- DataBase %>%
 DataBase %>% filter(Site == "ALFL") %>% select(Plot) %>% distinct() #no more errors
 ```
 
+- creating 'Original.Site' for all datasets [this column was added because of NWCA]
+```{r}
+table(DataBase$Original.Site) #check whether this column has information (it should for NWCA), all others should be NA
+
+DataBase <- DataBase %>% 
+    #fills the Original.Site column with Site for the cases where a new SiteID was not assigned
+    mutate(Original.Site = ifelse(is.na(Original.Site), Site, Original.Site))
+```
+
+
 # Creating the FULL Database
 
 ```{r}
@@ -1854,8 +1866,8 @@ glimpse(FULLDatabase)
 ## Exporting the FULL Database
 
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04132022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04132022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202022.csv")
 ```
 
 # Creating Database
@@ -1865,7 +1877,7 @@ write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabas
 Columns to carry forward in combined SPCIS dataset
 
 ```{r}
-DesiredColumns2 <- c("Dataset", "Site", 
+DesiredColumns2 <- c("Dataset", "Site", "Original.Site",
                     "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Duration", "GrowthHabit",
@@ -2095,7 +2107,7 @@ SPCIS_plant_taxa <- SPCISDatabase %>%
   as_tibble()
 
 SPCIS_plots <- SPCISDatabase %>% 
-  select(Plot, Year, Original.Plot, Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
+  select(Plot, Year, Original.Plot, Site, Original.Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
   # FIA_2099 plot was duplicated even after using the distinct() function 
   # the issue was on the decimals of the plot area column
   mutate(PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>% 
@@ -2128,12 +2140,12 @@ nrow(SPCISDatabase) == nrow(SPCISrecreated)
 
 ```{r}
 #plant data
-write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0413022.rds")
-write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04132022.csv")
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0420022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04202022.csv")
 
 #plot data
-write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_0413022.rds")
-write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04132022.csv")
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04202022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04202022.csv")
 ```
 
 
@@ -2220,7 +2232,7 @@ SPCISDatabase %>%
 SPCISDatabase %>% 
   filter(is.na(PlotArea.m2)) %>% 
   select(Dataset, Plot) %>% 
-  disitnct() %>% 
+  distinct() %>% 
   count(Plot)
 
 ## how many plots per dataset does not have information on area sampled?
@@ -2306,7 +2318,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset04132022.png", dpi=300)
+ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset04182022.png", dpi=300)
 ```
 
 ```{r}
@@ -2616,7 +2628,7 @@ all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, g
           # labels = c("A", "B", "C", "D", "F"),
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcomginedNN04132022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedIntroduced04182022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
@@ -2765,7 +2777,7 @@ library(cowplot)
 all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcomginedNat4132022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcombinedNat4182022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
