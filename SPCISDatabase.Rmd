@@ -935,7 +935,7 @@ glimpse(VNHP)
 Imports the file
 
 ```{r}
-NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_04202022.csv", 
+NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_04212022.csv", 
                   na = c('', 'NA')) 
 glimpse(NWCA)
 ```
@@ -949,7 +949,7 @@ NWCA <- NWCA %>%
          Original.Plot = as.character(PLOT),
          Original.Lat = Lat,
          Original.Long = Long) %>%
-  rename(Site = SITE_ID,
+  rename(Site = UniqueSiteID,
          Plot = UniquePlotID,
          Original.TaxonName = OriginalName,
          AcceptedTaxonName = bestname,
@@ -1042,6 +1042,15 @@ DataBase %>%
   select(Dataset, Plot) %>%
   distinct() %>%
   count(Dataset)
+```
+
+## Fix 'Original.Site' for all datasets [this column was added because of NWCA]
+```{r}
+table(DataBase$Original.Site) #check whether this column has information (it should for NWCA), all others should be NA
+
+DataBase <- DataBase %>% 
+    #fills the Original.Site column with Site for the cases where a new SiteID was not assigned
+    mutate(Original.Site = ifelse(is.na(Original.Site), Site, Original.Site))
 ```
 
 ## Fix taxonomy errors and inconsistencies
@@ -1613,13 +1622,56 @@ DataBase <- DataBase %>%
 
 DataBase <- DataBase %>% # time consuming
   # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
-  group_by(Dataset, Site, Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
+  group_by(Dataset, Site, Original.Site, 
+           Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
            Year, FuzzedCoord, RecordedStrata, PlotArea.m2, Zone, NativeStatus, AcceptedTaxonName, 
            Duration, Growth.Habit, SpCode) %>% 
   dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
             Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
   ungroup() %>% 
   distinct()
+nrow(DataBase)
+
+#previous file - observations per dataset
+FULLDatabase_04182022 <- read_csv("final_data/archived/FULLDatabase_04182022.csv")
+x<-FULLDatabase_04182022 %>% 
+  count(Dataset) %>% 
+  rename(nfull = n,
+         datsetfull = Dataset)
+
+#with updated NWCA info
+DataBase %>% 
+  count(Dataset)%>% 
+  cbind(x) %>% 
+  mutate(ndif = n-nfull)
+
+#CVS has 310 more obs
+#NEON has 1 more observation
+#NWCA has 15701 less observations 
+#WNHP has 5 more observations
+
+## Besides NWCA, the discrepancy on the number of obs is because the filter of pctcov >0 happens a few chunks below. Those extra bservations are due to pctcover == 0
+
+#previous file - plots per dataset
+x<-FULLDatabase_04182022 %>% 
+  group_by(Dataset) %>% 
+  distinct(Plot) %>% 
+  count()
+
+#with updated NWCA info
+DataBase %>% 
+  group_by(Dataset) %>% 
+  distinct(Plot) %>% 
+  count() %>% 
+  cbind(x) %>% 
+  mutate(n = n...2-n...4)
+# all datasets have the same number of plots, besides NWCA. NWCA has less 949 plots - OKay as I fixed the plot overestimation
+
+## why is CVS with more obs than before? Yes, because those plots have observations with zeros for pctcover and they are later on removed in this code 
+
+cvsfull<- FULLDatabase_04182022 %>% filter(Dataset == "CVS") %>% count(Plot)
+cvsnew<-DataBase %>% filter(Dataset == "CVS") %>% count(Plot) %>% rename(Plotnew = Plot, nNew = n) %>% 
+  cbind(cvsfull) %>% mutate(ndif = nNew-n) %>% filter(ndif >0) %>% arrange(desc(ndif))
 
 DataBase %>%  # time consuming
   group_by(Dataset, Plot, SpCode, Year) %>% 
@@ -1794,7 +1846,8 @@ nrow(ResampledList)
 
 ```{r}
 # fixing the NAs and changing them to N [No]
-DataBase <- DataBase %>% mutate(Site = ifelse(is.na(Site), "N", Site))
+DataBase <- DataBase %>% mutate(Site = ifelse(is.na(Site), "N", Site),
+                                Original.Site = ifelse(is.na(Original.Site), "N", Original.Site))
 ```
 
 -   creating a Sampling method column.
@@ -1827,7 +1880,6 @@ DataBase %>%
   select(Dataset, Plot) %>% 
   distinct() %>% 
   count(Dataset)
-
 ```
 
 - fix ALFL plot names from for example "ALFL_ALFL.48" to "ALFL.48"
@@ -1845,15 +1897,21 @@ DataBase <- DataBase %>%
 DataBase %>% filter(Site == "ALFL") %>% select(Plot) %>% distinct() #no more errors
 ```
 
-- creating 'Original.Site' for all datasets [this column was added because of NWCA]
+
+Checking whether the number of observations is the same across datasets (not apply to NWCA, which I fixed it)
 ```{r}
-table(DataBase$Original.Site) #check whether this column has information (it should for NWCA), all others should be NA
+x<-FULLDatabase_04182022 %>% 
+  count(Dataset) %>% 
+  rename(nfull = n,
+         datsetfull = Dataset)
 
-DataBase <- DataBase %>% 
-    #fills the Original.Site column with Site for the cases where a new SiteID was not assigned
-    mutate(Original.Site = ifelse(is.na(Original.Site), Site, Original.Site))
+#with updated NWCA info
+DataBase %>% 
+  count(Dataset)%>% 
+  cbind(x) %>% 
+  mutate(ndif = n-nfull)
+
 ```
-
 
 # Creating the FULL Database
 
@@ -1866,8 +1924,8 @@ glimpse(FULLDatabase)
 ## Exporting the FULL Database
 
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202122.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202122.csv")
 ```
 
 # Creating Database
@@ -2140,12 +2198,12 @@ nrow(SPCISDatabase) == nrow(SPCISrecreated)
 
 ```{r}
 #plant data
-write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0420022.rds")
-write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04202022.csv")
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0421022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.csv")
 
 #plot data
-write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04202022.rds")
-write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04202022.csv")
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.csv")
 ```
 
 
