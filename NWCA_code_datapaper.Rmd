@@ -29,28 +29,34 @@ Importing dataset 2011
 NWCA2011 <- read_xlsx(file.path(data_raw, "nwca11_plant_wide.xlsx"), sheet = "nwca11_plant_wide")
 glimpse(NWCA2011)
 
+# checking why aggregating the plots per UID might not be correct
 NWCA2011 %>% distinct(UID) %>% count()
 NWCA2011 %>% distinct(SITE_ID) %>% count()
 NWCA2011 %>% group_by(UID, PLOT) %>% count() %>% nrow()
 NWCA2011 %>% group_by(SITE_ID, PLOT) %>% count() %>% nrow()
 
-x<-NWCA2011 %>% group_by(UID, SITE_ID, PLOT) %>% add_tally() 
-x<-x%>% group_by(SITE_ID) %>% count(UID)
-# the issue is that SITE_ID and UID have different number of categories. For the previous data, I was giving the plots new names based on UID & PLOT, but it should have been SITE_ID & PLOT
+# the issue is that SITE_ID and UID have different number of categories. For the previous data, I was giving the plots new names based on UID & PLOT, but I think it should have been SITE_ID & PLOT
+# UID refers to a unique id per visit per plot per site. Some sites were visited more than once within a year.
+# For plots with "VISIT_NO" of 1 and 2, I am keeping number 2 only (the latest visit)
 # this will affect the total number of plots, total number of observations and the summaries of the very final database!!!!!!
 
-
+NWCA2011resampled <- NWCA2011 %>% select(SITE_ID, VISIT_NO, DATE_COL) %>% distinct() %>% 
+  group_by(SITE_ID) %>% filter(DATE_COL == max(DATE_COL)) %>%  ungroup() %>% 
+  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO))
 
 NWCA2011 <- NWCA2011 %>%
+  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
+  filter(IDfilter %in% NWCA2011resampled$IDfilter) %>% 
+  select(-IDfilter) %>% 
   rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
   #unique id matches sites across years
   #plots were not exactly the same location within site across years
-  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES) %>%
+  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES, VISIT_NO) %>%
   rename(OriginalName = SPECIES) %>%
   #code below fixes species (same SPECIES name) that are recorded more than once in a plot
   #it seems that the updated file Gregg sent us has this issue fixed
-  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName) %>% 
+  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName, VISIT_NO) %>% 
   summarise(COVER = sum(COVER, na.rm=TRUE)) %>% 
   ungroup()
 ```
@@ -60,16 +66,24 @@ Importing dataset 2016
 NWCA2016 <- read_xlsx(file.path(data_raw, "nwca16_plant_wide.xlsx"), sheet = "nwca16_plant_wide")
 glimpse(NWCA2016)
 
+#finds plots that were resampled within a year and keeps only the latest survey
+NWCA2016resampled <- NWCA2016 %>% select(SITE_ID, VISIT_NO, DATE_COL) %>% distinct() %>% 
+  group_by(SITE_ID) %>% filter(DATE_COL == max(DATE_COL)) %>%  ungroup() %>% 
+  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO))
+
 NWCA2016 <- NWCA2016 %>%
+  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
+  filter(IDfilter %in% NWCA2016resampled$IDfilter) %>% 
+  select(-IDfilter) %>% 
   rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
   #unique id matches sites across years
   #plots were not exactly the same location within site across years
-  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES) %>%
+  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES, VISIT_NO) %>%
   rename(OriginalName = SPECIES) %>%
   #code below fixes species (same SPECIES name) that are recorded more than once in a plot
   #it seems that the updated file Gregg sent us has this issue fixed
-  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName) %>% 
+  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName, VISIT_NO) %>% 
   summarise(COVER = sum(COVER, na.rm=TRUE)) %>% 
   ungroup()
 
@@ -79,14 +93,20 @@ Importing information on site lat/long
 ```{r}
 latlong2011 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2011_siteinfo.csv"))
 glimpse(latlong2011)
-latlong2011 <- latlong2011 %>% select(SITE_ID, AA_CENTER_LAT, AA_CENTER_LON) %>%
+latlong2011 <- latlong2011 %>% select(SITE_ID, VISIT_NO, AA_CENTER_LAT, AA_CENTER_LON) %>%
+  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
+  filter(IDfilter %in% NWCA2011resampled$IDfilter) %>%
+  select(-IDfilter) %>%
   rename(Lat = AA_CENTER_LAT,
          Long = AA_CENTER_LON) %>% 
   distinct(SITE_ID, .keep_all = T)
 
-latlong2016 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca_2016_site_information_-_data_csv.csv"))
+latlong2016 <- read_xlsx(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca16_siteinfo.xlsx"), sheet = "nwca16_siteinfo")
 glimpse(latlong2016)
-latlong2016 <- latlong2016 %>% select(SITE_ID, LAT_DD83, LON_DD83) %>%
+latlong2016 <- latlong2016 %>% select(SITE_ID, VISIT_NO, LAT_DD83, LON_DD83) %>%
+  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
+  filter(IDfilter %in% NWCA2016resampled$IDfilter) %>%
+  select(-IDfilter) %>% 
   rename(Lat = LAT_DD83,
          Long = LON_DD83)  %>% 
   distinct(SITE_ID, .keep_all = T)
@@ -121,10 +141,10 @@ ResampledSites <- read_xlsx(file.path(data_raw, "nars_allsurvey_site_id_crosswal
 
 Adding lat/long info
 ```{r}
-NWCA2011 <- left_join(NWCA2011, latlong2011, by = "SITE_ID")
+NWCA2011 <- left_join(NWCA2011, latlong2011, by = c("SITE_ID", "VISIT_NO"))
 glimpse(NWCA2011)
 
-NWCA2016 <- left_join(NWCA2016, latlong2016, by = c("SITE_ID"))
+NWCA2016 <- left_join(NWCA2016, latlong2016, by = c("SITE_ID", "VISIT_NO"))
 glimpse(NWCA2016)
 ```
 
@@ -156,7 +176,7 @@ NWCA2011_2016_02222022 %>% distinct(SITE_ID) %>% count()
 
 glimpse(NWCA)
 NWCA <- NWCA %>% 
-  group_by(as.factor(Original.Site), as.factor(PLOT)) %>%
+  group_by(Original.Site, PLOT) %>%
   mutate(UniquePlotID = paste0("NWCA_", cur_group_id()),
          #https://www.epa.gov/sites/default/files/2013-11/documents/fom_with_errata.pdf
          PlotArea_m2 = 100) %>% 
@@ -286,18 +306,18 @@ NWCA2 %>%
 NWCA2 %>% 
     ungroup() %>% 
   distinct(UniquePlotID) %>% 
-  count() ##10896 plots
+  count() ##10895 plots
 
 NWCA2 %>% 
   ungroup() %>% 
-  count(PLOT)
+  count(PLOT)# not the same a before, only the latest survey plots sampled twice within a year were kept
 #    PLOT     n
 #   <dbl> <int>
-# 1     1 38739
-# 2     2 38990
-# 3     3 38060
-# 4     4 37319
-# 5     5 37336
+# 1     1 35559
+# 2     2 35680
+# 3     3 34899
+# 4     4 34374
+# 5     5 34231
 
 NWCA2 %>% 
   ungroup() %>% 
@@ -305,21 +325,21 @@ NWCA2 %>%
   count(PLOT)
 #     Year  PLOT     n
 #    <dbl> <dbl> <int>
-#  1  2011     1 18208
-#  2  2011     2 18458
-#  3  2011     3 17745
-#  4  2011     4 17419
-#  5  2011     5 17728
-#  6  2016     1 20531
-#  7  2016     2 20532
-#  8  2016     3 20315
-#  9  2016     4 19900
-# 10  2016     5 19608
+#  1  2011     1 16567
+#  2  2011     2 16754
+#  3  2011     3 16130
+#  4  2011     4 15894
+#  5  2011     5 16187
+#  6  2016     1 18992
+#  7  2016     2 18926
+#  8  2016     3 18769
+#  9  2016     4 18480
+# 10  2016     5 18044
 ```
 
 
 Exporting final dataset
 ```{r}
-write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_04202022.csv"))
+write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_04212022.csv"))
 ```
 
