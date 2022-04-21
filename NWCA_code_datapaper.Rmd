@@ -40,14 +40,10 @@ NWCA2011 %>% group_by(SITE_ID, PLOT) %>% count() %>% nrow()
 # For plots with "VISIT_NO" of 1 and 2, I am keeping number 2 only (the latest visit)
 # this will affect the total number of plots, total number of observations and the summaries of the very final database!!!!!!
 
-NWCA2011resampled <- NWCA2011 %>% select(SITE_ID, VISIT_NO, DATE_COL) %>% distinct() %>% 
-  group_by(SITE_ID) %>% filter(DATE_COL == max(DATE_COL)) %>%  ungroup() %>% 
-  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO))
+# previously, I was finding the latest revisit to a plot in a year. But, after talking to Gregg from EPA, he said that the first visit of the year is considered by them as the official one. So, I am using the same.
 
 NWCA2011 <- NWCA2011 %>%
-  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
-  filter(IDfilter %in% NWCA2011resampled$IDfilter) %>% 
-  select(-IDfilter) %>% 
+  filter(VISIT_NO == 1) %>% 
   rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
   #unique id matches sites across years
@@ -66,15 +62,10 @@ Importing dataset 2016
 NWCA2016 <- read_xlsx(file.path(data_raw, "nwca16_plant_wide.xlsx"), sheet = "nwca16_plant_wide")
 glimpse(NWCA2016)
 
-#finds plots that were resampled within a year and keeps only the latest survey
-NWCA2016resampled <- NWCA2016 %>% select(SITE_ID, VISIT_NO, DATE_COL) %>% distinct() %>% 
-  group_by(SITE_ID) %>% filter(DATE_COL == max(DATE_COL)) %>%  ungroup() %>% 
-  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO))
+# previously, I was finding the latest revisit to a plot in a year. But, after talking to Gregg from EPA, he said that the first visit of the year is considered by them as the official one. So, I am using the same.
 
 NWCA2016 <- NWCA2016 %>%
-  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
-  filter(IDfilter %in% NWCA2016resampled$IDfilter) %>% 
-  select(-IDfilter) %>% 
+  filter(VISIT_NO == 1) %>% 
   rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
   #unique id matches sites across years
@@ -94,9 +85,7 @@ Importing information on site lat/long
 latlong2011 <- read_csv(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca2011_siteinfo.csv"))
 glimpse(latlong2011)
 latlong2011 <- latlong2011 %>% select(SITE_ID, VISIT_NO, AA_CENTER_LAT, AA_CENTER_LON) %>%
-  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
-  filter(IDfilter %in% NWCA2011resampled$IDfilter) %>%
-  select(-IDfilter) %>%
+  filter(VISIT_NO == 1) %>% 
   rename(Lat = AA_CENTER_LAT,
          Long = AA_CENTER_LON) %>% 
   distinct(SITE_ID, .keep_all = T)
@@ -104,9 +93,7 @@ latlong2011 <- latlong2011 %>% select(SITE_ID, VISIT_NO, AA_CENTER_LAT, AA_CENTE
 latlong2016 <- read_xlsx(file.path(shared_data_dir, "code_by_dataset/extra_csv_NWCA/nwca16_siteinfo.xlsx"), sheet = "nwca16_siteinfo")
 glimpse(latlong2016)
 latlong2016 <- latlong2016 %>% select(SITE_ID, VISIT_NO, LAT_DD83, LON_DD83) %>%
-  mutate(IDfilter = paste0(SITE_ID, "_", VISIT_NO)) %>% 
-  filter(IDfilter %in% NWCA2016resampled$IDfilter) %>%
-  select(-IDfilter) %>% 
+  filter(VISIT_NO == 1) %>% 
   rename(Lat = LAT_DD83,
          Long = LON_DD83)  %>% 
   distinct(SITE_ID, .keep_all = T)
@@ -185,8 +172,6 @@ NWCA <- NWCA %>%
   filter(COVER > 0)
 
 NWCA %>% distinct(UniquePlotID) %>%  count()
-
-NWCA2011_2016_02222022 %>% distinct(UniquePlotID) %>% count()
 
 glimpse(NWCA)
 
@@ -306,18 +291,18 @@ NWCA2 %>%
 NWCA2 %>% 
     ungroup() %>% 
   distinct(UniquePlotID) %>% 
-  count() ##10895 plots
+  count() ##10896 plots
 
 NWCA2 %>% 
   ungroup() %>% 
   count(PLOT)# not the same a before, only the latest survey plots sampled twice within a year were kept
 #    PLOT     n
 #   <dbl> <int>
-# 1     1 35559
-# 2     2 35680
-# 3     3 34899
-# 4     4 34374
-# 5     5 34231
+# 1     1 35501
+# 2     2 35529
+# 3     3 34778
+# 4     4 34101
+# 5     5 34162
 
 NWCA2 %>% 
   ungroup() %>% 
@@ -325,16 +310,16 @@ NWCA2 %>%
   count(PLOT)
 #     Year  PLOT     n
 #    <dbl> <dbl> <int>
-#  1  2011     1 16567
-#  2  2011     2 16754
-#  3  2011     3 16130
-#  4  2011     4 15894
-#  5  2011     5 16187
-#  6  2016     1 18992
-#  7  2016     2 18926
-#  8  2016     3 18769
-#  9  2016     4 18480
-# 10  2016     5 18044
+#  1  2011     1 16591
+#  2  2011     2 16747
+#  3  2011     3 16122
+#  4  2011     4 15828
+#  5  2011     5 16180
+#  6  2016     1 18910
+#  7  2016     2 18782
+#  8  2016     3 18656
+#  9  2016     4 18273
+# 10  2016     5 17982
 ```
 
 
