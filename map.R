@@ -61,8 +61,10 @@ puerto_rico = subset(us_states,
 puerto_rico_2163 = st_transform(puerto_rico, crs = 2163)
 
 #### Point data
-SPCIS_plant_taxa <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.rds")
-SPCIS_plots <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.rds")
+# SPCIS_plant_taxa <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.rds")
+# SPCIS_plots <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.rds")
+SPCIS_plant_taxa <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.csv")
+SPCIS_plots <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.csv")
 SPCIS <- SPCIS_plant_taxa %>% left_join(SPCIS_plots)
 glimpse(SPCIS)
 SPCIS <- SPCIS %>% 
