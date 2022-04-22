@@ -1633,7 +1633,7 @@ DataBase <- DataBase %>% # time consuming
 nrow(DataBase)
 
 #previous file - observations per dataset
-FULLDatabase_04182022 <- read_csv("final_data/archived/FULLDatabase_04182022.csv")
+FULLDatabase_04182022 <- read_csv("archived/FULLDatabase_04182022.csv")
 x<-FULLDatabase_04182022 %>% 
   count(Dataset) %>% 
   rename(nfull = n,
@@ -2376,7 +2376,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset04182022.png", dpi=300)
+ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset04212022.png", dpi=300)
 ```
 
 ```{r}
@@ -2686,7 +2686,7 @@ all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, g
           # labels = c("A", "B", "C", "D", "F"),
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedIntroduced04182022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedIntroduced04212022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
@@ -2835,7 +2835,7 @@ library(cowplot)
 all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcombinedNat4182022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcombinedNat4212022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
