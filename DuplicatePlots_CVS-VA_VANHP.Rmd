@@ -1,5 +1,5 @@
 ---
-title: "Checking Duplicate plots CVS-VANHP"
+title: "Checking Duplicate plots CVS-VANHP and NPS-VANHP"
 author: "Lais Petri"
 date: "11/14/2021"
 output: html_document
@@ -85,3 +85,60 @@ setdiff(plotsCVS_VA, plotscommonVA)
 
 ```
 
+I am expanding this code to find duplicated plots between VANHP and NPS
+Importing file from Kristen and VANHP
+```{r}
+
+## NPS data ##
+NPS_VA<- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NPS_DataPaper_27July2021.csv", 
+                    na = c('', 'NA'))
+glimpse(NPS_VA)
+
+# number of unique plots
+length(unique(NPS_VA$UniqueID)) #24150
+plotsNPS_VA <- unique(NPS_VA$UniqueID)
+
+## VANHP ##
+VA_NHP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/VANHP_datapaper_06_16_21_EB.csv", 
+                    na = c('', 'NA')) 
+glimpse(VA_NHP)
+
+# number of unique plots
+length(unique(VA_NHP$Plot)) #4773
+
+```
+
+Merging the datasets
+```{r}
+
+VA2 <- NPS_VA %>% 
+  select(Lat, Long, UniqueID, Year, Dataset) %>% 
+  rename(Plot = UniqueID) %>% 
+  rbind(select(VA_NHP, c(Plot, Lat, Long, Year, Dataset))) %>% 
+  # distinct() %>% 
+  group_by(Plot, Year) %>% 
+  #counts the number of observations per plot (so I can compare between the datasets)
+  add_tally() %>% 
+  ungroup() %>% 
+  distinct()
+
+```
+
+
+Finding duplicates - keeping the VANHP plots and excluding the NPS ones
+```{r}
+
+#finds distinct plot codes with same lat/long 
+duplicatesVA2 <- VA2 %>% 
+  # select(Lat, Long, Year, Dataset) %>% 
+  group_by(Lat,Long) %>% 
+  mutate(count = n_distinct(Dataset)) %>% 
+  ungroup() %>% 
+  filter(count>1) %>% 
+  arrange(Lat,Long) %>%
+  filter(Dataset=="NPS",
+         Plot != "APPA_219") %>% # this plot had same 
+  select(Plot) %>%
+  write.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPS_excludePlots.csv", row.names = F)
+
+```
