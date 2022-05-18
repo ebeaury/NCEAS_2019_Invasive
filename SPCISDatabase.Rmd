@@ -418,10 +418,19 @@ NPS <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NPS_DataPaper_
 glimpse(NPS)
 ```
 
+Imports file with plots to be excluded (same plots are in VANHP)
+```{r}
+NPSexclude <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPS_excludePlots.csv", 
+                na = c('', 'NA'))
+glimpse(NPSexclude)
+```
+
 Data wrangling and column selection
 
 ```{r}
 NPS <- NPS %>%
+  #removes plots that are also found in VANHP (NPS plots in Virginia)
+  filter(!UniqueID %in% NPSexclude$Plot) %>% 
   mutate(Original.Plot = as.character(Plot),
          Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
          Original.Lat = Lat,
@@ -504,6 +513,27 @@ WVNHPStrata <- read.csv("/home/shares/neon-inv/raw_VegBank_data/WV_species_data.
   select(-Stratum, -n) %>% 
   distinct()
 ```
+
+Retrieving WVNHP plot shape
+```{r}
+# retrieving unique WVNHP plots
+WVNHPPlots <- VEGBANK %>% filter(Dataset == "NCVS_WV") %>% distinct(UniqueID)
+
+Plot_shape_WV <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_data.csv")
+
+Plot_shape_WV <- Plot_shape_WV %>%  select(`Plot Code`, `Plot Shape`) %>% distinct() %>% filter(`Plot Code` %in% WVNHPPlots$UniqueID) %>% 
+  mutate(`Plot Shape` = ifelse(grepl("circular", `Plot Shape`) | grepl("Circular", `Plot Shape`) , "Circular plot", 
+                               ifelse(grepl("rectangular", `Plot Shape`) | grepl("Rectangular", `Plot Shape`) | 
+                                        grepl("Rectanglular", `Plot Shape`) | grepl("rect.", `Plot Shape`), "Rectangular plot", 
+                                      ifelse(grepl("nested", `Plot Shape`) | grepl("lumped", `Plot Shape`), "Nested plot", 
+                                             ifelse(grepl("Square", `Plot Shape`) | grepl("square", `Plot Shape`), "Square plot", 
+                                                    ifelse(`Plot Shape` == "Transect", "Transect", "Other shape plot")))))) %>% 
+  rename(SamplingMethod = `Plot Shape`, 
+         Original.Plot = `Plot Code`)
+table(Plot_shape_WV$SamplingMethod)
+
+```
+
 
 Plots to be removed from CVS as they are present in VNHP dataset
 
@@ -838,9 +868,15 @@ VEGBANK <- VEGBANK %>%
                                      ifelse(is.na(Original.TaxonName) & Original.Plot == "GRAN.31", "Cladonia P. Browne", Original.TaxonName)),
          RecordedStrata = ifelse(is.na(RecordedStrata) & Original.Plot == "SHMO.9", "N",
                                      ifelse(is.na(RecordedStrata) & Original.Plot == "GRAN.31", "Y", RecordedStrata))) %>% 
+  #remove NWCA plots from WVNHP
+  filter(Dataset == "WVNHP" & grepl("^NWCA", Original.Plot)) %>% 
+  # adds
+  left_join(Plot_shape_WV, by = "Original.Plot") %>% 
   dplyr::select(one_of(DesiredColumns))
+
 setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
+
 glimpse(VEGBANK)
 ```
 
@@ -905,10 +941,27 @@ VNHPresample <- VNHP %>%
 ### Composite --> where we combine data from n adjacent and contiguous plots along a transect into one plot sample for entry into the database
 ```
 
+Finding plot shape
+```{r}
+VAPLOTS_Shape <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_VNHP/VAPLOTS_classification_geocoors_plotsize.xls", 
+    sheet = "METADATA_table")
+glimpse(VAPLOTS_Shape)
+
+VAPLOTS_Shape <- VAPLOTS_Shape %>% select(Plot, `Plot Size`, `Plot Dimensions`) %>% 
+  distinct(Plot, .keep_all = T) %>% 
+  mutate(SamplingMethod = ifelse(grepl("radius", `Plot Dimensions`), "Circular plot", ifelse(`Plot Dimensions` == "plotless", "Releve", "Rectangular plot")),
+         SamplingMethod = ifelse(is.na(SamplingMethod), "Releve", SamplingMethod)) %>% select(Plot, SamplingMethod)
+  
+length(unique(VNHP$Plot))
+length(unique(VAPLOTS_Shape$Plot)) # two more than the dataset
+```
+
+
 Data wrangling and column selection
 
 ```{r}
 VNHP <- VNHP %>%
+  left_join(VAPLOTS_Shape, by = "Plot") %>% 
   mutate(FuzzedCoord = "Y", 
          Site = str_sub(Plot, 1, 4),
          Original.Long = Long,
@@ -935,7 +988,7 @@ glimpse(VNHP)
 Imports the file
 
 ```{r}
-NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_04212022.csv", 
+NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_05182022.csv", 
                   na = c('', 'NA')) 
 glimpse(NWCA)
 ```
@@ -1850,7 +1903,7 @@ DataBase <- DataBase %>% mutate(Site = ifelse(is.na(Site), "N", Site),
                                 Original.Site = ifelse(is.na(Original.Site), "N", Original.Site))
 ```
 
--   creating a Sampling method column.
+-  FIX THIS!!!!!!!! creating a Sampling method column.
 
 ```{r}
 DataBase <- DataBase %>%
@@ -2160,12 +2213,12 @@ glimpse(SPCISDatabase)
 - creates the two files as Bethany suggested
 ```{r}
 SPCIS_plant_taxa <- SPCISDatabase %>% 
-  select(Dataset, Plot, Year, SpCode, AcceptedTaxonName, Original.TaxonName, 
+  select(Plot, Year, SpCode, AcceptedTaxonName, Original.TaxonName, 
          NativeStatus, Duration, GrowthHabit, PctCov, RecordedStrata) %>% 
   as_tibble()
 
 SPCIS_plots <- SPCISDatabase %>% 
-  select(Plot, Year, Original.Plot, Site, Original.Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
+  select(Dataset, Plot, Year, Original.Plot, Site, Original.Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
   # FIA_2099 plot was duplicated even after using the distinct() function 
   # the issue was on the decimals of the plot area column
   mutate(PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>% 
@@ -2196,7 +2249,7 @@ nrow(SPCISDatabase) == nrow(SPCISrecreated)
 
 ### Exporting the SPCIS Database
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 #plant data
 write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0421022.rds")
 write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.csv")
