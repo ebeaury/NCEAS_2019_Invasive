@@ -457,7 +457,7 @@ glimpse(NPS)
 Imports the file
 
 ```{r}
-VEGBANK <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced2.csv", 
+VEGBANK <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced3.csv", 
                     na = c('', 'NA')) # this data includes repeated samples
 glimpse(VEGBANK)
 ```
