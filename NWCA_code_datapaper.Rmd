@@ -322,9 +322,18 @@ NWCA2 %>%
 # 10  2016     5 17982
 ```
 
+Fixing trace cover values
+```{r}
+# identify the range
+min(NWCA2$COVER) # too small, it was a typo as pointed out by Gregg Serenbetz
+
+NWCA2 <- NWCA2 %>% mutate(COVER = ifelse(COVER<0.1, 0.1, COVER))
+
+min(NWCA2$COVER) # fixed!
+```
 
 Exporting final dataset
 ```{r}
-write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_04212022.csv"))
+write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_05182022.csv"))
 ```
 
