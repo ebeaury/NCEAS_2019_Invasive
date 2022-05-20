@@ -459,6 +459,15 @@ IL_CTAP2 <- IL_CTAP2 %>%
          Long = ifelse(SiteID=="000501G", -90.18289, Long))
 ```
 
+Defining PlotArea
+```{r}
+PlotAreaW <- wtree %>% select(PSID, SiteID, PYear, Squmetr) %>% filter(PSID=="None") %>% rename(Squrmetrs=Squmetr) %>% distinct()
+PlotAreaG <- gtree %>% select(PSID, SiteID, PYear, Squrmetrs) %>% filter(PSID=="None") %>% distinct()
+
+PlotArea <- PlotAreaW %>% rbind(PlotAreaG) %>% select(-PSID) %>% rename(PlotArea.m2 = Squrmetrs)
+
+```
+
 
 After standardizing taxonomy there are four instances in which species with the same accepted name are duplicated.
 ```{r}
@@ -478,14 +487,15 @@ IL_CTAP2 <- IL_CTAP2 %>%
   # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
   dplyr::summarise(PctCov = sum(PctCov),
                    # different trees were sampled in the different sampled area, I am keeping the first one
-                   SampledArea = which.max(SampledArea),
+                   SampledArea = max(SampledArea),
                    OriginalSpeciesName = dplyr::first(OriginalSpeciesName),
                    # the tax file I am using here is returning multiple Scientific or bestname for the same species code. This is fixed when dataset is incorporated to the Database
                    Scientific.Name = dplyr::first(Scientific.Name),
                    bestname = dplyr::first(bestname)) %>% 
   ungroup() %>% 
   distinct() %>% 
-  #
+  left_join(PlotArea) %>% mutate(PlotArea.m2=ifelse(grepl("F$", SiteID), 500,
+                                                    ifelse(is.na(PlotArea.m2), 2050, PlotArea.m2))) %>% 
   select(Dataset, everything())
 
 length(colnames(IL_CTAP2))
