@@ -388,7 +388,7 @@ AIM <- AIM  %>%
   mutate(PctCov = 100*prop.cover,
          FuzzedCoord = "N",
          Site = NA,
-         PlotArea.m2 = ifelse(DataSet == "BLM_LMF", 3000, 10000),
+         PlotArea.m2 = ifelse(DataSet == "BLM_LMF", 2827, 10000),
          Dataset = "AIM",
          Original.Plot = as.character(PLOTKEY),
          Plot = ifelse(is.na(NewPlotID), PLOTKEY, NewPlotID),
@@ -487,6 +487,16 @@ PlotsRemoveWVNHP <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_dat
   filter(`Vascular data quality` == "partial") %>% 
   distinct()
 ```
+
+Plots to be removes from WVNHP because overlap with NWCA
+
+```{r}
+PlotsRemoveWVNHP2 <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_data.csv") %>% 
+  select(`Plot Code`) %>% 
+         #remove NWCA plots from WVNHP
+  filter(grepl("^NWCA", `Plot Code`)) %>% distinct()
+```
+
 
 Imports data on resampled plots for WVNHP and creates a new plot ID for them
 
@@ -860,7 +870,8 @@ VEGBANK <- VEGBANK %>%
          # Plot = str_replace(Plot, "^VEGBANK_", "CVS_")
          # LP: removing the two above lines completely. I will keep the original plot codes as much as possible
          ) %>% 
-  filter(!Original.Plot %in% PlotsRemoveWVNHP$`Plot Code`) %>% 
+  filter(!Original.Plot %in% PlotsRemoveWVNHP$`Plot Code`) %>% #partial floristic
+  filter(!Original.Plot %in% PlotsRemoveWVNHP2$`Plot Code`) %>% #overlap with NWCA
   left_join(PlotsResampleWVNHP, by = "Original.Plot") %>% 
   mutate(Plot = ifelse(is.na(NewPlot), Original.Plot, NewPlot)) %>%
   left_join(WVNHPStrata, by = c("Original.Plot" = "Plot.Code", "Original.TaxonName" = "Scientific.Name")) %>%
@@ -868,10 +879,11 @@ VEGBANK <- VEGBANK %>%
                                      ifelse(is.na(Original.TaxonName) & Original.Plot == "GRAN.31", "Cladonia P. Browne", Original.TaxonName)),
          RecordedStrata = ifelse(is.na(RecordedStrata) & Original.Plot == "SHMO.9", "N",
                                      ifelse(is.na(RecordedStrata) & Original.Plot == "GRAN.31", "Y", RecordedStrata))) %>% 
-  #remove NWCA plots from WVNHP
-  filter(Dataset == "WVNHP" & grepl("^NWCA", Original.Plot)) %>% 
   # adds
   left_join(Plot_shape_WV, by = "Original.Plot") %>% 
+  #fixing trace cover for WVNHP (should be 0.01, but there are smaller values) %>% 
+  mutate(PctCov = ifelse(Dataset=="WVNHP"&PctCov==0.0025|
+                           Dataset=="WVNHP"&PctCov==0.005, 0.01, PctCov)) %>% 
   dplyr::select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(VEGBANK))
@@ -1022,7 +1034,7 @@ glimpse(NWCA)
 Imports the file
 
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper04082022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper05202022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
@@ -1042,7 +1054,6 @@ IL_CTAP <- IL_CTAP %>%
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          Year = PYear,
-         # PlotArea.m2 = SampledAreaOriginal,
          Original.TaxonName = OriginalSpeciesName) %>%
   select(one_of(DesiredColumns))
 
@@ -1861,7 +1872,8 @@ table(DataBase$RecordedStrata, exclude=NULL)
 DataBase %>% group_by(Dataset, RecordedStrata) %>% summarise(nobs = n())
 
 # fixing the NAs and changing them to N [No]
-DataBase <- DataBase %>% mutate(RecordedStrata = ifelse(is.na(RecordedStrata), "N", RecordedStrata))
+# this might not make sense
+DataBase <- DataBase %>% mutate(RecordedStrata = ifelse(is.na(RecordedStrata), "IntegratedBySource", RecordedStrata))
 
 DataBase %>% filter(RecordedStrata=="Y") %>% summarise(max = max(PctCov))
 DataBase %>% filter(RecordedStrata=="N") %>% summarise(max = max(PctCov)) # exceeds 100%
@@ -1977,8 +1989,8 @@ glimpse(FULLDatabase)
 ## Exporting the FULL Database
 
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202122.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_04202122.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05202122.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05202122.csv")
 ```
 
 # Creating Database
@@ -2246,6 +2258,21 @@ results2 = setdiff(SPCISrecreated, SPCISDatabase) # elements in SPCISDatabase NO
 
 nrow(SPCISDatabase) == nrow(SPCISrecreated)
 ```
+
+## getting NWCA unique species names (Accepted and Original) and finding discrepancies ##
+```{r}
+
+NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedTaxonName, Original.TaxonName) %>% distinct() %>% 
+  # a little tweak to find differences
+  mutate(Scientific.Name = str_to_lower(Original.TaxonName),
+         Scientific.Name = str_to_sentence(Scientific.Name),
+         Diff = ifelse(AcceptedTaxonName==Scientific.Name, 0, 1)) %>% 
+  group_by(Diff) %>% add_tally() %>% filter(Diff>0 | is.na(Diff)) %>% select(-Scientific.Name) %>% arrange(Diff) %>% write.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NWCA/NomenclatureDiscrepancies_NWCA.csv", row.names = F)
+
+
+```
+
+
 
 ### Exporting the SPCIS Database
 
