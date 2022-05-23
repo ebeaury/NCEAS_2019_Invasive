@@ -2053,7 +2053,7 @@ glimpse(FULLDatabase)
 
 ## Exporting the FULL Database
 
-```{r eval=FALSE, include=FALSE}
+```{r echo=TRUE}
 write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.rds")
 write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.csv")
 ```
@@ -2345,7 +2345,7 @@ NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedT
 
 ### Exporting the SPCIS Database
 
-```{r eval=FALSE, include=FALSE}
+```{r echo=TRUE}
 #plant data
 write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05232022.rds")
 write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05232022.csv")
