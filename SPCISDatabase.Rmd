@@ -33,10 +33,10 @@ Columns to carry forward in combined dataset
 ```{r}
 DesiredColumns <- c("Dataset", "Site", "Original.Site",
                     "Plot", "Original.Plot", "Long", "Lat", "Zone",
-                    "Original.Long", "Original.Lat", # not going to SPCIS
+                    "Original.Long", "Original.Lat", "FuzzedCoord", # not going to SPCIS
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
-                    "NativeStatus", "PctCov", "FuzzedCoord", "PlotArea.m2", 
-                    "Duration", "Growth.Habit", "RecordedStrata", "SamplingMethod", "Resampled"
+                    "NativeStatus", "PctCov", "RelCov",  
+                    "Duration", "Growth.Habit", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
 
 ```
@@ -299,7 +299,7 @@ FIA <- FIA_final %>%
          Original.Plot = as.character(PLT_CN),
          Original.Lat = LAT,
          Original.Long = LON,
-         Site = NA) %>%
+         Site = "N") %>%
   rename(Plot = NewPlot,
          SpCode = VEG_SPCD, 
          PctCov = PctCover,
@@ -377,23 +377,40 @@ excludePlotIDAIMSameYear <- c("14031706564266912014-03-01","14041413200089512014
 
 ```
 
+Site information for TerrADat
+```{r}
+AIMSiteInfo <- read_xlsx("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_AIM/TerrADat_wSite_20May22.xlsx")
+glimpse(AIMSiteInfo)
+
+#there is more than 1 site per plotkey. 
+AIMSiteInfo %>% select(PrimaryKey, SiteID) %>%  distinct() %>% group_by(PrimaryKey) %>% add_tally() %>% filter(n>1) %>% arrange(PrimaryKey)
+
+#solution: summarizing to get the first one
+AIMSiteInfo <- AIMSiteInfo %>% select(PrimaryKey, SiteID) %>% rename(PLOTKEY=PrimaryKey, Site=SiteID) %>% distinct() %>% group_by(PLOTKEY) %>% dplyr::summarize(Site = dplyr::first(Site)) %>% ungroup %>% filter(!is.na(Site)) 
+glimpse(AIMSiteInfo)
+
+```
+
+
 Data wrangling and column selection
 
 ```{r}
 AIM <- AIM  %>%
+  #site info provided by Patrick Alexander for TerrADat plots
+  left_join(AIMSiteInfo, by = "PLOTKEY") %>% 
   filter(!PLOTKEY %in% excludePlotIDAIM$PLOTKEY) %>% 
   filter(!PLOTKEY %in% excludePlotIDAIMSameYear) %>% 
   left_join(renamedPlotIDAIM, by = c("PLOTKEY", "NAD83.X", "NAD83.Y")) %>%
   # convert from proportion to percent cover:
   mutate(PctCov = 100*prop.cover,
          FuzzedCoord = "N",
-         Site = NA,
-         PlotArea.m2 = ifelse(DataSet == "BLM_LMF", 2827, 10000),
+         PlotArea.m2 = ifelse(DataSet == "BLM_TerrADat", 2827, 10000),
          Dataset = "AIM",
          Original.Plot = as.character(PLOTKEY),
          Plot = ifelse(is.na(NewPlotID), PLOTKEY, NewPlotID),
          Original.Lat = NAD83.Y,
-         Original.Long = NAD83.X) %>%
+         Original.Long = NAD83.X,
+         Site = ifelse(DataSet=="BLM_LMF", "N", Site)) %>%
   rename(Long = NAD83.X,
          Lat = NAD83.Y,
          Year = VisitYear, 
@@ -825,17 +842,41 @@ NCPPTotal <- NCPP %>% left_join(Proj129, by = 'Author Observation Code') %>%
   
 ```
 
+Retrieving Site info for CVS
+```{r}
+SiteCVS <- CVS_plot_data_VAraw %>% 
+  select('Author Observation Code', 'Author Location') %>% 
+  rbind(select(CVS_plot_data_AKraw, c('Author Observation Code', 'Author Location'))) %>% 
+  rbind(select(CVS_plot_data_ALraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_FLraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_GAraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_MSraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_NCCoastalraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_NCFringeraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_NCMtsraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_NCPPraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_Proj129raw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_SCraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_TNraw, c('Author Observation Code', 'Author Location'))) %>%
+  rbind(select(CVS_plot_data_TXraw, c('Author Observation Code', 'Author Location'))) %>% 
+  distinct() %>% 
+  rename(Site='Author Location',
+         VegBankUniqueID='Author Observation Code')
+```
+
+
 Data wrangling and column selection
 
 ```{r}
 VEGBANK <- VEGBANK %>% 
+  left_join(SiteCVS, by="VegBankUniqueID") %>% 
   left_join(select(WVplotArea, UniqueID, PlotArea), by="UniqueID") %>% 
   #remove duplicates from NCCoastal, leaving the ones in the NCFringe dataset
   filter(!UniqueID %in% NCTotal$UniqueID) %>% 
   #remove duplicates from NCPP, leaving the ones in the Proj129 dataset
   filter(!UniqueID %in% NCPPTotal$UniqueID) %>%
   #extracting the first letters from the plotID to use as site info for WVNHP
-  mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), NA),
+  mutate(Site = ifelse(Dataset == "NCVS_WV", gsub("\\..*", "", UniqueID), Site),
          PlotArea.m2 = ifelse(Dataset == "NCVS_WV", PlotArea, Taxon.Observation.Area),
          PlotArea.m2 = ifelse(Dataset == "NCVS_WV" & PlotArea.m2 == 0, NA, PlotArea.m2),
          Original.Plot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
@@ -890,6 +931,12 @@ setdiff(DesiredColumns, names(VEGBANK))
 setdiff(names(VEGBANK), DesiredColumns)
 
 glimpse(VEGBANK)
+```
+
+
+Quantifying plots without coordinates
+```{r}
+VEGBANK %>% filter(Dataset=="CVS") %>% select(Plot, Lat, Long) %>% distinct() %>% mutate(MissingCoord = ifelse(is.na(Lat)&is.na(Long), "missing", "not missing")) %>% count(MissingCoord)
 ```
 
 Code below finds plots with same original coordinates but with distinct plotIDs (n\>1) and plots with same original coordinates but with distinct plotIDs and different year of sampling (unique_year\>1)
@@ -1069,6 +1116,8 @@ DataBase <- bind_rows(AIM, NPS, FIA, NEON, VEGBANK, VNHP, NWCA, IL_CTAP)
 glimpse(DataBase)
 
 DataBase %>% select(Plot) %>% distinct() %>% nrow()
+DataBase %>% group_by(Dataset) %>% count()
+nrow(DataBase)
 ```
 
 # Update native status to be consistent
@@ -1106,6 +1155,8 @@ DataBase %>%
   select(Dataset, Plot) %>%
   distinct() %>%
   count(Dataset)
+
+nrow(DataBase)
 ```
 
 ## Fix 'Original.Site' for all datasets [this column was added because of NWCA]
@@ -1115,6 +1166,8 @@ table(DataBase$Original.Site) #check whether this column has information (it sho
 DataBase <- DataBase %>% 
     #fills the Original.Site column with Site for the cases where a new SiteID was not assigned
     mutate(Original.Site = ifelse(is.na(Original.Site), Site, Original.Site))
+
+nrow(DataBase)
 ```
 
 ## Fix taxonomy errors and inconsistencies
@@ -1209,6 +1262,7 @@ DataBase <- DataBase %>%
                         ifelse(Zone == "MissingCoords" & !is.na(L48status), L48status, NativeStatus))) %>%
   select(-L48status)
 
+nrow(DataBase)
 ```
 
 *Option2*: Uses SpCode from the original dataset and replaces the NA from Accepted.Symbol2 (PLANTS codes) LP: It seems to me that this is not the way to go. The "NOMATCH" codes are for both species that USDA PLANTS don't have but was identified by researchers at the source [mainly CVS, WVNHP, VNHP] or clearly stated as Unknown [in CVS it's {Unkown}]
@@ -1557,6 +1611,7 @@ DataBase %>% filter(is.na(Lat)) %>% nrow()
 DataBase %>% filter(is.na(Long)) %>% nrow()
 # all three have the same length now, it should be fixed
 
+nrow(DataBase)
 ```
 
 # Check that all datasets are percent cover, not proportion
@@ -1579,13 +1634,6 @@ DataBase %>%
 DataBase %>% 
   filter(Plot == "FIA_1976", #Original.Plot number == 24023611010478
          !is.na(PctCov)) # all NA for this plot
-#all others belong to NWCA dataset. The plots have only one or a few species that there was no cover recorded, 
-#although the species were recorded. for example
-DataBase %>%
-  filter(Plot == "NWCA_1",
-         !is.na(PctCov)) # there are other species with cover recorded
-
-# I am keeping NWCA plots with some missing cover (LAIS)
 
 # drop this FIA plot with all NAs for cover
 DataBase <- DataBase %>%
@@ -1617,15 +1665,11 @@ DataBase %>%
   group_by(Dataset) %>%
   count()
 
-missing = DataBase %>% 
-  ungroup() %>% 
-  select(Dataset, PlotArea.m2, Plot) %>% 
-  distinct() %>% 
-  filter(is.na(PlotArea.m2)& Dataset == "NEON")
-
 # substitutes SampledArea of zero per NA (38plots from NPS)
 DataBase <- DataBase %>% 
   mutate(PlotArea.m2 = ifelse(PlotArea.m2 == 0, NA, PlotArea.m2))
+
+nrow(DataBase)
 ```
 
 # Quality checks done by Kristen
@@ -1689,7 +1733,7 @@ DataBase <- DataBase %>% # time consuming
   group_by(Dataset, Site, Original.Site, 
            Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
            Year, FuzzedCoord, RecordedStrata, PlotArea.m2, Zone, NativeStatus, AcceptedTaxonName, 
-           Duration, Growth.Habit, SpCode) %>% 
+           Duration, Growth.Habit, SpCode, SamplingMethod) %>% 
   dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
             Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
   ungroup() %>% 
@@ -1697,7 +1741,7 @@ DataBase <- DataBase %>% # time consuming
 nrow(DataBase)
 
 #previous file - observations per dataset
-FULLDatabase_04182022 <- read_csv("archived/FULLDatabase_04182022.csv")
+FULLDatabase_04182022 <- read_csv("/home/shares/neon-inv/data_paper/final_data/archived/FULLDatabase_04202122.csv")
 x<-FULLDatabase_04182022 %>% 
   count(Dataset) %>% 
   rename(nfull = n,
@@ -1711,10 +1755,11 @@ DataBase %>%
 
 #CVS has 310 more obs
 #NEON has 1 more observation
-#NWCA has 15701 less observations 
-#WNHP has 5 more observations
+#NPS has 5761 less observations 
+#WNHP has 1917 less observations
 
-## Besides NWCA, the discrepancy on the number of obs is because the filter of pctcov >0 happens a few chunks below. Those extra bservations are due to pctcover == 0
+## Besides NWCA, the discrepancy on the number of obs is because the filter of pctcov >0 happens a few chunks below. Those extra observations are due to pctcover == 0
+## and I have recently removed duplicated plots between VNHP and NPS, NWCA and WVNHP
 
 #previous file - plots per dataset
 x<-FULLDatabase_04182022 %>% 
@@ -1729,13 +1774,7 @@ DataBase %>%
   count() %>% 
   cbind(x) %>% 
   mutate(n = n...2-n...4)
-# all datasets have the same number of plots, besides NWCA. NWCA has less 949 plots - OKay as I fixed the plot overestimation
-
-## why is CVS with more obs than before? Yes, because those plots have observations with zeros for pctcover and they are later on removed in this code 
-
-cvsfull<- FULLDatabase_04182022 %>% filter(Dataset == "CVS") %>% count(Plot)
-cvsnew<-DataBase %>% filter(Dataset == "CVS") %>% count(Plot) %>% rename(Plotnew = Plot, nNew = n) %>% 
-  cbind(cvsfull) %>% mutate(ndif = nNew-n) %>% filter(ndif >0) %>% arrange(desc(ndif))
+# all datasets have the same number of plots, besides NWCA and NPS. This is due to recelty removed duplicated plots
 
 DataBase %>%  # time consuming
   group_by(Dataset, Plot, SpCode, Year) %>% 
@@ -1770,7 +1809,7 @@ table(MissingOrigName$Dataset)
 
 ## AIM, FIA and NPS ==> total of 14517 observations with no OriginalSpeciesName and SpCpde associated to them. My understand is that they represent unknown species (NEON, for instance had a written of "Unknown Plant" for those, that's why it's not showing up in this summary)
 
-## CVS (15), FIA (510), NPS (793) ==> observations in which OriginalSpeciesName is missing(NA) but there is no associated OriginalSpeciesNames. For FIA, all the species codes don't have any associated OriginalSpeciesName from the data I got from Jeff Corbin. For NPS, most of the species codes have associated OriginalSpeciesName in other plots, but wuite frequently associated to more than one. For CVS, is the same case as NPS, but more than one OriginalSpeciesName is frequently associated to a SpCode, so I won't fix.
+## CVS (15), FIA (510), NPS (793) ==> observations in which OriginalSpeciesName is missing(NA) but there is no associated OriginalSpeciesNames. For FIA, all the species codes don't have any associated OriginalSpeciesName from the data I got from Jeff Corbin. For NPS, most of the species codes have associated OriginalSpeciesName in other plots, but quite frequently associated to more than one. For CVS, is the same case as NPS, but more than one OriginalSpeciesName is frequently associated to a SpCode, so I won't fix.
 
 ## LP decision: not changing OriginalSpeciesName, but we're aware of the gaps.
 
@@ -1797,6 +1836,7 @@ DataBase <- DataBase %>%
   mutate(Duration = str_replace(Duration, "\\sAN$", " Annual"))
 unique(DataBase$Duration)
 
+nrow(DataBase)
 ```
 
 - checking for multiple duration and/or growth forms for a particular AcceptedTaxonName [Helen]
@@ -1839,6 +1879,7 @@ DataBase %>%
   distinct() %>%
   filter(AcceptedTaxonName %in% haveDup$AcceptedTaxonName) %>%
   arrange(AcceptedTaxonName) # None! This was the species giving trouble, now there is a single obs
+nrow(DataBase)
 
 ```
 
@@ -1862,9 +1903,11 @@ DataBase %>%
   summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
             max = max(PctCov, na.rm = TRUE)) 
+
+nrow(DataBase)
 ```
 
--   RecordedStrata terminology
+-  RecordedStrata terminology
 
 ```{r}
 #checking which are the categories and by dataset
@@ -1880,6 +1923,18 @@ DataBase %>% filter(RecordedStrata=="N") %>% summarise(max = max(PctCov)) # exce
 DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% nrow()
 DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset) # one occurrence, same genus was recorded twice in data collection
 DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset) 
+
+#when combining strata & genus within plot, ids until genus only can have more than 100% because each genus can have up to 100% each
+DataBase %>% filter(PctCov > 100) %>% nrow() # 974 observations in which PctCover for a taxon per plot is >100%
+
+SppLargeCov <- DataBase %>% filter(PctCov > 100) %>% select(AcceptedTaxonName) %>% distinct() %>% arrange(AcceptedTaxonName)
+# one observation is Genus (CRATA) --> WNHP
+# other two are unknowns --> NPS
+
+ObsLargeCov <- DataBase %>% filter(PctCov > 100)
+# checked the observation with CRATA in MERI.5 in the source data. The genus was present in three strata, none of each exceeding 100%
+# checked the NPS unknowns in the source data, and they are already recorded as more than 100% cover.
+
 ```
 
 -   creating a Resampled column.
@@ -1905,27 +1960,36 @@ DataBase <- DataBase %>%
 
 DataBase %>% ungroup() %>% filter(Resampled=="Y") %>% distinct(Plot) %>% nrow()
 nrow(ResampledList)
+nrow(DataBase)
 ```
 
--   fixing site terminology
+- creating a Sampling method column.
 
 ```{r}
-# fixing the NAs and changing them to N [No]
-DataBase <- DataBase %>% mutate(Site = ifelse(is.na(Site), "N", Site),
-                                Original.Site = ifelse(is.na(Original.Site), "N", Original.Site))
-```
 
--  FIX THIS!!!!!!!! creating a Sampling method column.
+DataBase %>% 
+  select(Dataset, SamplingMethod) %>% 
+  count(Dataset, SamplingMethod) 
 
-```{r}
+DataBase %>% 
+  select(Dataset, PlotArea.m2) %>% 
+  count(Dataset, PlotArea.m2) %>% ##missing plot area for 64426 NPS observations and 2751 WVNHP observations
+  filter(is.na(PlotArea.m2))
+
+# fix SamplingMethod  
 DataBase <- DataBase %>%
-  mutate(PlotArea.m2 = ifelse(Dataset == "IL_CTAP" | Dataset == "NEON", PlotArea.m2, PlotArea.m2),
-         # NEON and FIA cover is already given on the basis of cover/m²
-         SamplingMethod = ifelse(Dataset == "AIM", "Line-point intercept transect",
-                                 ifelse(Dataset == "FIA", "Circular plots in a fixed pattern",
-                                        ifelse(Dataset == "IL_CTAP", "Transect",
-                                               ifelse(Dataset == "NPS", "Square or rectangle plot",
-                                                      ifelse(Dataset == "NWCA", "Square plot", "Nested plot"))))))
+  mutate(SamplingMethod = ifelse(is.na(SamplingMethod) & Dataset == "AIM", "Circular plots",
+                                 ifelse(is.na(SamplingMethod) & Dataset == "FIA", "Circular plots in a fixed pattern",
+                                        ifelse(is.na(SamplingMethod) & Dataset == "IL_CTAP", "Transect",
+                                               ifelse(is.na(SamplingMethod) & Dataset == "NPS", "Square or rectangle plot",
+                                                      ifelse(is.na(SamplingMethod) & Dataset == "NWCA", "Square plot", 
+                                                             ifelse(is.na(SamplingMethod) & Dataset == "NEON"|
+                                                                     is.na(SamplingMethod) & Dataset == "CVS", "Nested plots", SamplingMethod)))))))
+
+# check again
+DataBase %>% 
+  select(Dataset, SamplingMethod) %>% 
+  count(Dataset, SamplingMethod) 
 
 # another check min and max values of cover per dataset
 DataBase %>%
@@ -1962,24 +2026,25 @@ DataBase <- DataBase %>%
 DataBase %>% filter(Site == "ALFL") %>% select(Plot) %>% distinct() #no more errors
 ```
 
-
-Checking whether the number of observations is the same across datasets (not apply to NWCA, which I fixed it)
+Creates Relative cover column
 ```{r}
-x<-FULLDatabase_04182022 %>% 
-  count(Dataset) %>% 
-  rename(nfull = n,
-         datsetfull = Dataset)
+#check number of observations I start with 
+dim(DataBase) 
 
-#with updated NWCA info
-DataBase %>% 
-  count(Dataset)%>% 
-  cbind(x) %>% 
-  mutate(ndif = n-nfull)
+DataBase<-DataBase %>% 
+  group_by(Dataset, Site, Plot, Long, Lat) %>%
+  mutate(TotalPctCover = sum(PctCov)) %>% 
+  ungroup() %>% 
+  mutate(RelCov = (PctCov/TotalPctCover)*100)
 
+# is the final result the same?
+dim(DataBase) 
 ```
+
 
 # Creating the FULL Database
 
+Full database with original Lat/Long info and rare species
 ```{r}
 FULLDatabase <- DataBase %>%
   select(one_of(DesiredColumns))
@@ -1989,8 +2054,8 @@ glimpse(FULLDatabase)
 ## Exporting the FULL Database
 
 ```{r eval=FALSE, include=FALSE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05202122.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05202122.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.csv")
 ```
 
 # Creating Database
@@ -2004,7 +2069,7 @@ DesiredColumns2 <- c("Dataset", "Site", "Original.Site",
                     "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Duration", "GrowthHabit",
-                    "PctCov", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
+                    "PctCov", "RelCov", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
 
 ```
@@ -2226,22 +2291,26 @@ glimpse(SPCISDatabase)
 ```{r}
 SPCIS_plant_taxa <- SPCISDatabase %>% 
   select(Plot, Year, SpCode, AcceptedTaxonName, Original.TaxonName, 
-         NativeStatus, Duration, GrowthHabit, PctCov, RecordedStrata) %>% 
+         NativeStatus, Duration, GrowthHabit, PctCov, RelCov, RecordedStrata) %>% 
   as_tibble()
 
 SPCIS_plots <- SPCISDatabase %>% 
   select(Dataset, Plot, Year, Original.Plot, Site, Original.Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
-  # FIA_2099 plot was duplicated even after using the distinct() function 
-  # the issue was on the decimals of the plot area column
-  mutate(PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>% 
+  mutate(Long = ifelse(Plot == "008-01-0003", -82.76464, Long),
+         Lat = ifelse(Plot == "008-01-0003", 35.3971, Lat),
+         PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>% 
     distinct() %>% 
-  as_tibble()
+    as_tibble()
+
+SPCIS_plots %>% group_by(Plot, Year) %>% add_tally() %>% filter(n>1) # no duplicated Plot&year combination
 
 SPCISrecreated <- SPCIS_plant_taxa %>% 
   left_join(SPCIS_plots) 
 
 glimpse(SPCIS_plots)
 glimpse(SPCIS_plant_taxa)
+
+dim(SPCISrecreated)
 
 all_equal(SPCISDatabase, SPCISrecreated)
 
@@ -2260,7 +2329,7 @@ nrow(SPCISDatabase) == nrow(SPCISrecreated)
 ```
 
 ## getting NWCA unique species names (Accepted and Original) and finding discrepancies ##
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedTaxonName, Original.TaxonName) %>% distinct() %>% 
   # a little tweak to find differences
@@ -2278,12 +2347,12 @@ NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedT
 
 ```{r eval=FALSE, include=FALSE}
 #plant data
-write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_0421022.rds")
-write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.csv")
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05232022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05232022.csv")
 
 #plot data
-write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.rds")
-write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.csv")
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05232022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05232022.csv")
 ```
 
 
@@ -2766,7 +2835,7 @@ all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, g
           # labels = c("A", "B", "C", "D", "F"),
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedIntroduced04212022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedIntroduced05232022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
@@ -2915,7 +2984,7 @@ library(cowplot)
 all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
           ncol = 3, nrow = 3,  labels = "AUTO")
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcombinedNat4212022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcombinedNat05232022.png', width = 1920,height = 1080)
 print(all)
 dev.off()
 
