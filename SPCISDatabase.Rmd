@@ -2679,6 +2679,50 @@ glimpse(ecoreg1)
 Joining the ecoregion spatial information
 
 ```{r}
+
+SPCIS_plotsMissing <- SPCIS_plots %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, Ecoregion=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
+
+SPCIS_plotsEco <- SPCIS_plots %>% 
+  filter(FuzzedCoord != "Missing") %>% 
+  # getting all data as a sf object
+  st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
+  #sets the same projections
+  st_transform(crs = st_crs(ecoreg1)) %>%
+  #adds the corresponding ecorregions to each entry
+  st_join(ecoreg1) %>%
+  #drops the coordinates
+  st_drop_geometry() %>% 
+  rbind(SPCIS_plotsMissing)
+
+#Full database with ecoregion level 1
+write_rds(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05232022.rds")
+write_csv(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05232022.csv")
+```
+
+
+```{r}
+
+FULLDatabaseMissing <- FULLDatabase %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, Ecoregion=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
+
+FULLDatabaseEco <- FULLDatabase %>% 
+  filter(FuzzedCoord != "Missing") %>% 
+  # getting all data as a sf object
+  st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
+  #sets the same projections
+  st_transform(crs = st_crs(ecoreg1)) %>%
+  #adds the corresponding ecorregions to each entry
+  st_join(ecoreg1) %>%
+  #drops the coordinates
+  st_drop_geometry() %>% 
+  rbind(FULLDatabaseMissing)
+
+#Full database with ecoregion level 1
+write_rds(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05232022.rds")
+write_csv(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05232022.csv")
+```
+
+
+```{r}
 SPCISDatabaseEco <- SPCISDatabase %>% 
   filter(FuzzedCoord != "Missing") %>% 
   # getting all data as a sf object
