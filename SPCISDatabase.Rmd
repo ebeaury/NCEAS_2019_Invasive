@@ -2011,21 +2011,6 @@ DataBase %>%
   count(Dataset)
 ```
 
-- fix ALFL plot names from for example "ALFL_ALFL.48" to "ALFL.48"
-```{r}
-DataBase %>% filter(Site == "ALFL") %>% select(Plot) %>% distinct() #identifies the plots with wrong spelling
-
-DataBase <- DataBase %>% 
-  mutate(Plot = ifelse(Plot=="ALFL_ALFL.142", "ALFL.142",
-                ifelse(Plot=="ALFL_ALFL.47", "ALFL.47",
-                ifelse(Plot=="ALFL_ALFL.48", "ALFL.48",
-                ifelse(Plot=="ALFL_ALFL.49", "ALFL.49",
-                ifelse(Plot=="ALFL_ALFL.50", "ALFL.50",
-                ifelse(Plot=="ALFL_ALFL.51", "ALFL.51", Plot))))))) #fixes
-
-DataBase %>% filter(Site == "ALFL") %>% select(Plot) %>% distinct() #no more errors
-```
-
 Creates Relative cover column
 ```{r}
 #check number of observations I start with 
