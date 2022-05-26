@@ -85,7 +85,7 @@ wettree <- wtree %>%
   filter(OriginalSpeciesName != "None") %>% 
   rename(SampledAreaOriginal = Squmetr) %>% 
   mutate(BA = ((0.00007854*(SzclassM^2))*PCount), #basal area in m²
-         PctCovPartial = (BA*100)/SampledAreaOriginal, #%
+         PctCovPartial = (BA*100)/SampledAreaOriginal, #% ;  same as (BA/SampledAreaOriginal)*100
          code = 1,
          layer = "tree") %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>%
@@ -97,21 +97,27 @@ wettree <- wtree %>%
 
 wetfinal <- wet %>% 
   rbind(wettree) %>% 
+  mutate(Step1=1-(PctCov/100)) %>%
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code, -layer) %>% 
   ungroup() %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
   summarise(PctCov = sum(PctCov),
             SampledAreaOriginal = max(SampledAreaOriginal),
-            RecordedStrata = dplyr::first(RecordedStrata)) %>% 
+            RecordedStrata = dplyr::first(RecordedStrata),
+            PctCov_100=dplyr::first(PctCov_100)) %>% 
   ungroup() %>% 
   mutate(Transect = 1) 
 
  wetfinal %>% summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
-            max = max(PctCov, na.rm = TRUE))
+            max = max(PctCov, na.rm = TRUE),
+            min_100 = min(PctCov_100, na.rm = TRUE),
+            mean_100 = mean(PctCov_100, na.rm = TRUE),
+            max_100 = max(PctCov_100, na.rm = TRUE))
   
 ```
 
@@ -162,21 +168,27 @@ grasstree <- gtree %>%
 
 grassfinal <- grass %>% 
   rbind(grasstree) %>% 
+  mutate(Step1=1-(PctCov/100)) %>%
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
     #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code, -layer) %>% 
   ungroup() %>% 
   group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
   summarise(PctCov = sum(PctCov),
             SampledAreaOriginal = max(SampledAreaOriginal),
-            RecordedStrata = dplyr::first(RecordedStrata)) %>% 
+            RecordedStrata = dplyr::first(RecordedStrata),
+            PctCov_100=dplyr::first(PctCov_100)) %>% 
   ungroup() %>% 
   mutate(Transect = 1)
 
 grassfinal %>% summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
-            max = max(PctCov, na.rm = TRUE))
+            max = max(PctCov, na.rm = TRUE),
+            min_100 = min(PctCov_100, na.rm = TRUE),
+            mean_100 = mean(PctCov_100, na.rm = TRUE),
+            max_100 = max(PctCov_100, na.rm = TRUE))
 
 ```
 
@@ -230,20 +242,26 @@ fortree <- ftree %>%
 
 forestfinal <- forest %>% 
   rbind(fortree) %>%
+  mutate(Step1=1-(PctCov/100)) %>%
   group_by(SiteID, PYear, Transect) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code, -layer) %>% 
   ungroup() %>% 
   group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>% 
+  mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
   summarise(PctCov = sum(PctCov),
             SampledAreaOriginal = max(SampledAreaOriginal),
-            RecordedStrata = dplyr::first(RecordedStrata)) %>% 
+            RecordedStrata = dplyr::first(RecordedStrata),
+            PctCov_100=dplyr::first(PctCov_100)) %>% 
   ungroup()
 
 forestfinal %>% summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
-            max = max(PctCov, na.rm = TRUE))
+            max = max(PctCov, na.rm = TRUE),
+            min_100 = min(PctCov_100, na.rm = TRUE),
+            mean_100 = mean(PctCov_100, na.rm = TRUE),
+            max_100 = max(PctCov_100, na.rm = TRUE))
 
 ```
 
@@ -257,13 +275,13 @@ IL_CTAP <- forestfinal %>%
   mutate(Dataset = "IL_CTAP") %>% 
   rename(SampledArea = SampledAreaOriginal) %>% 
   #
-  group_by(Dataset, SiteID, Transect, PYear, OriginalSpeciesName, RecordedStrata) %>% 
-  # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
-  dplyr::summarise(PctCov = sum(PctCov),
-                   # different trees were sampled in the different sampled area, I am keeping the first one
-                   SampledArea = dplyr::first(SampledArea)) %>% 
-  ungroup() %>% 
-  distinct() %>% 
+  # group_by(Dataset, SiteID, Transect, PYear, OriginalSpeciesName, RecordedStrata) %>% 
+  # # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
+  # dplyr::summarise(PctCov = sum(PctCov),
+  #                  # different trees were sampled in the different sampled area, I am keeping the first one
+  #                  SampledArea = dplyr::first(SampledArea)) %>% 
+  # ungroup() %>% 
+  # distinct() %>% 
   #
   select(Dataset, everything())
 
@@ -486,6 +504,7 @@ IL_CTAP2 <- IL_CTAP2 %>%
            Accepted.Symbol, inv_L48, Lat, Long, Plot) %>% 
   # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
   dplyr::summarise(PctCov = sum(PctCov),
+                   PctCov_100 = sum(PctCov_100),
                    # different trees were sampled in the different sampled area, I am keeping the first one
                    SampledArea = max(SampledArea),
                    OriginalSpeciesName = dplyr::first(OriginalSpeciesName),
@@ -513,12 +532,15 @@ Checking range of PctCov
 IL_CTAP2 %>%
   summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
-            max = max(PctCov, na.rm = TRUE))
+            max = max(PctCov, na.rm = TRUE),
+            min_100 = min(PctCov_100, na.rm = TRUE),
+            mean_100 = mean(PctCov_100, na.rm = TRUE),
+            max_100 = max(PctCov_100, na.rm = TRUE))
 ```
 
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper05202022.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper05262022.csv"))
 ```
 
