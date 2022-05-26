@@ -40,8 +40,8 @@ taxModifications <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/t
                  header = T, stringsAsFactors = F)
 
 taxModifications <- taxModifications %>%
-  rename("SpCode" = 1,
-         "FinalDecisionL48" = 7) %>%
+  dplyr::rename(#SpCode = 1,
+         FinalDecisionL48 = `FINAL.DECISION..L48.`) %>%
   select(SpCode, FinalDecisionL48)
 
 
@@ -642,7 +642,8 @@ nonwind_df <- nonWoodyPerInd %>%
 df_out$coverArea <- (df_out$maxCrownDiameter/2) * (df_out$ninetyCrownDiameter/2) * pi
 
 #get basal area; in an ideal world with have crown cover for all individuals but older data is unlikely to have these and tower plot data will not; create basal area should that be of use
-df_out$basalArea <- ifelse(!is.na(df_out$stemDiameter), pi*df_out$stemDiameter, pi*df_out$basalStemDiameter) 
+df_out$basalArea <- ifelse(!is.na(df_out$stemDiameter), pi*df_out$stemDiameter, pi*df_out$basalStemDiameter) # how Dave was calculating it
+df_out$basalArea2 <- ifelse(!is.na(df_out$stemDiameter), (pi*((df_out$stemDiameter/2)^2))/10000, (pi*((df_out$basalStemDiameter/2)^2))/10000) # LP: thinks this is the right way, from cm² to m²
 
 ## remove records that do not contain the necessary data to calculate either of these values, small trees, dead things, things that no longer qualify
 #df_out$ck <- ifelse(is.na(df_out$coverArea)&is.na(df_out$basalArea), 0, 1) 
@@ -675,7 +676,7 @@ df_outBoth <- filter(df_outBoth, !is.na(scientificName))
 #sum area values by scientific name and growth form, add plotID, add eventID to selects above
 countTax <- df_outBoth%>%
   dplyr::group_by(siteID, eventID, plotID, taxonID, scientificName,  taxonRank, growthForm)%>% 
-  dplyr::summarize(indCount=n(), totalCrownArea=sum(coverArea), totalBasalArea=sum(basalArea))%>%
+  dplyr::summarize(indCount=n(), totalCrownArea=sum(coverArea), totalBasalArea=sum(basalArea), totalBasalArea2=sum(basalArea2))%>%
   dplyr::ungroup()
 
 # calculate sampled area, the relevant sampling area depends on the growth form being considered
@@ -701,6 +702,11 @@ for(i in 1:nrow(countTax)){
 #calc percent cover 
 countTax$percentCoverCanopy <- countTax$totalCrownArea/countTax$plotAreaSampled
 countTax$percentCoverBasal <- countTax$totalBasalArea/countTax$plotAreaSampled
+countTax$percentCoverBasal100 <- (countTax$totalBasalArea/countTax$plotAreaSampled)*100 # LP: here I transform basal area into percentage, BUT it seems that the prior calcualtion was wrong
+
+countTax$percentCoverBasal2 <- countTax$totalBasalArea2/countTax$plotAreaSampled #LP modified
+countTax$percentCoverBasal2100 <- (countTax$totalBasalArea2/countTax$plotAreaSampled)*100 #LP modified
+
 countTax$stemDensity <- countTax$indCount/countTax$plotAreaSampled
 
 #create year col
