@@ -1248,11 +1248,12 @@ anyDuplicated(status$SpCode)
 *Option1*: Uses USDA PLANTS species code from Accepted.Symbol2 even if the original dataset have a particular code for that species
 
 ```{r}
-DataBase <- DataBase %>%
+DataBase2 <- DataBase %>%
   left_join(DataBaseALLCodes, by = c("SpCode", "Zone")) %>% 
   #removes SpCode that came with the datasets 
-  select(-SpCode, -NativeStatus.x, -AcceptedTaxonName.x, -Duration.x, -Growth.Habit.x) %>% 
-  rename(SpCode = Accepted.Symbol2,
+  select(-NativeStatus.x, -AcceptedTaxonName.x, -Duration.x, -Growth.Habit.x) %>% 
+  rename(SpCode.Original = SpCode,
+         SpCode = Accepted.Symbol2,
          NativeStatus = NativeStatus.y,
          AcceptedTaxonName = AcceptedTaxonName.y,
          Duration = Duration.y,
@@ -1550,6 +1551,10 @@ DataBase %>%
 # UniqueSpCodesRealMissing <- unique(RealMissing$SpCode)
 
 ```
+
+#### FIX: add here code to join column Pct_100 by SpCode.Original and then remove SpCode.Original
+
+
 
 # Checking missing data for Year column
 
