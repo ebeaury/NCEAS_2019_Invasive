@@ -35,7 +35,7 @@ DesiredColumns <- c("Dataset", "Site", "Original.Site",
                     "Plot", "Original.Plot", "Long", "Lat", "Zone",
                     "Original.Long", "Original.Lat", "FuzzedCoord", # not going to SPCIS
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
-                    "NativeStatus", "PctCov", "RelCov",  
+                    "NativeStatus", "PctCov", "PctCov_100",  
                     "Duration", "Growth.Habit", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
 
@@ -1081,7 +1081,7 @@ glimpse(NWCA)
 Imports the file
 
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper05202022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper05262022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
@@ -1553,6 +1553,7 @@ DataBase %>%
 ```
 
 #### FIX: add here code to join column Pct_100 by SpCode.Original and then remove SpCode.Original
+##### IL_CTAP already carries this information from the data
 
 
 
@@ -2018,17 +2019,17 @@ DataBase %>%
 
 Creates Relative cover column
 ```{r}
-#check number of observations I start with 
-dim(DataBase) 
-
-DataBase<-DataBase %>% 
-  group_by(Dataset, Site, Plot, Long, Lat) %>%
-  mutate(TotalPctCover = sum(PctCov)) %>% 
-  ungroup() %>% 
-  mutate(RelCov = (PctCov/TotalPctCover)*100)
-
-# is the final result the same?
-dim(DataBase) 
+# check number of observations I start with
+# dim(DataBase) 
+# 
+# DataBase<-DataBase %>% 
+#   group_by(Dataset, Site, Plot, Long, Lat) %>%
+#   mutate(TotalPctCover = sum(PctCov)) %>% 
+#   ungroup() %>% 
+#   mutate(RelCov = (PctCov/TotalPctCover)*100)
+# 
+# # is the final result the same?
+# dim(DataBase) 
 ```
 
 
