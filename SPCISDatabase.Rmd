@@ -84,7 +84,7 @@ tax <- tax %>%
 Imports the file
 
 ```{r}
-NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols20220408.csv")
+NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols05272022.csv")
 glimpse(NEON) 
 ```
 
@@ -137,16 +137,17 @@ Data wrangling and column selection
 ```{r}
 NEON <- NEON %>%
   mutate(FuzzedCoord = "N",
-         # those are sites in which diversity and vegetation structure data are from different years
-         year = ifelse(siteID == "ABBY" | siteID == "SJER" | siteID == "WREF", 2017, year),
+         # # those are sites in which diversity and vegetation structure data are from different years
+         # year = ifelse(siteID == "ABBY" | siteID == "SJER" | siteID == "WREF", 2017, year),
          Original.Plot = as.character(plotID),
          Original.Long = decimalLongitude,
          Original.Lat = decimalLatitude,
          # it's 1 because the %cover is on the m² basis.
          # SampledArea = 1,
-         RecordedStrata = ifelse(vst_status == "div_vst", "Y", "N"),
-         PlotArea.m2 = ifelse(is.na(PlotArea.m2) & siteID == "BLAN", 800,
-                              ifelse(is.na(PlotArea.m2) & siteID != "BLAN", 400, PlotArea.m2))) %>%
+         # RecordedStrata = ifelse(vst_status == "div_vst", "Y", "N"),
+         # PlotArea.m2 = ifelse(is.na(PlotArea.m2) & siteID == "BLAN", 800,
+         #                      ifelse(is.na(PlotArea.m2) & siteID != "BLAN", 400, PlotArea.m2))
+         ) %>%
   rename(Dataset = dataset,
          Site = siteID,
          Plot = plotID,
@@ -156,7 +157,7 @@ NEON <- NEON %>%
          Long = decimalLongitude,
          Lat = decimalLatitude,
          NativeStatus = Native.Status,
-         PctCov = plotCover,
+         # PctCov = plotCover,
          Original.TaxonName = scientificName) %>%
   select(one_of(DesiredColumns), 
          contains("NEON", ignore.case = FALSE))
