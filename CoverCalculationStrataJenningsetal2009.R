@@ -77,6 +77,9 @@ DataBase2<-DataBase2 %>% left_join(NPSdata, by = c("Plot", "SpCode.Original")) %
 
 NPSNAs<-DataBase2 %>% filter(Dataset=="NPS", is.na(PctCov_100)) ## no more missing values
 DataBase2 %>% filter(Dataset=="NPS") %>% group_by(Dataset) %>%
-  summarize(min = min(PctCov_100, na.rm = TRUE),
-            mean = mean(PctCov_100, na.rm = TRUE),
-            max = max(PctCov_100, na.rm = TRUE)) 
+  summarize(min100 = min(PctCov_100, na.rm = TRUE),
+            mean100 = mean(PctCov_100, na.rm = TRUE),
+            max100 = max(PctCov_100, na.rm = TRUE),
+            min = min(PctCov, na.rm = TRUE),
+            mean = mean(PctCov, na.rm = TRUE),
+            max = max(PctCov, na.rm = TRUE)) 
