@@ -111,12 +111,13 @@ NEON <- NEON %>%
   mutate(Native.Status = ifelse(scientificName == "Unknown plant" | scientificName == "Unknown hardwood plant", NA, Native.Status),
          AccSpeciesName = ifelse(scientificName == "Unknown plant" | scientificName == "Unknown hardwood plant", NA, AccSpeciesName),
         Accepted.Symbol = ifelse(scientificName == "Unknown plant" | scientificName == "Unknown hardwood plant", NA, Accepted.Symbol),
-        Accepted.Symbol = ifelse(str_detect(scientificName, "ceae sp\\."), NA, Accepted.Symbol),
-        Native.Status = ifelse(str_detect(scientificName, "ceae sp\\."), NA, Native.Status),
-        AccSpeciesName = ifelse(str_detect(scientificName, "ceae sp\\."), NA, AccSpeciesName),
-        Accepted.Symbol = ifelse(str_detect(scientificName, "ceae spp\\."), NA, Accepted.Symbol),
-        Native.Status = ifelse(str_detect(scientificName, "ceae spp\\."), NA, Native.Status),
-        AccSpeciesName = ifelse(str_detect(scientificName, "ceae spp\\."), NA, AccSpeciesName)) %>% 
+        # Accepted.Symbol = ifelse(str_detect(scientificName, "ceae sp\\."), NA, Accepted.Symbol),
+        # Native.Status = ifelse(str_detect(scientificName, "ceae sp\\."), NA, Native.Status),
+        # AccSpeciesName = ifelse(str_detect(scientificName, "ceae sp\\."), NA, AccSpeciesName),
+        # Accepted.Symbol = ifelse(str_detect(scientificName, "ceae spp\\."), NA, Accepted.Symbol),
+        # Native.Status = ifelse(str_detect(scientificName, "ceae spp\\."), NA, Native.Status),
+        # AccSpeciesName = ifelse(str_detect(scientificName, "ceae spp\\."), NA, AccSpeciesName)
+        ) %>% 
   left_join(NEONspp, by = "scientificName") %>% 
     mutate(Zone = case_when(decimalLatitude > 50 ~ "AK",
                           decimalLatitude < 50 & decimalLatitude > 19 & decimalLongitude > -130 ~ "L48",
@@ -142,6 +143,7 @@ NEON <- NEON %>%
          Original.Plot = as.character(plotID),
          Original.Long = decimalLongitude,
          Original.Lat = decimalLatitude,
+         SpCode = ifelse(!is.na(Accepted.Symbol), taxonID2, Accepted.Symbol) ,
          # it's 1 because the %cover is on the m² basis.
          # SampledArea = 1,
          # RecordedStrata = ifelse(vst_status == "div_vst", "Y", "N"),
@@ -153,7 +155,6 @@ NEON <- NEON %>%
          Plot = plotID,
          Year = year,
          AcceptedTaxonName = AccSpeciesName,
-         SpCode = Accepted.Symbol,
          Long = decimalLongitude,
          Lat = decimalLatitude,
          NativeStatus = Native.Status,
@@ -1249,7 +1250,7 @@ anyDuplicated(status$SpCode)
 *Option1*: Uses USDA PLANTS species code from Accepted.Symbol2 even if the original dataset have a particular code for that species
 
 ```{r}
-DataBase2 <- DataBase %>%
+DataBase <- DataBase %>%
   left_join(DataBaseALLCodes, by = c("SpCode", "Zone")) %>% 
   #removes SpCode that came with the datasets 
   select(-NativeStatus.x, -AcceptedTaxonName.x, -Duration.x, -Growth.Habit.x) %>% 
@@ -1553,9 +1554,36 @@ DataBase %>%
 
 ```
 
-#### FIX: add here code to join column Pct_100 by SpCode.Original and then remove SpCode.Original
-##### IL_CTAP already carries this information from the data
+#### Join column Pct_100 by SpCode.Original and then remove SpCode.Original
+##### IL_CTAP and NEON already carries this information from the data
 
+```{r}
+# imports NPS and WVNHP data with PctCov_100
+WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100.csv" )
+NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100.csv")
+
+dim(DataBase)
+
+DataBase <- DataBase %>%
+  ## NPS
+  left_join(NPS100, by = c("Plot", "SpCode.Original")) %>% # A LOT OF NAs
+  mutate(PctCov_100.y=ifelse(Dataset=="NPS" & Site=="CAVE", PctCov, PctCov_100.y)) %>% 
+  ##WVNHP
+  left_join(WVNHP100, by = c("Original.Plot", "Original.TaxonName")) %>% 
+  mutate(PctCov_100=ifelse(Dataset=="WVNHP" & RecordedStrata=="N", PctCov, PctCov_100))
+
+dim(DataBase) # should be the same number of rows, two more columns
+
+# if everything looks great above, fill in the blanks for PctCov_100
+# cover for datasets that we did not aggregate cover across strata but were handed to us with final cover, PctCover_100==PctCov
+DataBase <- DataBase %>% mutate(PctCov_100.x=ifelse(Dataset=="NPS", PctCov_100.y, 
+                                                      ifelse(Dataset=="WVNHP", PctCov_100, 
+                                                             ifelse(is.na(PctCov_100.x), PctCov, PctCov_100.x)))) %>% 
+  select(-PctCov_100.y, -PctCov_100) %>% 
+  rename(PctCov_100 = PctCov_100.x)
+
+dim(DataBase)
+```
 
 
 # Checking missing data for Year column
@@ -1735,53 +1763,31 @@ DataBase <- DataBase %>%
                                       "Eupatorium capillifolium", AcceptedTaxonName),
          SpCode = ifelse(Original.TaxonName == "Eupatorium capillifolium (Lam.) Small" & SpCode=="EUCA26", "EUCA5", SpCode)) 
 
-DataBase <- DataBase %>% # time consuming
-  # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
-  group_by(Dataset, Site, Original.Site, 
-           Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
-           Year, FuzzedCoord, RecordedStrata, PlotArea.m2, Zone, NativeStatus, AcceptedTaxonName, 
-           Duration, Growth.Habit, SpCode, SamplingMethod) %>% 
-  dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
-            Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
+# DataBase2 <- DataBase %>% # time consuming
+#   # Fix issues of duplicate SpCode in AIM, IL_CTAP, NEON, VNHP 
+#   group_by(Dataset, Site, Original.Site, 
+#            Plot, Original.Plot, Long, Lat, Original.Long, Original.Lat,
+#            Year, FuzzedCoord, RecordedStrata, PlotArea.m2, Zone, NativeStatus, AcceptedTaxonName, 
+#            Duration, Growth.Habit, SpCode, SamplingMethod) %>% 
+#   dplyr::summarize(PctCov = ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov), # this is the column I need to sum
+#                    PctCov_100 = ifelse(!is.na(SpCode), sum(PctCov_100, na.rm=TRUE), PctCov_100), # this is the column I need to sum
+#             Original.TaxonName = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName)) %>% 
+#   ungroup() %>% 
+#   distinct()
+
+# alternative try
+# Fix issues of duplicate SpCode
+DataBase <- DataBase %>% 
+  group_by(Dataset, Plot, SpCode, Year) %>% 
+  mutate(PctCovnew=ifelse(!is.na(SpCode), sum(PctCov, na.rm=TRUE), PctCov),
+         PctCov_100new=ifelse(!is.na(SpCode), sum(PctCov_100, na.rm=TRUE), PctCov_100),
+         Original.TaxonNamenew = ifelse(!is.na(SpCode), dplyr::first(Original.TaxonName), Original.TaxonName),
+         SpCode.Originalnew = ifelse(!is.na(SpCode), dplyr::first(SpCode.Original), SpCode.Original)) %>% 
   ungroup() %>% 
-  distinct()
+  select(-PctCov_100, -PctCov, -Original.TaxonName, -SpCode.Original) %>% distinct() %>% 
+  rename(PctCov_100=PctCov_100new, PctCov=PctCovnew, Original.TaxonName=Original.TaxonNamenew, SpCode.Original=SpCode.Originalnew)
+
 nrow(DataBase)
-
-#previous file - observations per dataset
-FULLDatabase_04182022 <- read_csv("/home/shares/neon-inv/data_paper/final_data/archived/FULLDatabase_04202122.csv")
-x<-FULLDatabase_04182022 %>% 
-  count(Dataset) %>% 
-  rename(nfull = n,
-         datsetfull = Dataset)
-
-#with updated NWCA info
-DataBase %>% 
-  count(Dataset)%>% 
-  cbind(x) %>% 
-  mutate(ndif = n-nfull)
-
-#CVS has 310 more obs
-#NEON has 1 more observation
-#NPS has 5761 less observations 
-#WNHP has 1917 less observations
-
-## Besides NWCA, the discrepancy on the number of obs is because the filter of pctcov >0 happens a few chunks below. Those extra observations are due to pctcover == 0
-## and I have recently removed duplicated plots between VNHP and NPS, NWCA and WVNHP
-
-#previous file - plots per dataset
-x<-FULLDatabase_04182022 %>% 
-  group_by(Dataset) %>% 
-  distinct(Plot) %>% 
-  count()
-
-#with updated NWCA info
-DataBase %>% 
-  group_by(Dataset) %>% 
-  distinct(Plot) %>% 
-  count() %>% 
-  cbind(x) %>% 
-  mutate(n = n...2-n...4)
-# all datasets have the same number of plots, besides NWCA and NPS. This is due to recelty removed duplicated plots
 
 DataBase %>%  # time consuming
   group_by(Dataset, Plot, SpCode, Year) %>% 
@@ -1909,7 +1915,10 @@ DataBase %>%
   group_by(Dataset) %>%
   summarize(min = min(PctCov, na.rm = TRUE),
             mean = mean(PctCov, na.rm = TRUE),
-            max = max(PctCov, na.rm = TRUE)) 
+            max = max(PctCov, na.rm = TRUE),
+            min100 = min(PctCov_100, na.rm = TRUE),
+            mean100 = mean(PctCov_100, na.rm = TRUE),
+            max100 = max(PctCov_100, na.rm = TRUE)) 
 
 nrow(DataBase)
 ```
@@ -1926,13 +1935,13 @@ DataBase %>% group_by(Dataset, RecordedStrata) %>% summarise(nobs = n())
 DataBase <- DataBase %>% mutate(RecordedStrata = ifelse(is.na(RecordedStrata), "IntegratedBySource", RecordedStrata))
 
 DataBase %>% filter(RecordedStrata=="Y") %>% summarise(max = max(PctCov))
-DataBase %>% filter(RecordedStrata=="N") %>% summarise(max = max(PctCov)) # exceeds 100%
+DataBase %>% filter(RecordedStrata=="N") %>% summarise(max = max(PctCov)) # does NOT exceeds 100% YAY!!!!!
 DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% nrow()
-DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset) # one occurrence, same genus was recorded twice in data collection
+DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset) 
 DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset) 
 
 #when combining strata & genus within plot, ids until genus only can have more than 100% because each genus can have up to 100% each
-DataBase %>% filter(PctCov > 100) %>% nrow() # 974 observations in which PctCover for a taxon per plot is >100%
+DataBase %>% filter(PctCov > 100) %>% nrow() # 460 observations in which PctCover for a taxon per plot is >100%
 
 SppLargeCov <- DataBase %>% filter(PctCov > 100) %>% select(AcceptedTaxonName) %>% distinct() %>% arrange(AcceptedTaxonName)
 # one observation is Genus (CRATA) --> WNHP
@@ -2046,8 +2055,8 @@ glimpse(FULLDatabase)
 ## Exporting the FULL Database
 
 ```{r echo=TRUE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05272022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05272022.csv")
 ```
 
 # Creating Database
@@ -2061,7 +2070,7 @@ DesiredColumns2 <- c("Dataset", "Site", "Original.Site",
                     "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
                     "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Duration", "GrowthHabit",
-                    "PctCov", "RelCov", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
+                    "PctCov", "PctCov_100", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
 
 ```
@@ -2283,14 +2292,14 @@ glimpse(SPCISDatabase)
 ```{r}
 SPCIS_plant_taxa <- SPCISDatabase %>% 
   select(Plot, Year, SpCode, AcceptedTaxonName, Original.TaxonName, 
-         NativeStatus, Duration, GrowthHabit, PctCov, RelCov, RecordedStrata) %>% 
+         NativeStatus, Duration, GrowthHabit, PctCov, PctCov_100, RecordedStrata) %>% 
   as_tibble()
 
 SPCIS_plots <- SPCISDatabase %>% 
   select(Dataset, Plot, Year, Original.Plot, Site, Original.Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
   mutate(Long = ifelse(Plot == "008-01-0003", -82.76464, Long),
          Lat = ifelse(Plot == "008-01-0003", 35.3971, Lat),
-         PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>% 
+         PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>%
     distinct() %>% 
     as_tibble()
 
@@ -2339,12 +2348,12 @@ NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedT
 
 ```{r echo=TRUE}
 #plant data
-write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05232022.rds")
-write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05232022.csv")
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05272022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05272022.csv")
 
 #plot data
-write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05232022.rds")
-write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05232022.csv")
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05272022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05272022.csv")
 ```
 
 
