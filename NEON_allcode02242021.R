@@ -9,7 +9,7 @@
 # load neonUtilities and other required packages 
 library (neonUtilities)
 #library(devtools)
-library(plyr)
+# library(plyr)
 library(dplyr)
 library(stringr)
 library(ggplot2)
@@ -642,8 +642,8 @@ nonwind_df <- nonWoodyPerInd %>%
 df_out$coverArea <- (df_out$maxCrownDiameter/2) * (df_out$ninetyCrownDiameter/2) * pi
 
 #get basal area; in an ideal world with have crown cover for all individuals but older data is unlikely to have these and tower plot data will not; create basal area should that be of use
-df_out$basalArea <- ifelse(!is.na(df_out$stemDiameter), pi*df_out$stemDiameter, pi*df_out$basalStemDiameter) # how Dave was calculating it
-df_out$basalArea2 <- ifelse(!is.na(df_out$stemDiameter), (pi*((df_out$stemDiameter/2)^2))/10000, (pi*((df_out$basalStemDiameter/2)^2))/10000) # LP: thinks this is the right way, from cm² to m²
+# df_out$basalArea <- ifelse(!is.na(df_out$stemDiameter), pi*df_out$stemDiameter, pi*df_out$basalStemDiameter) # how Dave was calculating it
+df_out$basalArea <- ifelse(!is.na(df_out$stemDiameter), (pi*((df_out$stemDiameter/2)^2))/10000, (pi*((df_out$basalStemDiameter/2)^2))/10000) # LP: thinks this is the right way, from cm² to m²
 
 ## remove records that do not contain the necessary data to calculate either of these values, small trees, dead things, things that no longer qualify
 #df_out$ck <- ifelse(is.na(df_out$coverArea)&is.na(df_out$basalArea), 0, 1) 
@@ -676,7 +676,7 @@ df_outBoth <- filter(df_outBoth, !is.na(scientificName))
 #sum area values by scientific name and growth form, add plotID, add eventID to selects above
 countTax <- df_outBoth%>%
   dplyr::group_by(siteID, eventID, plotID, taxonID, scientificName,  taxonRank, growthForm)%>% 
-  dplyr::summarize(indCount=n(), totalCrownArea=sum(coverArea), totalBasalArea=sum(basalArea), totalBasalArea2=sum(basalArea2))%>%
+  dplyr::summarize(indCount=n(), totalCrownArea=sum(coverArea), totalBasalArea=sum(basalArea))%>%
   dplyr::ungroup()
 
 # calculate sampled area, the relevant sampling area depends on the growth form being considered
@@ -700,12 +700,11 @@ for(i in 1:nrow(countTax)){
 
 
 #calc percent cover 
-countTax$percentCoverCanopy <- countTax$totalCrownArea/countTax$plotAreaSampled
-countTax$percentCoverBasal <- countTax$totalBasalArea/countTax$plotAreaSampled
-countTax$percentCoverBasal100 <- (countTax$totalBasalArea/countTax$plotAreaSampled)*100 # LP: here I transform basal area into percentage, BUT it seems that the prior calcualtion was wrong
+countTax$percentCoverCanopy <- countTax$totalCrownArea/countTax$plotAreaSampled # how Dave was calculating it
+# countTax$percentCoverCanopy <- (countTax$totalCrownArea/countTax$plotAreaSampled)*100 # LO modification to calauclate % of area
 
-countTax$percentCoverBasal2 <- countTax$totalBasalArea2/countTax$plotAreaSampled #LP modified
-countTax$percentCoverBasal2100 <- (countTax$totalBasalArea2/countTax$plotAreaSampled)*100 #LP modified
+# countTax$percentCoverBasal <- countTax$totalBasalArea/countTax$plotAreaSampled # how Dave was calculating it
+countTax$percentCoverBasal <- (countTax$totalBasalArea/countTax$plotAreaSampled)*100 # LP: here I transform basal area into percentage, BUT it seems that the prior calcualtion was wrong
 
 countTax$stemDensity <- countTax$indCount/countTax$plotAreaSampled
 
@@ -1066,15 +1065,68 @@ NEON_temp <- bind_rows(NEON_div_merg2, NEON_vegstr_merg2)
 #use the veg structure data.
 #3.If a species is found in the plant presence and percent cover data and not the veg structure data within a particular plot, 
 #use the plant presence and percent cover data. 
-NEON_temp <- NEON_temp %>% 
-  group_by(dataset, siteID, 
-           decimalLongitude, decimalLatitude, 
-           taxonID2,
-           Accepted.Symbol, 
-           bestname, Native.Status, GrowthForm, AccSpeciesName) %>% 
-  filter(if (sum(code)>=1) layer != "herbaceous" else layer == "herbaceous")
+# NEON_temp <- NEON_temp %>% 
+#   group_by(dataset, siteID, 
+#            decimalLongitude, decimalLatitude, 
+#            taxonID2,
+#            Accepted.Symbol, 
+#            bestname, Native.Status, GrowthForm, AccSpeciesName) %>% 
+#   filter(if (sum(code)>=1) layer != "herbaceous" else layer == "herbaceous")
 
-NEON_temp$year <- as.numeric(NEON_temp$year)
+# New approach given changes in the datapaper 05272022
+NEON_temp2 <- NEON_temp %>% 
+  mutate(year = as.numeric(year),
+    herbaceous_total_area = ifelse(year == 2015 |
+                                   year == 2016|
+                                   year == 2017|
+                                   year == 2018, 8, 6)) %>% 
+  group_by(dataset, siteID, plotID, plotType, decimalLongitude, decimalLatitude, taxonID2, scientificName, AccSpeciesName,
+           Accepted.Symbol, bestname, Native.Status, GrowthForm, layer) %>% 
+  dplyr::summarize(#mean cover across the nested suplots in the herbaceous layer
+                   percentCover = ifelse(layer=="herbaceous", sum(percentCover)/herbaceous_total_area, percentCover), 
+                   year = max(year),
+                   RecordedStrata = ifelse(sum(code)>=1, "Y", "N"), 
+                   year_data = dplyr::first(year_data),
+                   plotAreaSampled = sum(plotAreaSampled),
+                   metric = dplyr::first(metric)) %>%  distinct() %>% 
+  mutate(Step1=1-(percentCover/100)) %>% 
+  group_by(dataset, siteID, plotID, plotType, decimalLongitude, decimalLatitude, taxonID2, AccSpeciesName,
+           Accepted.Symbol, bestname, Native.Status, GrowthForm) %>%
+  summarize(PctCov_100=(1-(prod(Step1)))*100, # Calculates cover based on Jennings et al 2009
+         PctCov=sum(percentCover), # sum cover across strata as we are doing for other datasets
+         year = max(year), 
+         scientificName = dplyr::first(scientificName),
+         RecordedStrata = dplyr::first(RecordedStrata)) %>% 
+  ungroup() %>% 
+  mutate(PlotArea.m2 = ifelse(plotType == "distributed", 400, 800),
+         PlotArea.m2 = ifelse(is.na(PlotArea.m2) & siteID == "BLAN", 800,
+                              ifelse(is.na(PlotArea.m2) & siteID != "BLAN", 400, PlotArea.m2)),
+         # those are sites in which diversity and vegetation structure data are from different years
+         year = ifelse(siteID == "ABBY" | siteID == "SJER" | siteID == "WREF", 2017, year)) %>% 
+  filter(PctCov>0)
+
+# is there more than one species per plot?
+NEON_temp2 %>% # time consuming
+  group_by(dataset, plotID, taxonID2, year) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 1) # none! [fixed old errors too, all covers converge when compared to a prior of this]
+
+NEON_temp2 %>% group_by(dataset) %>%
+  summarize(min100 = min(PctCov_100, na.rm = TRUE),
+            mean100 = mean(PctCov_100, na.rm = TRUE),
+            max100 = max(PctCov_100, na.rm = TRUE),
+            min = min(PctCov, na.rm = TRUE),
+            mean = mean(PctCov, na.rm = TRUE),
+            max = max(PctCov, na.rm = TRUE)) 
+
+#exporting final file
+write.csv(NEON_temp2,
+          '/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols05272022.csv',
+          row.names = FALSE)
+
+###### END - NOT USING THE CODE BELOW ANYMORE ###### 
+
+
 
 #flatten the diversity and vegetation structure data but keep information of area sampled 
 NEONdata_flatted <- NEON_temp %>%
