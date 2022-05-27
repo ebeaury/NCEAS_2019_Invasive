@@ -1085,10 +1085,10 @@ NEON_temp2 <- NEON_temp %>%
   dplyr::summarize(#mean cover across the nested suplots in the herbaceous layer
                    percentCover = ifelse(layer=="herbaceous", sum(percentCover)/herbaceous_total_area, percentCover), 
                    year = max(year),
-                   RecordedStrata = ifelse(sum(code)>=1, "Y", "N"), 
                    year_data = dplyr::first(year_data),
                    plotAreaSampled = sum(plotAreaSampled),
-                   metric = dplyr::first(metric)) %>%  distinct() %>% 
+                   metric = dplyr::first(metric),
+                   code = sum(code)) %>%  distinct() %>% 
   mutate(Step1=1-(percentCover/100)) %>% 
   group_by(dataset, siteID, plotID, plotType, decimalLongitude, decimalLatitude, taxonID2, AccSpeciesName,
            Accepted.Symbol, bestname, Native.Status, GrowthForm) %>%
@@ -1096,7 +1096,7 @@ NEON_temp2 <- NEON_temp %>%
          PctCov=sum(percentCover), # sum cover across strata as we are doing for other datasets
          year = max(year), 
          scientificName = dplyr::first(scientificName),
-         RecordedStrata = dplyr::first(RecordedStrata)) %>% 
+         RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   ungroup() %>% 
   mutate(PlotArea.m2 = ifelse(plotType == "distributed", 400, 800),
          PlotArea.m2 = ifelse(is.na(PlotArea.m2) & siteID == "BLAN", 800,
