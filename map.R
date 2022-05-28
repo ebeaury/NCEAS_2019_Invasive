@@ -11,7 +11,7 @@ library(rgdal)
 library(ggsn) #add north arrow
 library(viridis)
 library(scales)
-
+library(inlmisc) #another color blind pallete to get qualitative colors
 
 ### Data preparation
 #### Base maps
@@ -63,8 +63,8 @@ puerto_rico_2163 = st_transform(puerto_rico, crs = 2163)
 #### Point data
 # SPCIS_plant_taxa <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.rds")
 # SPCIS_plots <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.rds")
-SPCIS_plant_taxa <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05232022.csv")
-SPCIS_plots <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05232022.csv")
+SPCIS_plant_taxa <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05272022.csv")
+SPCIS_plots <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05272022.csv")
 SPCIS <- SPCIS_plant_taxa %>% left_join(SPCIS_plots)
 glimpse(SPCIS)
 SPCIS <- SPCIS %>% 
@@ -94,6 +94,7 @@ puerto_rico_2163_bb = st_buffer(puerto_rico_2163_bb, dist = 10000)
 
 # showing pallete of color
 show_col(viridis_pal(option = "plasma")(9)) 
+inlmisc::GetColors(9, scheme = "muted") # try this one instead
 
 ### Creating maps
 #### Conterminous US
@@ -101,8 +102,8 @@ ggm1 <- ggplot() +
   geom_sf(data = us_states_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(SPCIS_2163, Zone == "L48"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#0D0887FF", "#4C02A1FF", "#7E03A8FF", "#A92395FF",
-                               "#CC4678FF", "#E56B5DFF", "#F89441FF", "#FDC328FF", "#F0F921FF")) +
+  scale_colour_manual(values=c("#CC6677", "#332288", "#DDCC77", "#117733",
+                               "#88CCEE", "#882255", "#44AA99", "#999933", "#AA4499")) +
   theme_void() +
   # theme(legend.position = "none") +
   theme(legend.position = c(0.93, 0.25),
@@ -136,7 +137,7 @@ ggm3 <- ggplot() +
   geom_sf(data = alaska_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(SPCIS_2163, Zone == "AK"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#7E03A8FF", "#CC4678FF")) +
+  scale_colour_manual(values=c("#88CCEE", "#882255")) +
   geom_sf(data = alaska_2163_bb, fill = NA, color = "black", size = 0.1) +
   theme_void()  +
 # the colors of the datasets are not matching to the master graph
@@ -151,7 +152,7 @@ ggm4 <- ggplot() +
   geom_sf(data = filter(SPCIS_2163, Zone == "PR"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
   geom_sf(data = puerto_rico_2163_bb, fill = NA, color = "black", size = 0.1) +
-  scale_colour_manual(values=c("#7E03A8FF", "#CC4678FF")) +
+  scale_colour_manual(values=c("#DDCC77", "#88CCEE")) +
   theme_void() +
   # the colors of the datasets are not matching to the master graph
   theme(legend.position = "none")
@@ -164,11 +165,11 @@ gg_inset_map = ggdraw() +
   #Conterminous US
   draw_plot(ggm1) +
   #Alaska
-  draw_plot(ggm3, x = 0.05, y = 0, width = 0.27, height = 0.27) +
+  draw_plot(ggm3, x = 0.09, y = 0, width = 0.2, height = 0.27) +
   #HI
-  draw_plot(ggm2, x = 0.18, y = 0, width = 0.27, height = 0.27) +
+  draw_plot(ggm2, x = 0.19, y = 0, width = 0.25, height = 0.27) +
   #PR
-  draw_plot(ggm4, x = 0.55, y = 0, width = 0.2, height = 0.2) 
+  draw_plot(ggm4, x = 0.55, y = 0, width = 0.15, height = 0.2) 
 
 gg_inset_map 
 
@@ -177,4 +178,121 @@ gg_inset_map
 
 
 # The line below is not working, so I am manually saving the plot
-# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots04212022.png", dpi = 300)
+# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots05272022.png", dpi = 300)
+
+
+## Ecoregions map
+library(sf)
+# import the vector into R as an sf object
+ecoreg1 <- st_read("/home/shares/neon-inv/data_paper/env_code_data/gis_layers/ecoregionlevel1/NA_CEC_Eco_Level1.shp") %>% rename(Ecoregion = NA_L1NAME)
+glimpse(ecoreg1)
+
+ecoreg1_2163 = st_transform(ecoreg1, crs = 2163)
+
+#creating a box around 
+ecoreg1_2163_bb = st_as_sfc(st_bbox(ecoreg1_2163))
+ecoreg1_2163_bb = st_buffer(ecoreg1_2163_bb, dist = 120)
+
+### Creating maps
+# finding color
+inlmisc::GetColors(3, scheme = "light") # graphs
+
+eco1<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "EASTERN TEMPERATE FORESTS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  geom_sf(data = ecoreg1_2163_bb, fill = NA, color=NA, size = 0.1) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoEASTERN-TEMPERATE-FORESTS05272022.png", dpi = 300)
+
+eco2<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "GREAT PLAINS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoGREAT-PLAINS05272022.png", dpi = 300)
+
+eco3<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "MARINE WEST COAST FOREST"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoMARINE-WEST-COAST-FOREST05272022.png", dpi = 300)
+
+eco4<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "MEDITERRANEAN CALIFORNIA"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoMEDITERRANEAN-CALIFORNIA05272022.png", dpi = 300)
+
+eco5<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "NORTH AMERICAN DESERTS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoNORTH-AMERICAN-DESERTS05272022.png", dpi = 300)
+
+eco6<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "NORTHERN FORESTS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoNORTHERN-FORESTS05272022.png", dpi = 300)
+
+eco7<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoNORTHWESTERN-FORESTED-MOUNTAINS05272022.png", dpi = 300)
+
+eco8<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoSOUTHERN-SEMIARID-HIGHLANDS05272022.png", dpi = 300)
+
+eco9<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "TEMPERATE SIERRAS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoTEMPERATE-SIERRAS05272022.png", dpi = 300)
