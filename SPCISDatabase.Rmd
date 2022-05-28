@@ -21,6 +21,7 @@ This code was adapted from Helen's code when assembling the database for the NCE
 library(tidyverse) 
 library(lubridate) # when library tidyverse, lubridate is not turning on
 library(readxl)
+library(inlmisc) #another color blind pallete to get qualitative colors
 # detach("package:plyr", unload=TRUE)
 theme_set(theme_classic())
 # setwd('/home/shares/neon-inv/data_paper')
@@ -2486,6 +2487,8 @@ SPCISDatabase %>%
 library(scales)
 # showing pallete of color
 show_col(viridis_pal(option = "plasma")(9)) 
+inlmisc::GetColors(9, scheme = "muted") # map
+inlmisc::GetColors(2, scheme = "light") # graphs
 
 x<-SPCISDatabase %>%
   ungroup() %>%
@@ -2515,7 +2518,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
   theme_bw()+
   scale_x_discrete(expand = c(0,0)) +
   scale_y_continuous(breaks=seq(0,27000,5000)) +
-  scale_fill_viridis_d(option="plasma") + theme_minimal() +
+  scale_colour_manual(values=c("#77AADD", "#EE8866")) + theme_minimal() +
   ylab("Number of plots") + theme(axis.title.x = element_blank(),
                                   legend.position = c(0.87, 0.87),
                                   legend.title = element_blank(),
@@ -2526,7 +2529,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset04212022.png", dpi=300)
+ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset05272022.png", dpi=300)
 ```
 
 ```{r}
@@ -2639,6 +2642,20 @@ SPCISDatabase %>%
   filter(n>1) %>% 
   nrow()
 
+## number of per plot per data set
+SPCISDatabase %>%
+  ungroup() %>%
+  select(Dataset,Plot, Year) %>%
+  distinct() %>%
+  group_by(Dataset, Plot) %>% 
+  count(Plot, sort = T) %>% 
+  ungroup() %>% 
+  group_by(Dataset) %>% 
+  summarize(Max = max(n),
+         Mean = mean(n),
+         Min = min(n))
+  
+
 # why are there any rows with NA cover
 SPCISDatabase %>%
   ungroup() %>%
@@ -2656,16 +2673,17 @@ Defining colors
 library(viridis)
 #finding the color codes to add to the database
 viridis_pal(option = "plasma")(9)
+inlmisc::GetColors(9, scheme = "muted")
 
-AIMc<-"#0D0887FF"
-CVSc<-"#4C02A1FF"
-FIAc<-"#7E03A8FF"
-IL_CTAPc<-"#A92395FF"
-NEONc<-"#CC4678FF"
-NPSc<-"#E56B5DFF"
-NWCAc<-"#F89441FF"
-VNHPc<-"#FDC328FF"
-WNHPc<-"#F0F921FF"
+AIMc<-"#CC6677"
+CVSc<-"#332288"
+FIAc<-"#DDCC77"
+IL_CTAPc<-"#117733"
+NEONc<-"#88CCEE"
+NPSc<-"#882255"
+NWCAc<-"#44AA99"
+VNHPc<-"#999933"
+WNHPc<-"#AA4499"
 ```
 
 Importing ecoregions level1 (<https://www.epa.gov/eco-research/ecoregions-north-america>)
@@ -2696,8 +2714,8 @@ SPCIS_plotsEco <- SPCIS_plots %>%
   rbind(SPCIS_plotsMissing)
 
 #Full database with ecoregion level 1
-write_rds(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05232022.rds")
-write_csv(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05232022.csv")
+write_rds(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05272022.rds")
+write_csv(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05272022.csv")
 ```
 
 
@@ -2718,14 +2736,17 @@ FULLDatabaseEco <- FULLDatabase %>%
   rbind(FULLDatabaseMissing)
 
 #Full database with ecoregion level 1
-write_rds(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05232022.rds")
-write_csv(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05232022.csv")
+write_rds(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05272022.rds")
+write_csv(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05272022.csv")
 ```
 
 
 ```{r}
 SPCISDatabaseEco <- SPCISDatabase %>% 
   filter(FuzzedCoord != "Missing") %>% 
+  group_by(Dataset, Lat, Long, Plot, Year, NativeStatus) %>% 
+  summarize(PctCov=sum(PctCov),
+            PctCov_100=sum(PctCov_100)) %>% 
   # getting all data as a sf object
   st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
   #sets the same projections
@@ -2734,303 +2755,441 @@ SPCISDatabaseEco <- SPCISDatabase %>%
   st_join(ecoreg1) %>%
   #drops the coordinates
   st_drop_geometry()
+
+SPCISDatabaseEco %>% select(Ecoregion, Dataset) %>% distinct() %>% group_by(Ecoregion) %>% count() %>% filter(n>1)
 ```
 
 ## Graphs - Non-native cover
 
 ```{r}
 status <- "I"
+# cover <- "PctCov_100" #PctCov
 
 # All Ecoregions at once
 SPCISDatabaseEco %>% filter(NativeStatus == status,
                      !is.na(Ecoregion)) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram() + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram() + 
   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
   facet_grid(Ecoregion~Dataset, scales="free_y") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") +
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") +
   ggsave('figures/AllEcoregionsNN.png', dpi = 300)
 
 table(SPCISDatabaseEco$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
-graph1<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph1I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Eastern Temperate Forests") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
-  theme(legend.position = "none") 
-# ggsave('figures/ecoregionsNN/EasTemFor.png', width = 8, height = 4, dpi = 300)
+  ggtitle("Eastern Temperate Forests") +  
+    theme(plot.title = element_text(size = 16, face = "bold")) + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
-graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph2I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "GREAT PLAINS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Great Plains") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
+  ggtitle("Great Plains") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-# ggsave('figures/ecoregionsNN/GrePla.png', width = 8, height = 4, dpi = 300)
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
-graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph3I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MARINE WEST COAST FOREST"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Marine West Coast Forest") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
+  ggtitle("Marine West Coast Forest") +  
+    theme(plot.title = element_text(size = 16, face = "bold")) + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-# ggsave('figures/ecoregionsNN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
+        axis.title.x = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black"))
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
-graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph4I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Mediterranean California") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
-  theme(legend.position = "none") 
-# ggsave('figures/ecoregionsNN/MedCal.png', width = 8, height = 4, dpi = 300)
+  ggtitle("Mediterranean California") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
+  theme(legend.position = "none",
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
-graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph5I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTH AMERICAN DESERTS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("North American Deserts") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
+  ggtitle("North American Deserts") +  
+    theme(plot.title = element_text(size = 16, face = "bold")) + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-# ggsave('figures/ecoregionsNN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
+        axis.title.x = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
-graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph6I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHERN FORESTS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Northern Forests") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
+  ggtitle("Northern Forests") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-# ggsave('figures/ecoregionsNN/NorFor.png', width = 8, height = 4, dpi = 300)
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black"))  
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/NorFor.png', width = 8, height = 4, dpi = 300)
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
-graph7<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph7I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
-  facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Northwestern Forested Mountains") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
-  theme(legend.position = "none") 
-# ggsave('figures/ecoregionsNN/NorForMou.png', width = 8, height = 4, dpi = 300)
+  facet_wrap(~Dataset, scales="free_y")  + 
+  ggtitle("Northwestern Forested Mountains") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12))  + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black"))
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
-graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph8I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Southern Semiarid Highlands") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
+  ggtitle("Southern Semiarid Highlands")+  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) 
-# ggsave('figures/ecoregionsNN/SouSemHig.png', width = 8, height = 4, dpi = 300)
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/SouSemHig.png', width = 8, height = 4, dpi = 300)
 
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
 # TEMPERATE SIERRAS
-graph9<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph9I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "TEMPERATE SIERRAS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Temperate Sierras") + 
-  labs(y="Frequency", x = "Non-Native Species Cover (%)") + 
+  ggtitle("Temperate Sierras") +  
+    theme(plot.title = element_text(size = 16, face = "bold")) +
+  labs(y="Frequency", x = "Introduced Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) 
-# ggsave('figures/ecoregionsNN/TemSie.png', width = 8, height = 4, dpi = 300)
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+# ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/TemSie.png', width = 8, height = 4, dpi = 300)
 
 # TROPICAL WET FORESTS --> only NWCA, no point of showing
 
 # TUNDRA --> only has NEON as dataset and no invasives - it doesn't work
-
-
-##arranging the graphs
-library(cowplot)
-all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
-          # labels = c("A", "B", "C", "D", "F"),
-          ncol = 3, nrow = 3,  labels = "AUTO")
-
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedIntroduced05232022.png', width = 1920,height = 1080)
-print(all)
-dev.off()
-
 ```
 
-## Grphs - Native cover
+
+
+
+## Graphs - Native cover
 
 ```{r}
 status <- "N"
+# cover <- "PctCov_100" #PctCov
 
 # All Ecoregions at once
 SPCISDatabaseEco %>% filter(NativeStatus == status,
                      !is.na(Ecoregion)) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram() + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram() + 
   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
   facet_grid(Ecoregion~Dataset, scales="free_y") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") +
+  labs(y="Frequency", x = "Native Taxa Cover (%)") +
   ggsave('figures/AllEcoregionsN.png', dpi = 300)
 
 table(SPCISDatabaseEco$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
-graph1<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph1N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Eastern Temperate Forests") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
-  theme(legend.position = "none") 
-  # ggsave('figures/ecoregionsN/EasTemFor.png', width = 8, height = 4, dpi = 300)
+  # ggtitle("Eastern Temperate Forests") +
+  ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/EasTemFor.png', width = 8, height = 4, dpi = 300)
 
 # GREAT PLAINS
-graph2<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph2N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "GREAT PLAINS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Great Plains") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
+  # ggtitle("Great Plains") +
+  ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-  # ggsave('figures/ecoregionsN/GrePla.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/GrePla.png', width = 8, height = 4, dpi = 300)
 
 # MARINE WEST COAST FOREST
-graph3<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph3N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MARINE WEST COAST FOREST"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Marine West Coast Forest") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
+  # ggtitle("Marine West Coast Forest") +
+  ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-  # ggsave('figures/ecoregionsN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black"))
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/MarWesCoaFor.png', width = 8, height = 4, dpi = 300)
 
 # MEDITERRANEAN CALIFORNIA
-graph4<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph4N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Mediterranean California") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
-  theme(legend.position = "none") 
-  # ggsave('figures/ecoregionsN/MedCal.png', width = 8, height = 4, dpi = 300)
+  # ggtitle("Mediterranean California") +
+  ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
+  theme(legend.position = "none",
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/MedCal.png', width = 8, height = 4, dpi = 300)
 
 # NORTH AMERICAN DESERTS
-graph5<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph5N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTH AMERICAN DESERTS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("North American Deserts") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
+  # ggtitle("North American Deserts") +
+  ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-  # ggsave('figures/ecoregionsN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black"))
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/NorAmeDes.png', width = 8, height = 4, dpi = 300)
 
 # NORTHERN FORESTS
-graph6<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph6N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHERN FORESTS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Northern Forests") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
+  # ggtitle("Northern Forests") +
+  ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title = element_blank()) 
-  # ggsave('figures/ecoregionsN/NorFor.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/NorFor.png', width = 8, height = 4, dpi = 300)
 
 
 # NORTHWESTERN FORESTED MOUNTAINS
-graph7<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph7N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Northwestern Forested Mountains") + 
-  labs(y="Frequency", x = "Native Species Cover (%)")  +
-  theme(legend.position = "none")
-  # ggsave('figures/ecoregionsN/NorForMou.png', width = 8, height = 4, dpi = 300)
+  # ggtitle("Northwestern Forested Mountains") +
+  ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black"))
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/NorForMou.png', width = 8, height = 4, dpi = 300)
 
 # SOUTHERN SEMIARID HIGHLANDS
-graph8<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph8N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Southern Semiarid Highlands") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
+  # ggtitle("Southern Semiarid Highlands") +
+ ggtitle("") +  
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) 
-  # ggsave('figures/ecoregionsN/SouSemHig.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black")) 
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/SouSemHig.png', width = 8, height = 4, dpi = 300)
 
 # TAIGA --> only has NEON as dataset and no invasives - it doesn't work
 
 # TEMPERATE SIERRAS
-graph9<-SPCISDatabaseEco %>% filter(NativeStatus == status,
+graph9N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
                     Ecoregion == "TEMPERATE SIERRAS"
                      ) %>%  
-  ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
+  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NPSc, NWCAc)) +
   facet_wrap(~Dataset, scales="free_y") +
-  ggtitle("Temperate Sierras") + 
-  labs(y="Frequency", x = "Native Species Cover (%)") + 
+  # ggtitle("Temperate Sierras") +
+  ggtitle("") +
+    theme(plot.title = element_text(size = 16, face = "bold"),
+          legend.text = element_text(size = 12)) + 
+  labs(y="Frequency", x = "Native Taxa Cover (%)") + 
   theme(legend.position = "none",
-        axis.title.y = element_blank()) 
-  # ggsave('figures/ecoregionsN/TemSie.png', width = 8, height = 4, dpi = 300)
+        axis.title.y = element_blank(),
+        legend.text = element_text(size = 12),
+        text=element_text(size=20, color="black"))
+  # ggsave('/home/shares/neon-inv/data_paper/figures/ecoregionsN/TemSie.png', width = 8, height = 4, dpi = 300)
 
 # TROPICAL WET FORESTS --> only NWCA, no point of showing
 
 # TUNDRA --> only has NEON as dataset and no invasives - it doesn't work
 
 
+# ##arranging the graphs
+# library(cowplot)
+# all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
+#           ncol = 3, nrow = 3,  labels = "AUTO")
+# 
+# png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcombinedNat05232022.png', width = 1920,height = 1080)
+# print(all)
+# dev.off()
+
+```
+
+
+```{r}
 ##arranging the graphs
 library(cowplot)
-all<-plot_grid(graph1, graph2, graph3, graph4, graph5, graph6, graph7, graph8, graph9, 
-          ncol = 3, nrow = 3,  labels = "AUTO")
+all1<-plot_grid(graph1I, graph1N, eco1,
+                graph2I, graph2N, eco2,
+          # labels = c("A", "B", "C", "D", "F"),
+          ncol = 3, nrow = 2,  labels = NULL
+          )
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsN/graphcombinedNat05232022.png', width = 1920,height = 1080)
-print(all)
+
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco1_2-05272022.png', width = 1920,height = 1080)
+print(all1)
+dev.off()
+
+all1<-plot_grid(graph3I, graph3N, eco3,
+                graph4I, graph4N, eco4,
+          # labels = c("A", "B", "C", "D", "F"),
+          ncol = 3, nrow = 2,  labels = NULL
+          )
+
+
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco3_4-05272022.png', width = 1920,height = 1080)
+print(all1)
+dev.off()
+
+all1<-plot_grid(graph5I, graph5N, eco5,
+                graph6I, graph6N, eco6,
+          # labels = c("A", "B", "C", "D", "F"),
+          ncol = 3, nrow = 2,  labels = NULL
+          )
+
+
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco5_6-05272022.png', width = 1920,height = 1080)
+print(all1)
+dev.off()
+
+all1<-plot_grid(graph7I, graph7N, eco7,
+                graph8I, graph8N, eco8,
+          # labels = c("A", "B", "C", "D", "F"),
+          ncol = 3, nrow = 2,  labels = NULL
+          )
+
+
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco7_8-05272022.png', width = 1920,height = 1080)
+print(all1)
+dev.off()
+
+all1<-plot_grid(graph9I, graph9N, eco9,
+                # graph8I, graph8N, eco8,
+          # labels = c("A", "B", "C", "D", "F"),
+          ncol = 3, nrow = 2,  labels = NULL
+          )
+
+
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco9-05272022.png', width = 1920,height = 1080)
+print(all1)
 dev.off()
 
 ```
