@@ -123,7 +123,7 @@ ggm2 <- ggplot() +
   geom_sf(data = hawaii_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(SPCIS_2163, Zone == "HI"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#E56B5DFF", "#CC4678FF")) +
+  scale_colour_manual(values=c("#88CCEE", "#882255")) +
   geom_sf(data = hawaii_2163_bb, fill = NA, color = "black", size = 0.1) +
   theme_void() +
 # the colors of the datasets are not matching to the master graph
@@ -137,7 +137,7 @@ ggm3 <- ggplot() +
   geom_sf(data = alaska_2163, fill = "white", size = 0.2) + 
   geom_sf(data = filter(SPCIS_2163, Zone == "AK"), aes(color = Dataset), #fill = NA, color = "blue", size = 1.2
           alpha = .2) +
-  scale_colour_manual(values=c("#88CCEE", "#882255")) +
+  scale_colour_manual(values=c("#DDCC77", "#88CCEE")) +
   geom_sf(data = alaska_2163_bb, fill = NA, color = "black", size = 0.1) +
   theme_void()  +
 # the colors of the datasets are not matching to the master graph
@@ -178,7 +178,7 @@ gg_inset_map
 
 
 # The line below is not working, so I am manually saving the plot
-# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots05272022.png", dpi = 300)
+# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots06132022.png", dpi = 300)
 
 
 ## Ecoregions map
