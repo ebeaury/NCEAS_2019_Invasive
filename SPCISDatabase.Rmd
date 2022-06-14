@@ -2253,7 +2253,7 @@ ListRareSpecies <- finalsAIMrareSpp %>%
   rbind(VNHPRareSpecies2, WVNHPRareSpecies2) %>% 
   select(Dataset, everything()) 
 
-# write.csv(ListRareSpecies, "final_data/ListRareSpecies_04092022.csv", row.names = F)
+# write.csv(ListRareSpecies, "/home/shares/neon-inv/data_paper/final_data/ListRareSpecies_04092022.csv", row.names = F)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -2650,6 +2650,7 @@ SPCISDatabase %>%
   group_by(Dataset, Plot) %>% 
   count(Plot, sort = T) %>% 
   ungroup() %>% 
+  filter(n>1) %>% 
   group_by(Dataset) %>% 
   summarize(Max = max(n),
          Mean = mean(n),
