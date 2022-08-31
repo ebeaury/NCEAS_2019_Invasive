@@ -2043,6 +2043,15 @@ Creates Relative cover column
 # dim(DataBase) 
 ```
 
+# Fixes reviewers comments Aug/Sep 2022
+```{r}
+# R1: Column "SamplingMethod" in the plot table has duplicate labels for 'Circular plot / Circular plots' and 'Nested plot / Nested plots'
+
+DataBase <- DataBase %>% 
+  mutate(SamplingMethod = ifelse(SamplingMethod=="Circular plots", "Circular plot",
+                                 ifelse(SamplingMethod=="Nested plots", "Nested plot", SamplingMethod)))
+```
+
 
 # Creating the FULL Database
 
