@@ -178,7 +178,7 @@ gg_inset_map
 
 
 # The line below is not working, so I am manually saving the plot
-# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots06132022.png", dpi = 300)
+# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots09022022.png", dpi = 300)
 
 
 ## Ecoregions map
