@@ -46,13 +46,14 @@ NWCA2011 <- NWCA2011 %>%
   filter(VISIT_NO == 1) %>% 
   rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
+  mutate(Month = month(DATE_COL)) %>% 
   #unique id matches sites across years
   #plots were not exactly the same location within site across years
-  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES, VISIT_NO) %>%
+  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, Month, COVER, SPECIES, VISIT_NO) %>%
   rename(OriginalName = SPECIES) %>%
   #code below fixes species (same SPECIES name) that are recorded more than once in a plot
   #it seems that the updated file Gregg sent us has this issue fixed
-  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName, VISIT_NO) %>% 
+  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, Month, SITE_ID, OriginalName, VISIT_NO) %>% 
   summarise(COVER = sum(COVER, na.rm=TRUE)) %>% 
   ungroup()
 ```
@@ -68,13 +69,14 @@ NWCA2016 <- NWCA2016 %>%
   filter(VISIT_NO == 1) %>% 
   rename(Year = DSGN_CYCLE) %>%
   filter(!is.na(COVER)) %>% 
+  mutate(Month = month(DATE_COL)) %>% 
   #unique id matches sites across years
   #plots were not exactly the same location within site across years
-  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, COVER, SPECIES, VISIT_NO) %>%
+  select(UNIQUE_ID, SITE_ID, PLOT, DATE_COL, Year, Month, COVER, SPECIES, VISIT_NO) %>%
   rename(OriginalName = SPECIES) %>%
   #code below fixes species (same SPECIES name) that are recorded more than once in a plot
   #it seems that the updated file Gregg sent us has this issue fixed
-  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, SITE_ID, OriginalName, VISIT_NO) %>% 
+  group_by(UNIQUE_ID, PLOT, DATE_COL, Year, Month, SITE_ID, OriginalName, VISIT_NO) %>% 
   summarise(COVER = sum(COVER, na.rm=TRUE)) %>% 
   ungroup()
 
@@ -159,7 +161,7 @@ Merging the two datasets
 NWCA <- bind_rows(NWCA2011, NWCA2016) 
 
 NWCA %>% distinct(Original.Site) %>% count()
-NWCA2011_2016_02222022 %>% distinct(SITE_ID) %>% count()
+# NWCA2011_2016_02222022 %>% distinct(SITE_ID) %>% count()
 
 glimpse(NWCA)
 NWCA <- NWCA %>% 
@@ -208,14 +210,14 @@ Joining the fixed species table to the main database
 ```{r}
 NWCA2 <- left_join(NWCA, NWCAspp)
 glimpse(NWCA2)
-is.na(NWCA2) <- NWCA2=='' ## ISSUE - this seems to not be working
+# is.na(NWCA2) <- NWCA2=='' ## ISSUE - this seems to not be working
 
 NWCA2 %>% group_by(inv_L48) %>% tally()
 ```
 
 Including/fixing Exotic status hand correct 
 ```{r}
-hand_exo <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/multStatusSpL48.csv"))
+hand_exo <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/multStatusSpL48LP.csv"))
 head(hand_exo)
 
 hand_exo <- hand_exo %>%
@@ -334,6 +336,6 @@ min(NWCA2$COVER) # fixed!
 
 Exporting final dataset
 ```{r}
-write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_05182022.csv"))
+write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_09122022.csv"), row.names = F)
 ```
 
