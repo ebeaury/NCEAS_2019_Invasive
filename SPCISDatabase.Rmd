@@ -35,7 +35,7 @@ Columns to carry forward in combined dataset
 DesiredColumns <- c("Dataset", "Site", "Original.Site",
                     "Plot", "Original.Plot", "Long", "Lat", "Zone",
                     "Original.Long", "Original.Lat", "FuzzedCoord", # not going to SPCIS
-                    "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
+                    "Year", "Month", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "PctCov", "PctCov_100",  
                     "Duration", "Growth.Habit", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
@@ -294,6 +294,19 @@ FIA_final <- FIA_final %>%
   left_join(Resample, by = c("PLOT", "STATECD", "LAT", "LON"))
 ```
 
+-   imports all data from FIA (Jeff C sent me on 09122022) so I can retrieve information on "Month" of data collection
+```{r}
+FIAmonth <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_FIA/PLOT.csv")
+glimpse(FIAmonth)
+
+FIAmonth <- FIAmonth %>% 
+  select(PLOT, CN, MEASMON) %>% distinct() %>% rename(PLT_CN = CN)
+
+FIA_final <- FIA_final %>% 
+  left_join(FIAmonth)
+
+```
+
 Data wrangling and column selection
 
 ```{r}
@@ -309,6 +322,7 @@ FIA <- FIA_final %>%
          Long = LON,
          Lat = LAT,
          Year = INVYR,
+         Month = MEASMON,
          PlotArea.m2 = PlotArea,
          AcceptedTaxonName = bestname,
          Original.TaxonName = SciName) %>%
@@ -413,7 +427,8 @@ AIM <- AIM  %>%
          Plot = ifelse(is.na(NewPlotID), PLOTKEY, NewPlotID),
          Original.Lat = NAD83.Y,
          Original.Long = NAD83.X,
-         Site = ifelse(DataSet=="BLM_LMF", "N", Site)) %>%
+         Site = ifelse(DataSet=="BLM_LMF", "N", Site),
+         Month = month(VisitDate)) %>%
   rename(Long = NAD83.X,
          Lat = NAD83.Y,
          Year = VisitYear, 
@@ -1050,7 +1065,7 @@ glimpse(VNHP)
 Imports the file
 
 ```{r}
-NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_05182022.csv", 
+NWCA <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NWCA2011-2016_09122022.csv", 
                   na = c('', 'NA')) 
 glimpse(NWCA)
 ```
@@ -1555,13 +1570,13 @@ DataBase %>%
 
 ```
 
-#### Join column Pct_100 by SpCode.Original and then remove SpCode.Original
+#### Join column Pct_100 and NumberOfStrata by SpCode.Original and then remove SpCode.Original
 ##### IL_CTAP and NEON already carries this information from the data
 
 ```{r}
 # imports NPS and WVNHP data with PctCov_100
 WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100_Sept22.csv" )
-NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100.csv")
+NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100_Sep22.csv")
 
 dim(DataBase)
 
