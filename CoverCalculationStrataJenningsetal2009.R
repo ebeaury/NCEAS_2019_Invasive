@@ -12,10 +12,11 @@ WVdata <- WV_species_data %>% select(`Plot Code`, `Plant Symbol`, `Scientific Na
   filter(`Stratum`!="T") %>% 
   mutate(Step1=1-(`Real Cover`/100)) %>% 
   group_by(`Plot Code`, `Scientific Name`, `Plant Symbol`) %>% 
-  summarize(PctCov_100=(1-(prod(Step1)))*100) %>% 
+  summarize(PctCov_100=(1-(prod(Step1)))*100,
+            NumberOfStrata=n()) %>% 
   ungroup() %>% select(-`Plant Symbol`) %>% rename(Original.Plot=`Plot Code`, Original.TaxonName=`Scientific Name`)
 range(WVdata$PctCov_100, na.rm = T)
-write.csv(WVdata, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100.csv", row.names=F)
+write.csv(WVdata, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100_Sept22.csv", row.names=F)
 
 WVdataStrata <- WV_species_data %>% select(`Plot Code`, `Plant Symbol`, `Scientific Name`, `Stratum`, `Real Cover`) %>%
   #T = total cover (which is summing in the original data)
@@ -51,16 +52,17 @@ WVdataStrata <- WV_species_data %>% select(`Plot Code`, `Plant Symbol`, `Scienti
            Plot=paste0(Site,"_", Plot),
            Stratum=ifelse(is.na(Stratum), "NA", Stratum)) %>% 
     group_by(Plot, Species) %>% 
-    summarize(PctCov_100=(1-(prod(Step1)))*100) %>% 
+    summarize(PctCov_100=(1-(prod(Step1)))*100,
+              NumberOfStrata=n()) %>% 
     rename(SpCode.Original=Species)
-  write.csv(NPSdata, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100.csv", row.names=F)
+  write.csv(NPSdata, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100_Sept22.csv", row.names=F)
   
   range(NPSdata$PctCov_100)
      
   
 ## importing final file, testing join ##
 ## WVNHP ##
-FULLDatabase_05232022 <- read_csv("/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.csv")
+FULLDatabase_05232022 <- read_csv("/home/shares/neon-inv/data_paper/final_data/archived/FULLDatabase_05232022.csv")
 glimpse(FULLDatabase_05232022)
 FULLDatabase_05232022<-FULLDatabase_05232022 %>% left_join(WVdata, by = c("Original.Plot", "Original.TaxonName")) %>% 
   mutate(PctCov_100=ifelse(Dataset=="WVNHP" & RecordedStrata=="N", PctCov, PctCov_100))
@@ -68,7 +70,7 @@ FULLDatabase_05232022<-FULLDatabase_05232022 %>% left_join(WVdata, by = c("Origi
 # The very few observations that do not work, do not have recorded strata, so I can mutate and get them blanks filled.  
 
 ## NPS ##
-FULLDatabase_05232022 <- read_csv("/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05232022.csv")
+FULLDatabase_05232022 <- read_csv("/home/shares/neon-inv/data_paper/final_data/archived/FULLDatabase_05232022.csv")
 glimpse(FULLDatabase_05232022)
 DataBase2<-DataBase2 %>% left_join(NPSdata, by = c("Plot", "SpCode.Original")) %>% # A LOT OF NAs
   mutate(PctCov_100=ifelse(Dataset=="NPS" & Site=="CAVE", PctCov, PctCov_100))
