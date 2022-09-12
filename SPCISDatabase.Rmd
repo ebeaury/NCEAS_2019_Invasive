@@ -244,7 +244,7 @@ FIA_missingcodes <- rbind(FIA2_fixed, FIA3)
 
 ```{r}
 # importing the taxonomy we manually changed
-status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
+status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48LP.csv")
 head(status)
 
 status <- status %>%
@@ -1239,7 +1239,7 @@ DataBaseALLCodes <- rbind(DataBaseCodes_fixed, DataBaseCodes2)
 
 ```{r}
 # file with manually changed native status
-status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv")
+status <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48LP.csv")
 head(status)
 
 status <- status %>%
@@ -1560,7 +1560,7 @@ DataBase %>%
 
 ```{r}
 # imports NPS and WVNHP data with PctCov_100
-WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100.csv" )
+WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100_Sept22.csv" )
 NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100.csv")
 
 dim(DataBase)
