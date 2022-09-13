@@ -564,9 +564,9 @@ Retrieving WVNHP plot shape
 # retrieving unique WVNHP plots
 WVNHPPlots <- VEGBANK %>% filter(Dataset == "NCVS_WV") %>% distinct(UniqueID)
 
-Plot_shape_WV <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_data.csv")
+Plot_info_WV <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_data.csv")
 
-Plot_shape_WV <- Plot_shape_WV %>%  select(`Plot Code`, `Plot Shape`) %>% distinct() %>% filter(`Plot Code` %in% WVNHPPlots$UniqueID) %>% 
+Plot_shape_WV <- Plot_info_WV %>%  select(`Plot Code`, `Plot Shape`) %>% distinct() %>% filter(`Plot Code` %in% WVNHPPlots$UniqueID) %>% 
   mutate(`Plot Shape` = ifelse(grepl("circular", `Plot Shape`) | grepl("Circular", `Plot Shape`) , "Circular plot", 
                                ifelse(grepl("rectangular", `Plot Shape`) | grepl("Rectangular", `Plot Shape`) | 
                                         grepl("Rectanglular", `Plot Shape`) | grepl("rect.", `Plot Shape`), "Rectangular plot", 
@@ -577,6 +577,18 @@ Plot_shape_WV <- Plot_shape_WV %>%  select(`Plot Code`, `Plot Shape`) %>% distin
          Original.Plot = `Plot Code`)
 table(Plot_shape_WV$SamplingMethod)
 
+```
+
+Retrieving Month of data collection for WVNHP
+```{r}
+# retrieving unique WVNHP plots
+MonthWVNHP <- Plot_info_WV %>%  select(`Plot Code`, `Survey Date`) %>% distinct() %>% 
+  filter(`Plot Code` %in% WVNHPPlots$UniqueID) %>% 
+  rename(Original.Plot = `Plot Code`,
+         Month = `Survey Date`) %>% 
+  mutate(Month = as.Date(Month, format = "%m/%d/%y"),
+         Month = month(Month)) 
+table(MonthWVNHP$Month, exclude = NULL)
 ```
 
 
@@ -882,6 +894,34 @@ SiteCVS <- CVS_plot_data_VAraw %>%
          VegBankUniqueID='Author Observation Code')
 ```
 
+Retrieving Month of data collection for CVS and merges to WVNHP month data retieved above
+```{r}
+MonthCVS <- CVS_plot_data_VAraw %>% 
+  select('Author Observation Code', 'Observation Start Date') %>% 
+  rbind(select(CVS_plot_data_AKraw, c('Author Observation Code', 'Observation Start Date'))) %>% 
+  rbind(select(CVS_plot_data_ALraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_FLraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_GAraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_MSraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_NCCoastalraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_NCFringeraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_NCMtsraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_NCPPraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_Proj129raw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_SCraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_TNraw, c('Author Observation Code', 'Observation Start Date'))) %>%
+  rbind(select(CVS_plot_data_TXraw, c('Author Observation Code', 'Observation Start Date'))) %>% 
+  distinct() %>% 
+  rename(Month='Observation Start Date',
+         Original.Plot='Author Observation Code') %>% 
+  mutate(Month = as.Date(Month, format = "%m/%d/%y"),
+         Month = month(Month)) %>% 
+  filter(!is.na(Month))
+table(MonthCVS$Month, exclude = NULL)
+
+MonthCVS_WVNHP <- MonthCVS %>% rbind(MonthWVNHP)
+```
+
 
 Data wrangling and column selection
 
@@ -931,6 +971,7 @@ VEGBANK <- VEGBANK %>%
          ) %>% 
   filter(!Original.Plot %in% PlotsRemoveWVNHP$`Plot Code`) %>% #partial floristic
   filter(!Original.Plot %in% PlotsRemoveWVNHP2$`Plot Code`) %>% #overlap with NWCA
+  left_join(MonthCVS_WVNHP, by="Original.Plot") %>% # adds month of data collection
   left_join(PlotsResampleWVNHP, by = "Original.Plot") %>% 
   mutate(Plot = ifelse(is.na(NewPlot), Original.Plot, NewPlot)) %>%
   left_join(WVNHPStrata, by = c("Original.Plot" = "Plot.Code", "Original.TaxonName" = "Scientific.Name")) %>%
@@ -1033,6 +1074,20 @@ length(unique(VNHP$Plot))
 length(unique(VAPLOTS_Shape$Plot)) # two more than the dataset
 ```
 
+Finding Month of data collection
+
+```{r}
+VNHPMonth <- read_csv("/home/shares/neon-inv/raw_VegBank_data/VANHP_PlotMetadata_03_22_21.csv")
+glimpse(VNHPMonth)
+
+VNHPMonth <- VNHPMonth %>% select(Plot, Date) %>% 
+  mutate(Date = as.Date(Date, format = "%m/%d/%y"),
+         Year = year(Date),
+         Month = lubridate::month(Date),
+         Original.Plot = as.character(Plot)) %>% distinct() %>% 
+  select(-Plot, -Date)
+```
+
 
 Data wrangling and column selection
 
@@ -1051,6 +1106,7 @@ VNHP <- VNHP %>%
          AcceptedTaxonName = bestname,
          PlotArea.m2 = Plot.Size, 
          NativeStatus = ExoticStatus) %>%
+  left_join(VNHPMonth, by = c("Original.Plot", "Year")) %>% 
   left_join(VNHPresample, by = "Original.Plot") %>% 
   mutate(Plot = ifelse(is.na(NewPlotID), Original.Plot, NewPlotID)) %>%
   select(one_of(DesiredColumns))
@@ -1119,6 +1175,7 @@ IL_CTAP <- IL_CTAP %>%
          NativeStatus = inv_L48,
          SpCode = Accepted.Symbol,
          Year = PYear,
+         Month = PMonth,
          Original.TaxonName = OriginalSpeciesName) %>%
   select(one_of(DesiredColumns))
 
