@@ -243,12 +243,40 @@ fortree <- ftree %>%
   filter(PctCov > 0)
 
 forestfinal <- forest %>% 
-  rbind(fortree) %>%
+  rbind(fortree) 
+  
+forestMultipleMonth <- forestfinal %>% 
+  select(SiteID, Transect, PYear, PMonth) %>% 
+  distinct() %>% 
+  group_by(SiteID, Transect, PYear) %>% 
+  summarize(n_obs = n()) %>% 
+  filter(n_obs > 1) %>% # yes there are 23 instances
+  ungroup()
+  
+foresttest <- forestfinal %>% 
+  group_by(SiteID, PYear, Transect) %>% 
+  count(PMonth) %>% ungroup() # count the obaservations per site, year, transect and month
+
+MonthsKeep <- forestMultipleMonth %>% 
+  left_join(foresttest) %>% # add information on the number of observations
+  group_by(SiteID, PYear, Transect) %>% 
+  top_n(1, n) %>% # filter the months with larger number of observations to be the ones we keep
+  group_by(SiteID, PYear, Transect) %>% 
+  slice(which.max(PMonth)) %>%  # there was one instance that a month had the excat same number of observations, so keeping the latest month of data collection
+  select(-n_obs, -n)
+
+# fixing the database
+forestfinal <- forestfinal %>% 
+  left_join(MonthsKeep, by = c("SiteID", "PYear", "Transect")) %>% 
+  mutate(PMonth = ifelse(is.na(PMonth.y), PMonth.x, PMonth.y)) %>% 
+  select(-PMonth.y, -PMonth.x)
+  
+forestfinal <- forestfinal %>% 
   mutate(Step1=1-(PctCov/100)) %>%
   group_by(SiteID, PYear, PMonth, Transect) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
-  select(-code, -layer) %>% 
+  select(-code) %>% 
   ungroup() %>% 
   group_by(SiteID, PYear, PMonth, Transect, OriginalSpeciesName) %>% 
   mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
@@ -256,7 +284,7 @@ forestfinal <- forest %>%
             SampledAreaOriginal = max(SampledAreaOriginal),
             RecordedStrata = dplyr::first(RecordedStrata),
             PctCov_100=dplyr::first(PctCov_100),
-            NumberOfStrata=n()) %>% 
+            NumberOfStrata = n_distinct(layer)) %>% 
   ungroup()
 
 forestfinal %>% summarize(min = min(PctCov, na.rm = TRUE),
