@@ -96,12 +96,40 @@ wettree <- wtree %>%
   filter(PctCov > 0)
 
 wetfinal <- wet %>% 
-  rbind(wettree) %>% 
+  rbind(wettree) 
+
+wetMultipleMonth <- wetfinal %>% 
+  select(SiteID, PYear, PMonth) %>% 
+  distinct() %>% 
+  group_by(SiteID, PYear) %>% 
+  summarize(n_obs = n()) %>% 
+  filter(n_obs > 1) %>% # yes there are 23 instances
+  ungroup()
+
+wettest <- wetfinal %>% 
+  group_by(SiteID, PYear) %>% 
+  count(PMonth) %>% ungroup() # count the obaservations per site, year, transect and month
+
+MonthsKeep <- wetMultipleMonth %>% 
+  left_join(wettest) %>% # add information on the number of observations
+  group_by(SiteID, PYear) %>% 
+  top_n(1, n) %>% # filter the months with larger number of observations to be the ones we keep
+  group_by(SiteID, PYear) %>% 
+  slice(which.max(PMonth)) %>%  # there was one instance that a month had the excat same number of observations, so keeping the latest month of data collection
+  select(-n_obs, -n)
+
+# fixing the database
+wetfinal <- wetfinal %>% 
+  left_join(MonthsKeep, by = c("SiteID", "PYear")) %>% 
+  mutate(PMonth = ifelse(is.na(PMonth.y), PMonth.x, PMonth.y)) %>% 
+  select(-PMonth.y, -PMonth.x)
+
+wetfinal <- wetfinal %>%
   mutate(Step1=1-(PctCov/100)) %>%
   group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
-  select(-code, -layer) %>% 
+  select(-code) %>% 
   ungroup() %>% 
   group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
@@ -109,7 +137,7 @@ wetfinal <- wet %>%
             SampledAreaOriginal = max(SampledAreaOriginal),
             RecordedStrata = dplyr::first(RecordedStrata),
             PctCov_100=dplyr::first(PctCov_100),
-            NumberOfStrata=n()) %>% 
+            NumberOfStrata = n_distinct(layer)) %>% 
   ungroup() %>% 
   mutate(Transect = 1) 
 
@@ -173,7 +201,7 @@ grassfinal <- grass %>%
   group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
     #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
-  select(-code, -layer) %>% 
+  select(-code) %>% 
   ungroup() %>% 
   group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
@@ -181,7 +209,7 @@ grassfinal <- grass %>%
             SampledAreaOriginal = max(SampledAreaOriginal),
             RecordedStrata = dplyr::first(RecordedStrata),
             PctCov_100=dplyr::first(PctCov_100),
-            NumberOfStrata=n()) %>% 
+            NumberOfStrata = n_distinct(layer)) %>% 
   ungroup() %>% 
   mutate(Transect = 1)
 
@@ -316,34 +344,35 @@ IL_CTAP <- forestfinal %>%
   #
   select(Dataset, everything())
 
-## checking for duplicates of multiple months per year of data collection
+## checking for duplicates of multiple months per year of data collection (fixed above, by ecosystem)
 
-IL_CTAPMultipleMonth<-IL_CTAP %>% 
+# IL_CTAPMultipleMonth<-
+IL_CTAP %>% 
   select(SiteID, Transect, PYear, PMonth) %>% 
   distinct() %>% 
   group_by(SiteID, Transect, PYear) %>% 
   summarize(n_obs = n()) %>% 
-  filter(n_obs > 1) %>% # yes there are 25 instances
+  filter(n_obs > 1) %>% # None!
   ungroup()
 # write.csv(IL_CTAPMultipleMonth, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_CTAP/IL_CTAPMultipleMonth.csv")
 
-IL_CTAPtest <- IL_CTAP %>% 
-  group_by(SiteID, PYear, Transect) %>% 
-  count(PMonth) %>% ungroup() # count the obaservations per site, year, transect and month
-
-MonthsKeep <- IL_CTAPMultipleMonth %>% 
-  left_join(IL_CTAPtest) %>% # add information on the number of observations
-  group_by(SiteID, PYear, Transect) %>% 
-  top_n(1, n) %>% # filter the months with larger number of observations to be the ones we keep
-  group_by(SiteID, PYear, Transect) %>% 
-  slice(which.max(PMonth)) %>%  # there was one instance that a month had the excat same number of observations, so keeping the latest month of data collection
-  select(-n_obs, -n)
-
-# fixing the database
-IL_CTAP <- IL_CTAP %>% 
-  left_join(MonthsKeep, by = c("SiteID", "PYear", "Transect")) %>% 
-  mutate(PMonth = ifelse(is.na(PMonth.y), PMonth.x, PMonth.y)) %>% 
-  select(-PMonth.y, -PMonth.x)
+# IL_CTAPtest <- IL_CTAP %>% 
+#   group_by(SiteID, PYear, Transect) %>% 
+#   count(PMonth) %>% ungroup() # count the obaservations per site, year, transect and month
+# 
+# MonthsKeep <- IL_CTAPMultipleMonth %>% 
+#   left_join(IL_CTAPtest) %>% # add information on the number of observations
+#   group_by(SiteID, PYear, Transect) %>% 
+#   top_n(1, n) %>% # filter the months with larger number of observations to be the ones we keep
+#   group_by(SiteID, PYear, Transect) %>% 
+#   slice(which.max(PMonth)) %>%  # there was one instance that a month had the excat same number of observations, so keeping the latest month of data collection
+#   select(-n_obs, -n)
+# 
+# # fixing the database
+# IL_CTAP <- IL_CTAP %>% 
+#   left_join(MonthsKeep, by = c("SiteID", "PYear", "Transect")) %>% 
+#   mutate(PMonth = ifelse(is.na(PMonth.y), PMonth.x, PMonth.y)) %>% 
+#   select(-PMonth.y, -PMonth.x)
 
 
 ## checking for duplicates per species per plot per year
@@ -500,7 +529,7 @@ IL_CTAP2 %>% group_by(inv_L48) %>% tally()
 
 Including/fixing Exotic status hand correct 
 ```{r}
-hand_exo <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/multStatusSpL48.csv"))
+hand_exo <- read_csv(file.path(shared_data_dir, "code_by_dataset/taxonomy/multStatusSpL48LP.csv"))
 head(hand_exo)
 
 hand_exo <- hand_exo %>%
@@ -602,6 +631,6 @@ IL_CTAP2 %>%
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper09122022.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper09132022.csv"), row.names = F)
 ```
 
