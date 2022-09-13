@@ -56,7 +56,7 @@ Organizing Wetlands data
 # files w, wshr, wtree
 
 wet <- w %>% 
-  select(SiteID, Genus, Species, PYear, 35:54) %>% 
+  select(SiteID, Genus, Species, PYear, PMonth, 35:54) %>% 
   gather(Median1:Median20, key = "Class", value = "PctCov") %>% 
   mutate(PctCov = ifelse(is.na(PctCov), 0, PctCov),
         OriginalSpeciesName =paste0(Genus, " ", Species),
@@ -64,7 +64,7 @@ wet <- w %>%
         across(where(is.character), str_trim)) %>% 
   select(-Genus, -Species, -Class) %>% 
   filter(OriginalSpeciesName != "None") %>% 
-  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   mutate(SampledAreaOriginal = .25, 
          # PctCov = mean(PctCov)/SampledArea, # Ian contacted me and this doesn't agree with the rest of the datasets
          PctCov = mean(PctCov), 
@@ -75,7 +75,7 @@ wet <- w %>%
   filter(PctCov > 0)
 
 wettree <- wtree %>% 
-  select(SiteID, PYear, Squmetr, Genus, Species, SzclassM, PCount) %>% 
+  select(SiteID, PYear, PMonth, Squmetr, Genus, Species, SzclassM, PCount) %>% 
   filter(!is.na(SzclassM),
          SzclassM!=0) %>% 
   mutate(OriginalSpeciesName =paste0(Genus, " ", Species),
@@ -88,7 +88,7 @@ wettree <- wtree %>%
          PctCovPartial = (BA*100)/SampledAreaOriginal, #% ;  same as (BA/SampledAreaOriginal)*100
          code = 1,
          layer = "tree") %>% 
-  group_by(SiteID, PYear, OriginalSpeciesName) %>%
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>%
   mutate(PctCov = sum(PctCovPartial)) %>% 
   select(colnames(wet)) %>% 
   distinct() %>% 
@@ -98,17 +98,18 @@ wettree <- wtree %>%
 wetfinal <- wet %>% 
   rbind(wettree) %>% 
   mutate(Step1=1-(PctCov/100)) %>%
-  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code, -layer) %>% 
   ungroup() %>% 
-  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
   summarise(PctCov = sum(PctCov),
             SampledAreaOriginal = max(SampledAreaOriginal),
             RecordedStrata = dplyr::first(RecordedStrata),
-            PctCov_100=dplyr::first(PctCov_100)) %>% 
+            PctCov_100=dplyr::first(PctCov_100),
+            NumberOfStrata=n()) %>% 
   ungroup() %>% 
   mutate(Transect = 1) 
 
@@ -127,7 +128,7 @@ Organizing Grasslands data
 # files g, gshr, gtree
 
 grass <- g %>% 
-  select(SiteID, Genus, Species, PYear, 35:54) %>% 
+  select(SiteID, Genus, Species, PYear, PMonth, 35:54) %>% 
   gather(Median1:Median20, key = "Class", value = "PctCov") %>% 
   mutate(PctCov = ifelse(is.na(PctCov), 0, PctCov),
         OriginalSpeciesName =paste0(Genus, " ", Species),
@@ -135,7 +136,7 @@ grass <- g %>%
         across(where(is.character), str_trim)) %>% 
   select(-Genus, -Species, -Class) %>% 
   filter(OriginalSpeciesName != "None") %>% 
-  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   mutate(SampledAreaOriginal = .25, 
          # PctCov = mean(PctCov)/SampledArea, # Ian contacted me and this doesn't agree with the rest of the datasets
          PctCov = mean(PctCov),
@@ -146,7 +147,7 @@ grass <- g %>%
   filter(PctCov > 0)
 
 grasstree <- gtree %>% 
-  select(SiteID, PYear, Squrmetrs, Genus, Species, SzclassM, PCount) %>% 
+  select(SiteID, PYear, PMonth, Squrmetrs, Genus, Species, SzclassM, PCount) %>% 
   filter(!is.na(SzclassM),
          SzclassM!=0) %>% 
   mutate(OriginalSpeciesName =paste0(Genus, " ", Species),
@@ -159,7 +160,7 @@ grasstree <- gtree %>%
          PctCovPartial = (BA*100)/SampledAreaOriginal, #%
          code = 1,
          layer = "tree") %>% 
-  group_by(SiteID, PYear, OriginalSpeciesName) %>%
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>%
   mutate(PctCov = sum(PctCovPartial)) %>% 
   select(colnames(grass)) %>% 
   distinct() %>% 
@@ -169,17 +170,18 @@ grasstree <- gtree %>%
 grassfinal <- grass %>% 
   rbind(grasstree) %>% 
   mutate(Step1=1-(PctCov/100)) %>%
-  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
     #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code, -layer) %>% 
   ungroup() %>% 
-  group_by(SiteID, PYear, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, OriginalSpeciesName) %>% 
   mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
   summarise(PctCov = sum(PctCov),
             SampledAreaOriginal = max(SampledAreaOriginal),
             RecordedStrata = dplyr::first(RecordedStrata),
-            PctCov_100=dplyr::first(PctCov_100)) %>% 
+            PctCov_100=dplyr::first(PctCov_100),
+            NumberOfStrata=n()) %>% 
   ungroup() %>% 
   mutate(Transect = 1)
 
@@ -198,7 +200,7 @@ Organizing Forests data
 # files f, fshr, ftree
 
 forest <- f %>% 
-  select(SiteID, Transect, Genus, Species, PYear, 26:35) %>% 
+  select(SiteID, Transect, Genus, Species, PYear, PMonth, 26:35) %>% 
   gather(Median1:Median10, key = "Class", value = "PctCov") %>% 
   mutate(PctCov = ifelse(is.na(PctCov), 0, PctCov),
         OriginalSpeciesName =paste0(Genus, " ", Species),
@@ -208,7 +210,7 @@ forest <- f %>%
                           SiteID=="118502F" & Transect==2 & PYear==2020, 2002, PYear)) %>% 
   select(-Genus, -Species, -Class) %>% 
   filter(OriginalSpeciesName != "None") %>% 
-  group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, Transect, OriginalSpeciesName) %>% 
   mutate(SampledAreaOriginal = .25, 
          PctCov = mean(PctCov), 
          code = 0, 
@@ -218,7 +220,7 @@ forest <- f %>%
   filter(PctCov > 0)
 
 fortree <- ftree %>% 
-  select(SiteID, PYear, Transect, Genus, Species, SzclassM, PCount) %>% 
+  select(SiteID, PYear, PMonth, Transect, Genus, Species, SzclassM, PCount) %>% 
   filter(!is.na(SzclassM),
          SzclassM!=0) %>% 
   mutate(OriginalSpeciesName =paste0(Genus, " ", Species),
@@ -233,7 +235,7 @@ fortree <- ftree %>%
          PctCovPartial = (BA*100)/SampledAreaOriginal, #%
          code = 1,
          layer = "tree") %>% 
-  group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>%
+  group_by(SiteID, PYear, PMonth, Transect, OriginalSpeciesName) %>%
   mutate(PctCov = sum(PctCovPartial)) %>% 
   select(colnames(forest)) %>% 
   distinct() %>% 
@@ -243,17 +245,18 @@ fortree <- ftree %>%
 forestfinal <- forest %>% 
   rbind(fortree) %>%
   mutate(Step1=1-(PctCov/100)) %>%
-  group_by(SiteID, PYear, Transect) %>% 
+  group_by(SiteID, PYear, PMonth, Transect) %>% 
   #creates a column to indicate if in that particular PLOT, there is more than one strata, meaning 'ground' and 'tree' layers. If so, a 'Y' is added, even if a single species was sampled in the tree layer
   mutate(RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
   select(-code, -layer) %>% 
   ungroup() %>% 
-  group_by(SiteID, PYear, Transect, OriginalSpeciesName) %>% 
+  group_by(SiteID, PYear, PMonth, Transect, OriginalSpeciesName) %>% 
   mutate(PctCov_100=(1-(prod(Step1)))*100) %>% 
   summarise(PctCov = sum(PctCov),
             SampledAreaOriginal = max(SampledAreaOriginal),
             RecordedStrata = dplyr::first(RecordedStrata),
-            PctCov_100=dplyr::first(PctCov_100)) %>% 
+            PctCov_100=dplyr::first(PctCov_100),
+            NumberOfStrata=n()) %>% 
   ungroup()
 
 forestfinal %>% summarize(min = min(PctCov, na.rm = TRUE),
@@ -284,6 +287,36 @@ IL_CTAP <- forestfinal %>%
   # distinct() %>% 
   #
   select(Dataset, everything())
+
+## checking for duplicates of multiple months per year of data collection
+
+IL_CTAPMultipleMonth<-IL_CTAP %>% 
+  select(SiteID, Transect, PYear, PMonth) %>% 
+  distinct() %>% 
+  group_by(SiteID, Transect, PYear) %>% 
+  summarize(n_obs = n()) %>% 
+  filter(n_obs > 1) %>% # yes there are 25 instances
+  ungroup()
+# write.csv(IL_CTAPMultipleMonth, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_CTAP/IL_CTAPMultipleMonth.csv")
+
+IL_CTAPtest <- IL_CTAP %>% 
+  group_by(SiteID, PYear, Transect) %>% 
+  count(PMonth) %>% ungroup() # count the obaservations per site, year, transect and month
+
+MonthsKeep <- IL_CTAPMultipleMonth %>% 
+  left_join(IL_CTAPtest) %>% # add information on the number of observations
+  group_by(SiteID, PYear, Transect) %>% 
+  top_n(1, n) %>% # filter the months with larger number of observations to be the ones we keep
+  group_by(SiteID, PYear, Transect) %>% 
+  slice(which.max(PMonth)) %>%  # there was one instance that a month had the excat same number of observations, so keeping the latest month of data collection
+  select(-n_obs, -n)
+
+# fixing the database
+IL_CTAP <- IL_CTAP %>% 
+  left_join(MonthsKeep, by = c("SiteID", "PYear", "Transect")) %>% 
+  mutate(PMonth = ifelse(is.na(PMonth.y), PMonth.x, PMonth.y)) %>% 
+  select(-PMonth.y, -PMonth.x)
+
 
 ## checking for duplicates per species per plot per year
 IL_CTAP %>% 
@@ -499,7 +532,7 @@ IL_CTAP2 %>%
 #fixing it
 IL_CTAP2 <- IL_CTAP2 %>% 
   ## check if all columns are listed here
-  group_by(Dataset, SiteID, Transect, PYear, 
+  group_by(Dataset, SiteID, Transect, PYear, PMonth, 
            RecordedStrata,
            Accepted.Symbol, inv_L48, Lat, Long, Plot) %>% 
   # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
@@ -541,6 +574,6 @@ IL_CTAP2 %>%
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper05262022.csv"))
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper09122022.csv"))
 ```
 
