@@ -1099,7 +1099,7 @@ glimpse(NWCA)
 Imports the file
 
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper05262022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper09132022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
