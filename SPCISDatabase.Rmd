@@ -91,12 +91,17 @@ glimpse(NEON)
 
 Retrieving month of data collection
 ```{r}
+NEONmonth <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NEON/NEONmonth.csv")
+glimpse(NEONmonth)
+NEONmonth <- NEONmonth %>% group_by(plotID, year) %>% 
+  slice(which.max(Month))   # some plots' survey were not completed in a single month, so I am keeping the latest
 
+NEON <- NEON %>% left_join(NEONmonth)
+glimpse(NEON)
 ```
 
 
 Fixing errors in taxonomy
-
 ```{r}
 NEONspp <- NEON %>% 
   ## \\s = white space between the word and sp. or spp.
