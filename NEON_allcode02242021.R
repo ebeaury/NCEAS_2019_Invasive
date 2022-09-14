@@ -36,7 +36,7 @@ tax <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/taxon
                 header = T, stringsAsFactors = F)
 # names(tax)[names(tax) == "?..Accepted.Symbol"] <- "Accepted.Symbol"
 
-taxModifications <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48.csv', 
+taxModifications <- read.csv('/home/shares/neon-inv/data_paper/code_by_dataset/taxonomy/multStatusSpL48LP.csv', 
                  header = T, stringsAsFactors = F)
 
 taxModifications <- taxModifications %>%
@@ -120,6 +120,10 @@ data_1m2 <- dplyr::select(data_1m2, -c(uid))
 
 ###create year column
 data_1m2$year <- substr(data_1m2$endDate, start = 1, stop = 4)
+
+# retrieving month of data collection
+# NEONmonth <- data_1m2 %>% mutate(year = year(endDate), Month = month(endDate)) %>% select(plotID, year, Month) %>% distinct()
+# write_csv(NEONmonth, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NEON/NEONmonth.csv")
 
 #remove irrelevant fields from 1m2 data
 data_1m2 <- dplyr::select(data_1m2, -c(otherVariablesPresent, identificationReferences, remarks, measuredBy, recordedBy, samplingProtocolVersion))
@@ -1096,7 +1100,8 @@ NEON_temp2 <- NEON_temp %>%
          PctCov=sum(percentCover), # sum cover across strata as we are doing for other datasets
          year = max(year), 
          scientificName = dplyr::first(scientificName),
-         RecordedStrata = ifelse(sum(code)>=1, "Y", "N")) %>% 
+         RecordedStrata = ifelse(sum(code)>=1, "Y", "N"),
+         NumberOfStrata = n_distinct(layer)) %>% 
   ungroup() %>% 
   mutate(PlotArea.m2 = ifelse(plotType == "distributed", 400, 800),
          PlotArea.m2 = ifelse(is.na(PlotArea.m2) & siteID == "BLAN", 800,
@@ -1121,7 +1126,7 @@ NEON_temp2 %>% group_by(dataset) %>%
 
 #exporting final file
 write.csv(NEON_temp2,
-          '/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols05272022.csv',
+          '/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols09142022.csv',
           row.names = FALSE)
 
 ###### END - NOT USING THE CODE BELOW ANYMORE ###### 
