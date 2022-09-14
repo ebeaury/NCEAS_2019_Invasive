@@ -85,7 +85,7 @@ tax <- tax %>%
 Imports the file
 
 ```{r}
-NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols05272022.csv")
+NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols09122022.csv")
 glimpse(NEON) 
 ```
 

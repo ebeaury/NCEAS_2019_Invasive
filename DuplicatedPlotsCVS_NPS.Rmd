@@ -1,0 +1,41 @@
+---
+title: "Finding duplicated plots between NPS and CVS"
+author: "Lais Petri"
+date: "9/14/2022"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+    number_sections: true
+    theme: lumen
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+This code is meant to find a list of unique IDs of duplicated plots between NPS and CVS
+
+Packages
+```{r}
+library(tidyverse) 
+library(lubridate)
+```
+
+Importing raw data from CVS
+```{r}
+
+```
+
+Importing NPS list of Site, Plot, and Year
+```{r}
+
+```
+
+
+Maybe the next steps should be
+- list of parks
+- filter them from the `Author Observation Code` from CVS
+- count observations per plot for both datasets
+- compare plot IDs, Year and number of observation
