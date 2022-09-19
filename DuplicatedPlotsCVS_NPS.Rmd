@@ -1,5 +1,5 @@
 ---
-title: "Finding duplicated plots between NPS and CVS"
+title: "Finding duplicated plots between NPS and CVS; and NPS and WVNHP"
 author: "Lais Petri"
 date: "9/14/2022"
 output: 
@@ -17,6 +17,10 @@ editor_options:
 
 This code is meant to find a list of unique IDs of duplicated plots between NPS and CVS
 
+I could not find a column in the CVS raw files (Excel files sent by Bob Peet) that directly mentions a plot belonging to NPS as well. In this scenario, I am trying to match by searching for the park name in the original plot name from CVS,
+lat/long (but they have different resolutions), number of observations per plot, and then digging into raw data to make sure they are the same/or very very similar.
+Bob's example was: GUCO_1601 (NPS) is the same as 104-GUCO-0016 (CVS)
+
 Packages
 ```{r}
 library(tidyverse) 
@@ -25,17 +29,122 @@ library(lubridate)
 
 Importing raw data from CVS
 ```{r}
+VEGBANK <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/All_VegBank_KPEACH_EB_LP_reduced3.csv", 
+                    na = c('', 'NA')) # this data includes repeated samples
+glimpse(VEGBANK)
 
+VEGBANKPlots <- VEGBANK %>% filter(!is.na(VegBankUniqueID)) %>% select(VegBankUniqueID, Long, Lat, Year, SpCode) %>% group_by(VegBankUniqueID, Long, Lat, Year) %>% summarize(n=n_distinct(SpCode)) %>% separate(VegBankUniqueID, c("first", "Site", "Plot"), remove=F) %>% mutate(Long=round(Long, 3), Lat=round(Lat, 3), Plot=as.numeric(Plot), Plot=as.character(Plot))
+```
+
+
+```{r RAW}
+# setting the directory with raw files
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+list.files(data_raw)
+
+# importing all the raw files from Bob Peet 
+CVS_plot_data_VAraw <- read_excel(file.path(data_raw, "CVA-VAplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_AKraw <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_ALraw <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+
+CVS_plot_data_FLraw <- read_excel(file.path(data_raw, "CVS-FLplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL))
+
+CVS_plot_data_GAraw <- read_excel(file.path(data_raw, "CVS-GAplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_MSraw <- read_excel(file.path(data_raw, "CVS-MSplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_NCCoastalraw <- read_excel(file.path(data_raw, "CVS-NCCoastlplainPlots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_NCFringeraw <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_NCMtsraw <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL))
+
+CVS_plot_data_NCPPraw <- read_excel(file.path(data_raw, "CVS-NCPiedmontPlots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_Proj129raw <- read_excel(file.path(data_raw, "CVS-Project129_new.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_SCraw <- read_excel(file.path(data_raw, "CVS-SCplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+CVS_plot_data_TNraw <- read_excel(file.path(data_raw, "CVS-TNplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL))
+
+CVS_plot_data_TXraw <- read_excel(file.path(data_raw, "CVS-TXplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL)) 
+
+PlotsCVS <- CVS_plot_data_VAraw %>% 
+  select('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude") %>% 
+  rbind(select(CVS_plot_data_AKraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>% 
+  rbind(select(CVS_plot_data_ALraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_FLraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_GAraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_MSraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_NCCoastalraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_NCFringeraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_NCMtsraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_NCPPraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_Proj129raw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_SCraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_TNraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>%
+  rbind(select(CVS_plot_data_TXraw, c('Author Observation Code', "Observation Start Date", "Real Latitude", "Real Longitude"))) %>% 
+  distinct() %>% 
+  separate('Author Observation Code', c("first", "middle", "end"), remove=F)
 ```
 
 Importing NPS list of Site, Plot, and Year
 ```{r}
 
+NPS <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NPS_DataPaper_27July2021.csv", 
+                na = c('', 'NA'))
+glimpse(NPS)
+
+NPSPlots <- NPS %>% 
+  # filter(GrowthForm != "Nonvascular") %>% 
+  select(UniqueID, Site, Plot, Long, Lat, Year, Species) %>% group_by(UniqueID, Site, Plot, Long, Lat, Year) %>% summarize(n=n_distinct(Species)) %>% mutate(Long=round(Long, 3), Lat=round(Lat, 3)) 
+
 ```
 
+Filter park abbreviations from the CVS database
+```{r}
+PlotsCVSNPS <- VEGBANKPlots %>% 
+  filter(Site %in% NPSPlots$Site)
+glimpse(PlotsCVSNPS)
+```
 
-Maybe the next steps should be
-- list of parks
-- filter them from the `Author Observation Code` from CVS
-- count observations per plot for both datasets
-- compare plot IDs, Year and number of observation
+Find exact matches
+```{r}
+NPSPlotsCVS <- NPSPlots %>% left_join(PlotsCVSNPS, by = c("Site","Plot","Year")) %>% mutate(n=n.x-n.y) %>% filter(!is.na(VegBankUniqueID)) %>% arrange(n) %>% ungroup()
+# plots with same Site, Plot and Year mostly do not have the same number of observations or exact same coordinates. They are close, so I will check them individually
+# differences decreased after removing nonvascular plants from the NPS database
+```
+
+Checking plot similarity individually
+```{r}
+View(NPS)
+View(VEGBANK) # they look pretty similar, most of the species overlap
+```
+
+Finding the list of the remaining
+```{r}
+PlotsCVSNPS2 <- PlotsCVSNPS %>% filter(!VegBankUniqueID %in% NPSPlotsCVS$VegBankUniqueID)
+# now I need to check these ones again. They represent the plots that didn't match between NPS and CVS above via common Site, Plot and Year
+# I checked manually and came out with the equivalents
+PlotsCVSNPS2_final <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/CVS_NPS_DuplicatedPlotsIncomplete.csv", na = c('', 'NA'))
+```
+
+Final list of plots that should be excluded (I am included to remove the NPS plots given that CVS seems to have filled some missing information, like Year of data sampling for a few)
+```{r}
+FinalDuplicatedPlotList <- NPSPlotsCVS %>% select(UniqueID, VegBankUniqueID) %>% rbind(PlotsCVSNPS2_final)
+glimpse(FinalDuplicatedPlotList)
+write.csv(FinalDuplicatedPlotList,"/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/CVS_NPS_DuplicatedPlots.csv", row.names = F)
+```
+
+Just checking whether WVNHP and NPS have potential duplicated plots
+```{r}
+WVNHPPlots <- VEGBANK %>% filter(Dataset=="NCVS_WV") %>% select(UniqueID, Long, Lat, Year, SpCode) %>% group_by(UniqueID, Long, Lat, Year) %>% summarize(n=n_distinct(SpCode)) %>% separate(UniqueID, c("Site", "Plot"), remove=F) %>% filter(Site %in% NPSPlots$Site)
+
+WVNHPNPSDuplicatedPlots <- WVNHPPlots %>% left_join(NPSPlots, by=c("Site","Plot")) %>% filter(!is.na(UniqueID.y)) %>% rename(UniqueID_WVNHP = UniqueID.x, UniqueID_NPS = UniqueID.y) %>% select(UniqueID_WVNHP,UniqueID_NPS) # yup! 135 duplicates.
+write.csv(WVNHPNPSDuplicatedPlots,"/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/WVNHP_NPS_DuplicatedPlots.csv", row.names = F) # file with plos to be removed from the NPS dataset
+```
+
