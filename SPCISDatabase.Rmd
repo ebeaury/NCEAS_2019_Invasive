@@ -471,6 +471,20 @@ NPSexclude <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_c
 glimpse(NPSexclude)
 ```
 
+Imports file with plots to be excluded (same plots are in CVS)
+```{r}
+NPSexclude2 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/CVS_NPS_DuplicatedPlots.csv", 
+                na = c('', 'NA'))
+glimpse(NPSexclude2)
+```
+
+Imports file with plots to be excluded (same plots are in WVNHP)
+```{r}
+NPSexclude3 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/WVNHP_NPS_DuplicatedPlots.csv", 
+                na = c('', 'NA'))
+glimpse(NPSexclude3)
+```
+
 Retrieving month of data collection
 
 ```{r}
@@ -571,6 +585,11 @@ Data wrangling and column selection
 NPS <- NPS %>%
   #removes plots that are also found in VANHP (NPS plots in Virginia)
   filter(!UniqueID %in% NPSexclude$Plot) %>% 
+  #removes plots that are also found in CVS (NPS plots in CVS)
+  filter(!UniqueID %in% NPSexclude2$UniqueID) %>%
+    #removes plots that are also found in WVNHP (NPS plots in CVS)
+  filter(!UniqueID %in% NPSexclude3$UniqueID_WVNHP) %>%
+  filter(UniqueID != "GUCO_1401") %>% #dropping plot as a suggestion from Bob Peet (the plots should have other 13 species with no cover associated to them. Given that this info cannot be retrieved at this point I am removing it)
   mutate(Original.Plot = as.character(Plot),
          Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
          Original.Lat = Lat,
@@ -875,74 +894,50 @@ CVS_plot_data_TX <- CVS_plot_data_TXraw %>%
 CVSresampled <- rbind(CVS_plot_data_VA, CVS_plot_data_AK, CVS_plot_data_AL, CVS_plot_data_FL, 
                       CVS_plot_data_GA, CVS_plot_data_MS, CVS_plot_data_NCCoastal, CVS_plot_data_NCFringe,
                       CVS_plot_data_NCMts, CVS_plot_data_NCPP, CVS_plot_data_Proj129, CVS_plot_data_SC, 
-                      CVS_plot_data_TN, CVS_plot_data_TX) 
+                      CVS_plot_data_TN, CVS_plot_data_TX) %>% distinct()
 
-# creates a list of plots to remove as they were sampled in the same year.
-# keeps the plots that were sampled later in the growing season
-CVSresampled <- CVSresampled %>% 
-  distinct() %>% 
-  mutate(SameYear = ifelse(lubridate::year(`Observation Start Date`) == lubridate::year(Date_prev), 1, 0),
-         LaterMonth = ifelse(SameYear ==1 & month(`Observation Start Date`) > month(Date_prev), 1,
+previousObsCode <- CVSresampled %>% select(previousObsCode, `Author Observation Code`, `Observation Start Date`)
+
+CVSresampled2 <- CVSresampled %>% #plots resampled 2x
+  left_join(previousObsCode, by = c(`Author Observation Code` = "previousObsCode")) %>% # plots resampled 3x
+  left_join(previousObsCode, by = c(`Author Observation Code.y` = "previousObsCode")) %>%  # plots resampled 4x
+  # creates a list of plots to remove as they were sampled in the same year.
+  # keeps the plots that were sampled later in the growing season
+  mutate(SameYear = ifelse(lubridate::year(`Observation Start Date.x`) == lubridate::year(Date_prev), 1, 0),
+         LaterMonth = ifelse(SameYear ==1 & month(`Observation Start Date.x`) > month(Date_prev), 1,
                              ifelse(SameYear ==0, NA, 0)),
-         PlotsRemove  = ifelse(LaterMonth == 1, previousObsCode, `Author Observation Code`)) %>% 
+         PlotsRemove  = ifelse(LaterMonth == 1, previousObsCode, `Author Observation Code.x`)) 
+
+CVSresampled3 <- CVSresampled2 %>% filter(SameYear==0) %>% 
+  # removing duplicated lines with partial plot match (i.e., not all years in a single row)
+  filter(!`Author Observation Code.x` %in% `Author Observation Code.y`) %>% 
+  filter(!`previousObsCode` %in% `Author Observation Code.y`) %>% 
+  #create new id for plots
   group_by(Source) %>% 
   mutate(NewPlotID = ifelse(SameYear==0, paste0("CVS_", Source, row_number()), NA)) %>% 
   ungroup()
 
-previousObsCode <- CVSresampled %>% select(previousObsCode, `Author Observation Code`)
+CVSresampled4 <- CVSresampled3 %>% select(`Author Observation Code.x`, NewPlotID) %>% rename(Original.Plot=`Author Observation Code.x`)
+CVSresampled5 <- CVSresampled3 %>% select(`Author Observation Code.y`, NewPlotID) %>% rename(Original.Plot=`Author Observation Code.y`)
+CVSresampled6 <- CVSresampled3 %>% select(`Author Observation Code.y.y`, NewPlotID) %>% rename(Original.Plot=`Author Observation Code.y.y`)
+CVSresampled7 <- CVSresampled3 %>% select(`previousObsCode`, NewPlotID) %>% rename(Original.Plot=`previousObsCode`)
 
-# plots resampled 3 and 4 times. For the ones resampled 4 times, I manually created a column with the correspondent plotIDs because I could not think of an easy way to code it.
-CVSresampled3 <- CVSresampled %>%
-  left_join(previousObsCode, by = c(`Author Observation Code` = "previousObsCode")) %>% 
-  mutate(`Author Observation Code.y` = ifelse(previousObsCode == "013-0K-0001", "140-06-0001",
-                           ifelse(previousObsCode == "013-0K-0002", "140-06-0002",
-                           ifelse(previousObsCode == "013-0K-0011", "140-06-0011",
-                           ifelse(previousObsCode == "013-0K-0016", "140-06-0016", 
-                           ifelse(previousObsCode == "116-01-0104" | 
-                                  previousObsCode == "116-01-0105" |
-                                  previousObsCode == "116-03-0101" | 
-                                  previousObsCode == "116-04-0103", NA, `Author Observation Code.y`))))),
-         NewCode4 = ifelse(`Author Observation Code` == "116-01-0104", "116-D1-0104",
-                    ifelse(`Author Observation Code` == "116-01-0105", "116-D1-0105",
-                    ifelse(`Author Observation Code` == "116-03-0101", "116-D3-0101", 
-                    ifelse(`Author Observation Code` == "116-04-0103", "116-D4-0103", NA)))),
-         remove = ifelse(`Author Observation Code.y` == `Author Observation Code`, 1, NA)) %>% 
-  filter(!is.na(`Author Observation Code.y`), 
-         is.na(remove)) %>% 
-  select(-remove)
+#list of plots resampled [in different years]
+CVSresampledFINAL <- CVSresampled4 %>% rbind(CVSresampled5) %>% rbind(CVSresampled6) %>% rbind(CVSresampled7) %>% filter(!is.na(Original.Plot))
 
-# plots resampled twice and add the ones sampled 3 times
-CVSresampled4 <- CVSresampled %>% 
-  filter(!`Author Observation Code` %in% CVSresampled3$`Author Observation Code`) %>% 
-  filter(!previousObsCode %in% CVSresampled3$previousObsCode) %>% 
-  filter(!previousObsCode %in% CVSresampled3$`Author Observation Code`) %>% 
-  filter(!previousObsCode %in% CVSresampled3$`Author Observation Code.y`) %>%
-  filter(!`Author Observation Code` %in% CVSresampled3$`Author Observation Code.y`) %>%
-    filter(!`Author Observation Code` %in% CVSresampled3$NewCode4) %>%
-    filter(!previousObsCode %in% CVSresampled3$NewCode4) %>%
-  mutate(`Author Observation Code.y` = NA,
-         NewCode4 = NA) %>% 
-  rbind(CVSresampled3) %>% 
-  group_by(Source) %>% 
-  mutate(NewPlotID = ifelse(SameYear==0, paste0("CVS_", Source, row_number()), NA)) %>% 
-  ungroup()
-  
+
 #list of plots sampled twice in the same year. These ones were sampled earlier in the season.
-CVSRemove <- CVSresampled %>% 
+CVSRemove <- CVSresampled2 %>% 
   select(PlotsRemove) %>% 
   filter(!is.na(PlotsRemove))
-#list of plots resampled [in different years]
-CVSresampled2 <- CVSresampled4 %>%
-  select(`Author Observation Code`, previousObsCode, `Author Observation Code.y`, NewCode4, NewPlotID) %>% 
-  gather(key = "PlotType", value = "Original.Plot", -NewPlotID) %>% 
-  select(-PlotType) %>%
-  filter(!is.na(NewPlotID),
-         !is.na(Original.Plot)) 
 
 glimpse(CVSRemove)
-glimpse(CVSresampled2)
+glimpse(CVSresampledFINAL)
+```
 
-# 602 plots are present in both datasheets of NCFringe and NCCoastal
+Finding duplicated plots within the CVS data
+```{r}
+# 734 plots are present in both datasheets of NCFringe and NCCoastal
 # and they contain the same species and associated information
 
 NCCoastal <- CVS_plot_data_NCCoastalraw %>% 
@@ -959,7 +954,7 @@ NCTotal <- NCCoastal %>% left_join(NCFringe, by = 'Author Observation Code') %>%
   filter(!is.na(Source.y)) %>% 
   mutate(UniqueID = paste0("VEGBANK_NC_Coastal_", `Author Observation Code`))
 
-# XXX plots are present in both datasheets of NCPP and Proj129
+# 58 plots are present in both datasheets of NCPP and Proj129
 # and they contain the same species and associated information
 
 NCPP <- CVS_plot_data_NCPPraw %>% 
@@ -1046,7 +1041,7 @@ VEGBANK <- VEGBANK %>%
          Original.Plot = ifelse(grepl("VEGBANK", Dataset), VegBankUniqueID, as.character(UniqueID))) %>%
   #line below removes the 3 plots that have the same information in VNHP dataset
   filter(!Original.Plot %in% CVSRemove$PlotsRemove) %>% 
-  left_join(CVSresampled2, by = "Original.Plot") %>% 
+  left_join(CVSresampledFINAL, by = "Original.Plot") %>% 
   left_join(WVPlotCoord, by = "Original.Plot") %>% 
   mutate(Plot = ifelse(is.na(NewPlotID), Original.Plot, NewPlotID),
          Correct.Lat = as.numeric(Correct.Lat),
@@ -1079,7 +1074,7 @@ VEGBANK <- VEGBANK %>%
   filter(!Original.Plot %in% PlotsRemoveWVNHP2$`Plot Code`) %>% #overlap with NWCA
   left_join(MonthCVS_WVNHP, by="Original.Plot") %>% # adds month of data collection
   left_join(PlotsResampleWVNHP, by = "Original.Plot") %>% 
-  mutate(Plot = ifelse(is.na(NewPlot), Original.Plot, NewPlot)) %>%
+  mutate(Plot = ifelse(is.na(NewPlot), Plot, NewPlot)) %>%
   left_join(WVNHPStrata, by = c("Original.Plot" = "Plot.Code", "Original.TaxonName" = "Scientific.Name")) %>%
   mutate(Original.TaxonName = ifelse(is.na(Original.TaxonName) & Original.Plot == "SHMO.9", "Aster",
                                      ifelse(is.na(Original.TaxonName) & Original.Plot == "GRAN.31", "Cladonia P. Browne", Original.TaxonName)),
