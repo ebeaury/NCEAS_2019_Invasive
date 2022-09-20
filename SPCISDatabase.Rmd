@@ -33,11 +33,11 @@ Columns to carry forward in combined dataset
 
 ```{r}
 DesiredColumns <- c("Dataset", "Site", "Original.Site",
-                    "Plot", "Original.Plot", "Long", "Lat", "Zone",
+                    "Plot", "Original.Plot", "Long", "Lat", "Zone", "EcoRegionLevelI",
                     "Original.Long", "Original.Lat", "FuzzedCoord", # not going to SPCIS
                     "Year", "Month", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "PctCov", "PctCov_100",  
-                    "Duration", "Growth.Habit", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
+                    "Duration", "Growth.Habit", "RecordedStrata", "NumberOfStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
 
 ```
@@ -85,7 +85,7 @@ tax <- tax %>%
 Imports the file
 
 ```{r}
-NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols09122022.csv")
+NEON <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NEONDataPaperALLCols09142022.csv")
 glimpse(NEON) 
 ```
 
@@ -1734,7 +1734,7 @@ DataBase %>%
 ```{r}
 # imports NPS and WVNHP data with PctCov_100
 WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100_Sept22.csv" )
-NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100_Sep22.csv")
+NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100_Sept22.csv")
 
 dim(DataBase)
 
@@ -1766,12 +1766,12 @@ dim(DataBase)
 ####checking missing data for Year column####
 DataBase %>% 
   filter(is.na(Year)) %>% 
-  nrow() # missing Year = 65368 records 
+  nrow() # missing Year = 65232 records 
 
 DataBase %>% 
   filter(is.na(Year)) %>% 
   group_by(Dataset) %>% 
-  tally()# missing Year = all 65368 records are from NPS
+  tally()# missing Year = all 65232 records are from NPS
 
 table(DataBase$Year) # checks the range of years
 
@@ -1795,7 +1795,8 @@ DataBase %>%
   ungroup() %>%
   select(Plot, Zone) %>% 
   distinct() %>%
-  count(Zone)
+  count(Zone) # none
+table(DataBase$Zone, useNA = "ifany") #none, as zone was associated depending on the geographic region of a particular dataset
 
 # plots missing coordinates based on "FuzzedCoord" column
 DataBase %>%
@@ -1872,7 +1873,7 @@ DataBase %>%
   distinct() %>% 
   filter(is.na(PlotArea.m2)) %>%
   group_by(Dataset) %>%
-  count()
+  count() #number of plots with missing plot area info
 
 # substitutes SampledArea of zero per NA (38plots from NPS)
 DataBase <- DataBase %>% 
@@ -1981,6 +1982,8 @@ duplicates <- DataBase %>% # time consuming
   filter(n_obs > 1)
 table(duplicates$Dataset)
 
+nrow(DataBase)
+
 # these duplicates are already present in the original datasets, assuming the ones who identified them that each entry is a different morphotype, and potentially a distinct species
 ```
 
@@ -1993,6 +1996,8 @@ MissingOrigName<-DataBase %>%
   group_by(Dataset, Original.TaxonName, SpCode) %>% 
   summarise(n_obs = n())
 table(MissingOrigName$Dataset)
+
+nrow(DataBase)
 
 ## AIM, FIA and NPS ==> total of 14517 observations with no OriginalSpeciesName and SpCpde associated to them. My understand is that they represent unknown species (NEON, for instance had a written of "Unknown Plant" for those, that's why it's not showing up in this summary)
 
@@ -2083,7 +2088,7 @@ missing = DataBase %>% filter(PctCov==0) %>% group_by(Plot) %>% add_tally() %>% 
 
 #removes observations with zero percent cover.
 DataBase <- DataBase %>% 
-  filter(PctCov!=0)
+  filter(PctCov!=0) #315 observations with zero percent cover
 
 DataBase %>%
   group_by(Dataset) %>%
@@ -2115,7 +2120,7 @@ DataBase %>% filter(RecordedStrata=="N", PctCov > 100) %>% distinct(Dataset)
 DataBase %>% filter(RecordedStrata=="Y", PctCov > 100) %>% distinct(Dataset) 
 
 #when combining strata & genus within plot, ids until genus only can have more than 100% because each genus can have up to 100% each
-DataBase %>% filter(PctCov > 100) %>% nrow() # 460 observations in which PctCover for a taxon per plot is >100%
+DataBase %>% filter(PctCov > 100) %>% nrow() # 453 observations in which PctCover for a taxon per plot is >100%
 
 SppLargeCov <- DataBase %>% filter(PctCov > 100) %>% select(AcceptedTaxonName) %>% distinct() %>% arrange(AcceptedTaxonName)
 # one observation is Genus (CRATA) --> WNHP
@@ -2124,6 +2129,8 @@ SppLargeCov <- DataBase %>% filter(PctCov > 100) %>% select(AcceptedTaxonName) %
 ObsLargeCov <- DataBase %>% filter(PctCov > 100)
 # checked the observation with CRATA in MERI.5 in the source data. The genus was present in three strata, none of each exceeding 100%
 # checked the NPS unknowns in the source data, and they are already recorded as more than 100% cover.
+
+nrow(DataBase)
 
 ```
 
@@ -2199,6 +2206,8 @@ DataBase %>%
   select(Dataset, Plot) %>% 
   distinct() %>% 
   count(Dataset)
+
+nrow(DataBase)
 ```
 
 Creates Relative cover column
@@ -2223,8 +2232,49 @@ Creates Relative cover column
 DataBase <- DataBase %>% 
   mutate(SamplingMethod = ifelse(SamplingMethod=="Circular plots", "Circular plot",
                                  ifelse(SamplingMethod=="Nested plots", "Nested plot", SamplingMethod)))
+nrow(DataBase)
 ```
 
+# Checks whether a plot has only on Site associated to it
+```{r}
+DataBase %>% select(Site, Plot) %>% distinct() %>% group_by(Plot) %>% summarise(n = n()) %>% filter(n>1) %>% nrow() # 249 plots have different site associated
+
+MultipleSites<-DataBase %>% select(Site, Plot) %>% distinct() %>% group_by(Plot) %>% mutate(n = n()) %>% ungroup() %>% filter(n>1) %>% select(-n) 
+MultipleSites2<-DataBase %>% select(Site, Plot) %>% distinct() %>% group_by(Plot) %>% mutate(n = n()) %>% ungroup() %>% filter(n>1) %>% select(-n) %>% left_join(MultipleSites, by="Plot") %>% mutate(id=ifelse(Site.x==Site.y, 1, 0)) %>% filter(id==0 | is.na(id)) %>% group_by(Plot) %>%
+ slice_head(n = 1) %>% mutate(SiteNEW=ifelse(is.na(Site.y), Site.x, paste0(Site.x, "; ", Site.y))) %>% select(Plot, SiteNEW)
+
+DataBase <- DataBase %>% left_join(MultipleSites2, by="Plot") %>% mutate(Site=ifelse(is.na(SiteNEW), Site, SiteNEW)) %>% select(-SiteNEW)
+nrow(DataBase)
+```
+
+
+Importing ecoregions level1 (<https://www.epa.gov/eco-research/ecoregions-north-america>)
+
+```{r}
+library(sf)
+# import the vector into R as an sf object
+ecoreg1 <- st_read("/home/shares/neon-inv/data_paper/env_code_data/gis_layers/ecoregionlevel1/NA_CEC_Eco_Level1.shp") %>% rename(EcoRegionLevelI = NA_L1NAME)
+glimpse(ecoreg1)
+```
+
+Adding Ecoregion Level I as a column
+```{r}
+
+DataBaseMissing <- DataBase %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, EcoRegionLevelI=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
+
+DataBase <- DataBase %>% 
+  filter(FuzzedCoord != "Missing") %>% 
+  #getting all data as a sf object
+  st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
+  #sets the same projections
+  st_transform(crs = st_crs(ecoreg1)) %>%
+  #adds the corresponding ecorregions to each entry
+  st_join(ecoreg1) %>%
+  #drops the coordinates
+  st_drop_geometry() %>% 
+  rbind(DataBaseMissing)
+
+```
 
 # Creating the FULL Database
 
@@ -2238,8 +2288,8 @@ glimpse(FULLDatabase)
 ## Exporting the FULL Database
 
 ```{r echo=TRUE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05272022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_05272022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09202022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09202022.csv")
 ```
 
 # Creating Database
