@@ -485,6 +485,11 @@ NPSexclude3 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_
 glimpse(NPSexclude3)
 ```
 
+Imports file with PctCov_100 and NumberOfStrata
+```{r}
+NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100_Sept22.csv")
+```
+
 Retrieving month of data collection
 
 ```{r}
@@ -583,6 +588,8 @@ Data wrangling and column selection
 
 ```{r}
 NPS <- NPS %>%
+  #adds number of strata and PctCov_100
+  left_join(NPS100, by = c("UniqueID"="Plot", "Species"="SpCode.Original")) %>% 
   #removes plots that are also found in VANHP (NPS plots in Virginia)
   filter(!UniqueID %in% NPSexclude$Plot) %>% 
   #removes plots that are also found in CVS (NPS plots in CVS)
@@ -590,21 +597,24 @@ NPS <- NPS %>%
     #removes plots that are also found in WVNHP (NPS plots in CVS)
   filter(!UniqueID %in% NPSexclude3$UniqueID_WVNHP) %>%
   filter(UniqueID != "GUCO_1401") %>% #dropping plot as a suggestion from Bob Peet (the plots should have other 13 species with no cover associated to them. Given that this info cannot be retrieved at this point I am removing it)
-  mutate(Original.Plot = as.character(Plot),
+  mutate(
+    # Original.Plot = as.character(Plot),
          Year = ifelse(UniqueID =="ASIS_2", 1995, Year),
          Original.Lat = Lat,
          Original.Long = Long,
          PlotArea.m2 = as.double(Area_sampled),
          FuzzedCoord = ifelse(RealCoords == "Y", "N", "Missing")) %>% 
+  #fixing original plot ID and plotID for NPS plots
+  mutate(Original.Plot=ifelse(Site=="ALFL" | Site=="GLAC" | Site=="NERI" | Site== "GARI", Plot,paste0(Site,".",Plot))) %>% 
   select(-Plot) %>%
   left_join(select(NPSmonth, c("UniqueID","Year","Month"))) %>% 
   rename(NativeStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
-         Plot = UniqueID,
+         Plot = Original.Plot,
          AcceptedTaxonName = bestname,
          Original.TaxonName = OriginalName,
-         Growth.Habit = GrowthForm) %>%
+         Growth.Habit = GrowthForm) %>% 
   select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(NPS))
@@ -716,6 +726,10 @@ MonthWVNHP <- Plot_info_WV %>%  select(`Plot Code`, `Survey Date`) %>% distinct(
 table(MonthWVNHP$Month, exclude = NULL)
 ```
 
+Imports file with number of strata and pctcov_100
+```{r}
+WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100_Sept22.csv" )
+```
 
 Plots to be removed from CVS as they are present in VNHP dataset
 
@@ -1085,6 +1099,7 @@ VEGBANK <- VEGBANK %>%
   #fixing trace cover for WVNHP (should be 0.01, but there are smaller values) %>% 
   mutate(PctCov = ifelse(Dataset=="WVNHP"&PctCov==0.0025|
                            Dataset=="WVNHP"&PctCov==0.005, 0.01, PctCov)) %>% 
+  left_join(WVNHP100, by = c("Original.Plot", "Original.TaxonName")) %>% 
   dplyr::select(one_of(DesiredColumns))
 
 setdiff(DesiredColumns, names(VEGBANK))
@@ -1728,38 +1743,6 @@ DataBase %>%
 
 ```
 
-#### Join column Pct_100 and NumberOfStrata by SpCode.Original and then remove SpCode.Original
-##### IL_CTAP and NEON already carries this information from the data
-
-```{r}
-# imports NPS and WVNHP data with PctCov_100
-WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100_Sept22.csv" )
-NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100_Sept22.csv")
-
-dim(DataBase)
-
-DataBase <- DataBase %>%
-  ## NPS
-  left_join(NPS100, by = c("Plot", "SpCode.Original")) %>% # A LOT OF NAs
-  mutate(PctCov_100.y=ifelse(Dataset=="NPS" & Site=="CAVE", PctCov, PctCov_100.y)) %>% 
-  ##WVNHP
-  left_join(WVNHP100, by = c("Original.Plot", "Original.TaxonName")) %>% 
-  mutate(PctCov_100=ifelse(Dataset=="WVNHP" & RecordedStrata=="N", PctCov, PctCov_100))
-
-dim(DataBase) # should be the same number of rows, two more columns
-
-# if everything looks great above, fill in the blanks for PctCov_100
-# cover for datasets that we did not aggregate cover across strata but were handed to us with final cover, PctCover_100==PctCov
-DataBase <- DataBase %>% mutate(PctCov_100.x=ifelse(Dataset=="NPS", PctCov_100.y, 
-                                                      ifelse(Dataset=="WVNHP", PctCov_100, 
-                                                             ifelse(is.na(PctCov_100.x), PctCov, PctCov_100.x)))) %>% 
-  select(-PctCov_100.y, -PctCov_100) %>% 
-  rename(PctCov_100 = PctCov_100.x)
-
-dim(DataBase)
-```
-
-
 # Checking missing data for Year column
 
 ```{r}
@@ -2225,6 +2208,14 @@ Creates Relative cover column
 # dim(DataBase) 
 ```
 
+- checks if all recorded strata == Y have number of strata associated to them
+```{r}
+DataBase %>% 
+  group_by(RecordedStrata) %>% 
+  count(NumberOfStrata)
+```
+
+
 # Fixes reviewers comments Aug/Sep 2022
 ```{r}
 # R1: Column "SamplingMethod" in the plot table has duplicate labels for 'Circular plot / Circular plots' and 'Nested plot / Nested plots'
@@ -2274,6 +2265,7 @@ DataBase <- DataBase %>%
   st_drop_geometry() %>% 
   rbind(DataBaseMissing)
 
+nrow(DataBase)
 ```
 
 # Creating the FULL Database
@@ -2284,6 +2276,63 @@ FULLDatabase <- DataBase %>%
   select(one_of(DesiredColumns))
 glimpse(FULLDatabase)
 ```
+
+# Cheking differences in number of plots, resampled plots and observations since the last version
+```{r}
+# imports last version
+FULLDatabase_05272022 <- readRDS("/home/shares/neon-inv/data_paper/final_data/archived/FULLDatabase_05272022.rds")
+
+# number of records #
+dim(FULLDatabase)
+dim(FULLDatabase_05272022) 
+
+#number of records per database
+FULLDatabase %>%
+  ungroup() %>%
+  count(Dataset) %>%
+  mutate(status = "All",
+         pct = round((n/sum(n))*100,2))
+
+FULLDatabase_05272022 %>%
+  ungroup() %>%
+  count(Dataset) %>%
+  mutate(status = "All",
+         pct = round((n/sum(n))*100,2))
+
+# number of plots #
+FULLDatabase %>%
+  ungroup() %>%
+  select(Plot) %>%
+  distinct() %>%
+  nrow() 
+
+FULLDatabase_05272022 %>%
+  ungroup() %>%
+  select(Plot) %>%
+  distinct() %>%
+  nrow() 
+
+## number of resampled plots
+FULLDatabase %>%
+  ungroup() %>%
+  select(Plot, Year) %>%
+  distinct() %>%
+  group_by(Plot) %>% 
+  count(Plot, sort = T) %>% 
+  filter(n>1) %>% 
+  nrow()
+
+FULLDatabase_05272022 %>%
+  ungroup() %>%
+  select(Plot, Year) %>%
+  distinct() %>%
+  group_by(Plot) %>% 
+  count(Plot, sort = T) %>% 
+  filter(n>1) %>% 
+  nrow()
+
+```
+
 
 ## Exporting the FULL Database
 
@@ -2300,10 +2349,10 @@ Columns to carry forward in combined SPCIS dataset
 
 ```{r}
 DesiredColumns2 <- c("Dataset", "Site", "Original.Site",
-                    "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone",
-                    "Year", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
+                    "Plot", "Original.Plot", "Long", "Lat","FuzzedCoord", "Zone", "EcoRegionLevelI",
+                    "Year", "Month", "SpCode", "AcceptedTaxonName", "Original.TaxonName", 
                     "NativeStatus", "Duration", "GrowthHabit",
-                    "PctCov", "PctCov_100", "RecordedStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
+                    "PctCov", "PctCov_100", "RecordedStrata", "NumberOfStrata", "PlotArea.m2", "SamplingMethod", "Resampled"
                     )
 
 ```
@@ -2485,7 +2534,7 @@ ListRareSpecies <- finalsAIMrareSpp %>%
   rbind(VNHPRareSpecies2, WVNHPRareSpecies2) %>% 
   select(Dataset, everything()) 
 
-# write.csv(ListRareSpecies, "/home/shares/neon-inv/data_paper/final_data/ListRareSpecies_04092022.csv", row.names = F)
+# write.csv(ListRareSpecies, "/home/shares/neon-inv/data_paper/final_data/ListRareSpecies_09202022.csv", row.names = F)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -2525,11 +2574,12 @@ glimpse(SPCISDatabase)
 ```{r}
 SPCIS_plant_taxa <- SPCISDatabase %>% 
   select(Plot, Year, SpCode, AcceptedTaxonName, Original.TaxonName, 
-         NativeStatus, Duration, GrowthHabit, PctCov, PctCov_100, RecordedStrata) %>% 
+         NativeStatus, Duration, GrowthHabit, PctCov, PctCov_100, RecordedStrata, NumberOfStrata) %>% 
   as_tibble()
 
 SPCIS_plots <- SPCISDatabase %>% 
-  select(Dataset, Plot, Year, Original.Plot, Site, Original.Site, Long, Lat, FuzzedCoord, Zone, PlotArea.m2, SamplingMethod, Resampled) %>%
+  select(Dataset, Plot, Year, Month, Original.Plot, Site, Original.Site, Long, Lat, FuzzedCoord, Zone, 
+         EcoRegionLevelI, PlotArea.m2, SamplingMethod, Resampled) %>%
   mutate(Long = ifelse(Plot == "008-01-0003", -82.76464, Long),
          Lat = ifelse(Plot == "008-01-0003", 35.3971, Lat),
          PlotArea.m2 = ifelse(Plot == "FIA_2099", 673.3363, PlotArea.m2)) %>%
@@ -2551,7 +2601,7 @@ all_equal(SPCISDatabase, SPCISrecreated)
 results1 = setdiff(SPCISDatabase, SPCISrecreated) # elements in SPCISDatabase NOT in SPCISrecreated
 results2 = setdiff(SPCISrecreated, SPCISDatabase) # elements in SPCISDatabase NOT in SPCISrecreated
 
-#both rows are exactly the same and showing in both dataframes when I search for them. I think it should be ok.
+#all rows are exactly the same and showing in both dataframes when I search for them. I think it should be ok.
 
 # code to find the differences
 # x<-SPCIS_plots %>% 
@@ -2565,28 +2615,25 @@ nrow(SPCISDatabase) == nrow(SPCISrecreated)
 ## getting NWCA unique species names (Accepted and Original) and finding discrepancies ##
 ```{r eval=FALSE, include=FALSE}
 
-NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedTaxonName, Original.TaxonName) %>% distinct() %>% 
-  # a little tweak to find differences
-  mutate(Scientific.Name = str_to_lower(Original.TaxonName),
-         Scientific.Name = str_to_sentence(Scientific.Name),
-         Diff = ifelse(AcceptedTaxonName==Scientific.Name, 0, 1)) %>% 
-  group_by(Diff) %>% add_tally() %>% filter(Diff>0 | is.na(Diff)) %>% select(-Scientific.Name) %>% arrange(Diff) %>% write.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NWCA/NomenclatureDiscrepancies_NWCA.csv", row.names = F)
-
+# NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedTaxonName, Original.TaxonName) %>% distinct() %>% 
+#   # a little tweak to find differences
+#   mutate(Scientific.Name = str_to_lower(Original.TaxonName),
+#          Scientific.Name = str_to_sentence(Scientific.Name),
+#          Diff = ifelse(AcceptedTaxonName==Scientific.Name, 0, 1)) %>% 
+#   group_by(Diff) %>% add_tally() %>% filter(Diff>0 | is.na(Diff)) %>% select(-Scientific.Name) %>% arrange(Diff) %>% write.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NWCA/NomenclatureDiscrepancies_NWCA.csv", row.names = F)
 
 ```
-
-
 
 ### Exporting the SPCIS Database
 
 ```{r echo=TRUE}
 #plant data
-write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05272022.rds")
-write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05272022.csv")
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09202022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09202022.csv")
 
 #plot data
-write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05272022.rds")
-write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05272022.csv")
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09202022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09202022.csv")
 ```
 
 
@@ -2599,7 +2646,7 @@ write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_
 
 ```{r eval=FALSE, include=FALSE}
 
-SPCISDatabase_AIM <- SPCISDatabase %>% filter(Dataset == "AIM")
+# SPCISDatabase_AIM <- SPCISDatabase %>% filter(Dataset == "AIM")
 
 # write_rds(SPCISDatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_AIM_01252022.rds")
 # write_csv(SPCISDatabase_AIM, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_AIM_01252022.csv")
@@ -2922,33 +2969,33 @@ WNHPc<-"#AA4499"
 Importing ecoregions level1 (<https://www.epa.gov/eco-research/ecoregions-north-america>)
 
 ```{r}
-library(sf)
-# import the vector into R as an sf object
-ecoreg1 <- st_read("/home/shares/neon-inv/data_paper/env_code_data/gis_layers/ecoregionlevel1/NA_CEC_Eco_Level1.shp") %>% rename(Ecoregion = NA_L1NAME)
-glimpse(ecoreg1)
+# library(sf)
+# # import the vector into R as an sf object
+# ecoreg1 <- st_read("/home/shares/neon-inv/data_paper/env_code_data/gis_layers/ecoregionlevel1/NA_CEC_Eco_Level1.shp") %>% rename(Ecoregion = NA_L1NAME)
+# glimpse(ecoreg1)
 ```
 
 Joining the ecoregion spatial information
 
 ```{r}
 
-SPCIS_plotsMissing <- SPCIS_plots %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, Ecoregion=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
-
-SPCIS_plotsEco <- SPCIS_plots %>% 
-  filter(FuzzedCoord != "Missing") %>% 
-  # getting all data as a sf object
-  st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
-  #sets the same projections
-  st_transform(crs = st_crs(ecoreg1)) %>%
-  #adds the corresponding ecorregions to each entry
-  st_join(ecoreg1) %>%
-  #drops the coordinates
-  st_drop_geometry() %>% 
-  rbind(SPCIS_plotsMissing)
-
-#Full database with ecoregion level 1
-write_rds(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05272022.rds")
-write_csv(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05272022.csv")
+# SPCIS_plotsMissing <- SPCIS_plots %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, Ecoregion=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
+# 
+# SPCIS_plotsEco <- SPCIS_plots %>% 
+#   filter(FuzzedCoord != "Missing") %>% 
+#   # getting all data as a sf object
+#   st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
+#   #sets the same projections
+#   st_transform(crs = st_crs(ecoreg1)) %>%
+#   #adds the corresponding ecorregions to each entry
+#   st_join(ecoreg1) %>%
+#   #drops the coordinates
+#   st_drop_geometry() %>% 
+#   rbind(SPCIS_plotsMissing)
+# 
+# #Full database with ecoregion level 1
+# write_rds(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05272022.rds")
+# write_csv(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05272022.csv")
 ```
 
 
