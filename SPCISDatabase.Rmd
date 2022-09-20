@@ -595,7 +595,7 @@ NPS <- NPS %>%
   #removes plots that are also found in CVS (NPS plots in CVS)
   filter(!UniqueID %in% NPSexclude2$UniqueID) %>%
     #removes plots that are also found in WVNHP (NPS plots in CVS)
-  filter(!UniqueID %in% NPSexclude3$UniqueID_WVNHP) %>%
+  filter(!UniqueID %in% NPSexclude3$UniqueID_NPS) %>%
   filter(UniqueID != "GUCO_1401") %>% #dropping plot as a suggestion from Bob Peet (the plots should have other 13 species with no cover associated to them. Given that this info cannot be retrieved at this point I am removing it)
   mutate(
     # Original.Plot = as.character(Plot),
@@ -605,13 +605,13 @@ NPS <- NPS %>%
          PlotArea.m2 = as.double(Area_sampled),
          FuzzedCoord = ifelse(RealCoords == "Y", "N", "Missing")) %>% 
   #fixing original plot ID and plotID for NPS plots
-  mutate(Original.Plot=ifelse(Site=="ALFL" | Site=="GLAC" | Site=="NERI" | Site== "GARI", Plot,paste0(Site,".",Plot))) %>% 
-  select(-Plot) %>%
+  mutate(Original.Plot=ifelse(Site=="ALFL" | Site=="GLAC" | Site=="NERI" | Site== "GARI", Plot,paste0(Site,".",Plot)),
+         Plot=Original.Plot) %>% 
   left_join(select(NPSmonth, c("UniqueID","Year","Month"))) %>% 
   rename(NativeStatus = Exotic,
          SpCode = Species,
          PctCov = Pct_Cov,
-         Plot = Original.Plot,
+         # Plot = Original.Plot,
          AcceptedTaxonName = bestname,
          Original.TaxonName = OriginalName,
          Growth.Habit = GrowthForm) %>% 
@@ -1271,7 +1271,7 @@ glimpse(NWCA)
 Imports the file
 
 ```{r}
-IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper09132022.csv", 
+IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_DataPaper09202022.csv", 
                  na = c('', 'NA')) 
 glimpse(IL_CTAP)
 ```
@@ -2212,7 +2212,17 @@ Creates Relative cover column
 ```{r}
 DataBase %>% 
   group_by(RecordedStrata) %>% 
+  count(RecordedStrata)
+
+DataBase %>% 
+  group_by(RecordedStrata) %>% 
   count(NumberOfStrata)
+
+DataBase %>% 
+  filter(RecordedStrata=="Y" & is.na(NumberOfStrata)) %>% 
+  group_by(Dataset) %>% 
+  count()
+
 ```
 
 
