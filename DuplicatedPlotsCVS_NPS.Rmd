@@ -144,7 +144,10 @@ Just checking whether WVNHP and NPS have potential duplicated plots
 ```{r}
 WVNHPPlots <- VEGBANK %>% filter(Dataset=="NCVS_WV") %>% select(UniqueID, Long, Lat, Year, SpCode) %>% group_by(UniqueID, Long, Lat, Year) %>% summarize(n=n_distinct(SpCode)) %>% separate(UniqueID, c("Site", "Plot"), remove=F) %>% filter(Site %in% NPSPlots$Site)
 
-WVNHPNPSDuplicatedPlots <- WVNHPPlots %>% left_join(NPSPlots, by=c("Site","Plot")) %>% filter(!is.na(UniqueID.y)) %>% rename(UniqueID_WVNHP = UniqueID.x, UniqueID_NPS = UniqueID.y) %>% select(UniqueID_WVNHP,UniqueID_NPS) # yup! 135 duplicates.
+WVNHPPlots <- WVNHPPlots %>% mutate(Plot=ifelse(Site=="NERI", paste0(Site,".",Plot), Plot))
+
+WVNHPNPSDuplicatedPlots <- WVNHPPlots %>% left_join(NPSPlots, by=c("Site","Plot")) %>% filter(!is.na(UniqueID.y)) %>% rename(UniqueID_WVNHP = UniqueID.x, UniqueID_NPS = UniqueID.y) %>% select(UniqueID_WVNHP,UniqueID_NPS) 
+nrow(WVNHPNPSDuplicatedPlots) # yup! 412 duplicates.
 write.csv(WVNHPNPSDuplicatedPlots,"/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/WVNHP_NPS_DuplicatedPlots.csv", row.names = F) # file with plos to be removed from the NPS dataset
 ```
 
