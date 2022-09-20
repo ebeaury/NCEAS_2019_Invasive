@@ -590,7 +590,7 @@ IL_CTAP2 %>%
 IL_CTAP2 <- IL_CTAP2 %>% 
   ## check if all columns are listed here
   group_by(Dataset, SiteID, Transect, PYear, PMonth, 
-           RecordedStrata,
+           RecordedStrata, NumberOfStrata,
            Accepted.Symbol, inv_L48, Lat, Long, Plot) %>% 
   # this is the column I need to sum because trees present in different strata had distinct area sampled, so they are different observations in the data.
   dplyr::summarise(PctCov = sum(PctCov),
@@ -631,6 +631,6 @@ IL_CTAP2 %>%
 
 Exporting final file
 ```{r}
-IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper09132022.csv"), row.names = F)
+IL_CTAP2 %>% write.csv(file.path(data_output, "IL_CTAP_DataPaper09202022.csv"), row.names = F)
 ```
 
