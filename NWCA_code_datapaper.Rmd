@@ -339,3 +339,17 @@ Exporting final dataset
 write.csv(NWCA2, file.path(data_output, "NWCA2011-2016_09122022.csv"), row.names = F)
 ```
 
+**data to recover plot layout within a site**
+Importing data
+```{r}
+PlotLayout2011 <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NWCA/nwca2011_floras_vegplotlayout (1).csv") %>% select(SITE_ID, VISIT_NO, PLOT_LAYOUT) %>% filter(VISIT_NO==1) %>% select(-VISIT_NO) %>% rename(Original.Site=SITE_ID)
+
+PlotLayout2016 <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NWCA/nwca_2016_floras_used_and_veg_plot_layout_-_data_csv.csv") %>% select(SITE_ID, VISIT_NO, PLOT_LAYOUT) %>% filter(VISIT_NO==1) %>% select(-VISIT_NO) %>% rename(Original.Site=SITE_ID)
+
+NWCAPlotLayout <- PlotLayout2011 %>% rbind(PlotLayout2016) %>% filter(Original.Site %in% SPCISDatabase$Original.Site)
+
+write.csv(NWCAPlotLayout, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NWCA/NWCAPlotLayout.csv", row.names = F)
+
+NWCAPlotLayout %>% group_by(PLOT_LAYOUT) %>% count() #77.8% are standard
+```
+
