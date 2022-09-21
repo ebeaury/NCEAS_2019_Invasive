@@ -99,6 +99,10 @@ NEONmonth <- NEONmonth %>% group_by(plotID, year) %>%
 
 NEON <- NEON %>% left_join(NEONmonth)
 glimpse(NEON)
+
+# given that the WREF_07* plots year comes from vst, but the data is mixed between 2016 (div) ad 2017 (vst), I am using the month for 2016 div
+NEON <- NEON %>% 
+  mutate(Month=ifelse(is.na(Month), 7, Month))
 ```
 
 Fixing errors in taxonomy
@@ -3458,6 +3462,126 @@ graph9N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 # dev.off()
 
 ```
+
+Creating eco files
+```{r}
+## Ecoregions map
+library(sf)
+# import the vector into R as an sf object
+ecoreg1 <- st_read("/home/shares/neon-inv/data_paper/env_code_data/gis_layers/ecoregionlevel1/NA_CEC_Eco_Level1.shp") %>% rename(Ecoregion = NA_L1NAME)
+glimpse(ecoreg1)
+
+ecoreg1_2163 = st_transform(ecoreg1, crs = 2163)
+
+#creating a box around 
+ecoreg1_2163_bb = st_as_sfc(st_bbox(ecoreg1_2163))
+ecoreg1_2163_bb = st_buffer(ecoreg1_2163_bb, dist = 120)
+
+### Creating maps
+# finding color
+inlmisc::GetColors(3, scheme = "light") # graphs
+
+eco1<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "EASTERN TEMPERATE FORESTS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  geom_sf(data = ecoreg1_2163_bb, fill = NA, color=NA, size = 0.1) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoEASTERN-TEMPERATE-FORESTS05272022.png", dpi = 300)
+
+eco2<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "GREAT PLAINS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoGREAT-PLAINS05272022.png", dpi = 300)
+
+eco3<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "MARINE WEST COAST FOREST"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoMARINE-WEST-COAST-FOREST05272022.png", dpi = 300)
+
+eco4<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "MEDITERRANEAN CALIFORNIA"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoMEDITERRANEAN-CALIFORNIA05272022.png", dpi = 300)
+
+eco5<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "NORTH AMERICAN DESERTS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoNORTH-AMERICAN-DESERTS05272022.png", dpi = 300)
+
+eco6<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "NORTHERN FORESTS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoNORTHERN-FORESTS05272022.png", dpi = 300)
+
+eco7<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoNORTHWESTERN-FORESTED-MOUNTAINS05272022.png", dpi = 300)
+
+eco8<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoSOUTHERN-SEMIARID-HIGHLANDS05272022.png", dpi = 300)
+
+eco9<-ggplot() + 
+  geom_sf(data = ecoreg1_2163, fill = "white", size = 0.2) + 
+  geom_sf(data = filter(ecoreg1_2163, Ecoregion == "TEMPERATE SIERRAS"), 
+          aes(fill=Ecoregion), #fill = NA, color = "blue", size = 1.2
+          color="grey20",fill="grey20", alpha = .2) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(override.aes= list(alpha = 1, size=3))) 
+# ggsave("/home/shares/neon-inv/data_paper/figures/mapEcoregions/EcoTEMPERATE-SIERRAS05272022.png", dpi = 300)
+```
+
 
 ```{r}
 ##arranging the graphs
