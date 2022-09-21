@@ -63,8 +63,8 @@ puerto_rico_2163 = st_transform(puerto_rico, crs = 2163)
 #### Point data
 # SPCIS_plant_taxa <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_04212022.rds")
 # SPCIS_plots <- readRDS("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_04212022.rds")
-SPCIS_plant_taxa <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_05272022.csv")
-SPCIS_plots <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_05272022.csv")
+SPCIS_plant_taxa <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09212022.csv")
+SPCIS_plots <- read_csv("/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09212022.csv")
 SPCIS <- SPCIS_plant_taxa %>% left_join(SPCIS_plots)
 glimpse(SPCIS)
 SPCIS <- SPCIS %>% 
@@ -178,7 +178,7 @@ gg_inset_map
 
 
 # The line below is not working, so I am manually saving the plot
-# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots09022022.png", dpi = 300)
+# ggsave("/home/shares/neon-inv/data_paper/figures/MapAllPlots09212022.png", dpi = 300)
 
 
 ## Ecoregions map
