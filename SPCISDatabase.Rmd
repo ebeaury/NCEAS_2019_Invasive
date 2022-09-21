@@ -90,6 +90,7 @@ glimpse(NEON)
 ```
 
 Retrieving month of data collection
+
 ```{r}
 NEONmonth <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NEON/NEONmonth.csv")
 glimpse(NEONmonth)
@@ -100,8 +101,8 @@ NEON <- NEON %>% left_join(NEONmonth)
 glimpse(NEON)
 ```
 
-
 Fixing errors in taxonomy
+
 ```{r}
 NEONspp <- NEON %>% 
   ## \\s = white space between the word and sp. or spp.
@@ -306,6 +307,7 @@ FIA_final <- FIA_final %>%
 ```
 
 -   imports all data from FIA (Jeff C sent me on 09122022) so I can retrieve information on "Month" of data collection
+
 ```{r}
 FIAmonth <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_FIA/PLOT.csv")
 glimpse(FIAmonth)
@@ -406,6 +408,7 @@ excludePlotIDAIMSameYear <- c("14031706564266912014-03-01","14041413200089512014
 ```
 
 Site information for TerrADat
+
 ```{r}
 AIMSiteInfo <- read_xlsx("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_AIM/TerrADat_wSite_20May22.xlsx")
 glimpse(AIMSiteInfo)
@@ -418,7 +421,6 @@ AIMSiteInfo <- AIMSiteInfo %>% select(PrimaryKey, SiteID) %>% rename(PLOTKEY=Pri
 glimpse(AIMSiteInfo)
 
 ```
-
 
 Data wrangling and column selection
 
@@ -465,6 +467,7 @@ glimpse(NPS)
 ```
 
 Imports file with plots to be excluded (same plots are in VANHP)
+
 ```{r}
 NPSexclude <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPS_excludePlots.csv", 
                 na = c('', 'NA'))
@@ -472,6 +475,7 @@ glimpse(NPSexclude)
 ```
 
 Imports file with plots to be excluded (same plots are in CVS)
+
 ```{r}
 NPSexclude2 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/CVS_NPS_DuplicatedPlots.csv", 
                 na = c('', 'NA'))
@@ -479,6 +483,7 @@ glimpse(NPSexclude2)
 ```
 
 Imports file with plots to be excluded (same plots are in WVNHP)
+
 ```{r}
 NPSexclude3 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/WVNHP_NPS_DuplicatedPlots.csv", 
                 na = c('', 'NA'))
@@ -486,6 +491,7 @@ glimpse(NPSexclude3)
 ```
 
 Imports file with PctCov_100 and NumberOfStrata
+
 ```{r}
 NPS100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPSPct_100_Sept22.csv")
 ```
@@ -667,7 +673,6 @@ PlotsRemoveWVNHP2 <- read_csv("/home/shares/neon-inv/raw_VegBank_data/WV_plot_da
   filter(grepl("^NWCA", `Plot Code`)) %>% distinct()
 ```
 
-
 Imports data on resampled plots for WVNHP and creates a new plot ID for them
 
 ```{r}
@@ -695,6 +700,7 @@ WVNHPStrata <- read.csv("/home/shares/neon-inv/raw_VegBank_data/WV_species_data.
 ```
 
 Retrieving WVNHP plot shape
+
 ```{r}
 # retrieving unique WVNHP plots
 WVNHPPlots <- VEGBANK %>% filter(Dataset == "NCVS_WV") %>% distinct(UniqueID)
@@ -715,6 +721,7 @@ table(Plot_shape_WV$SamplingMethod)
 ```
 
 Retrieving Month of data collection for WVNHP
+
 ```{r}
 # retrieving unique WVNHP plots
 MonthWVNHP <- Plot_info_WV %>%  select(`Plot Code`, `Survey Date`) %>% distinct() %>% 
@@ -727,6 +734,7 @@ table(MonthWVNHP$Month, exclude = NULL)
 ```
 
 Imports file with number of strata and pctcov_100
+
 ```{r}
 WVNHP100 <- read.csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_WVNHP/WVNHPPct_100_Sept22.csv" )
 ```
@@ -950,6 +958,7 @@ glimpse(CVSresampledFINAL)
 ```
 
 Finding duplicated plots within the CVS data
+
 ```{r}
 # 734 plots are present in both datasheets of NCFringe and NCCoastal
 # and they contain the same species and associated information
@@ -988,6 +997,7 @@ NCPPTotal <- NCPP %>% left_join(Proj129, by = 'Author Observation Code') %>%
 ```
 
 Retrieving Site info for CVS
+
 ```{r}
 SiteCVS <- CVS_plot_data_VAraw %>% 
   select('Author Observation Code', 'Author Location') %>% 
@@ -1010,6 +1020,7 @@ SiteCVS <- CVS_plot_data_VAraw %>%
 ```
 
 Retrieving Month of data collection for CVS and merges to WVNHP month data retieved above
+
 ```{r}
 MonthCVS <- CVS_plot_data_VAraw %>% 
   select('Author Observation Code', 'Observation Start Date') %>% 
@@ -1036,7 +1047,6 @@ table(MonthCVS$Month, exclude = NULL)
 
 MonthCVS_WVNHP <- MonthCVS %>% rbind(MonthWVNHP)
 ```
-
 
 Data wrangling and column selection
 
@@ -1108,8 +1118,8 @@ setdiff(names(VEGBANK), DesiredColumns)
 glimpse(VEGBANK)
 ```
 
-
 Quantifying plots without coordinates
+
 ```{r}
 VEGBANK %>% filter(Dataset=="CVS") %>% select(Plot, Lat, Long) %>% distinct() %>% mutate(MissingCoord = ifelse(is.na(Lat)&is.na(Long), "missing", "not missing")) %>% count(MissingCoord)
 ```
@@ -1176,6 +1186,7 @@ VNHPresample <- VNHP %>%
 ```
 
 Finding plot shape
+
 ```{r}
 VAPLOTS_Shape <- read_excel("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_VNHP/VAPLOTS_classification_geocoors_plotsize.xls", 
     sheet = "METADATA_table")
@@ -1203,7 +1214,6 @@ VNHPMonth <- VNHPMonth %>% select(Plot, Date) %>%
          Original.Plot = as.character(Plot)) %>% distinct() %>% 
   select(-Plot, -Date)
 ```
-
 
 Data wrangling and column selection
 
@@ -1351,6 +1361,7 @@ nrow(DataBase)
 ```
 
 ## Fix 'Original.Site' for all datasets [this column was added because of NWCA]
+
 ```{r}
 table(DataBase$Original.Site) #check whether this column has information (it should for NWCA), all others should be NA
 
@@ -1863,6 +1874,10 @@ DataBase <- DataBase %>%
   mutate(PlotArea.m2 = ifelse(PlotArea.m2 == 0, NA, PlotArea.m2))
 
 nrow(DataBase)
+
+# fixes PctCov_100 for the datasets that we did not aggregated strata
+DataBase <- DataBase %>% 
+  mutate(PctCov_100 = ifelse(Dataset=='AIM'|Dataset=='CVS'|Dataset=='FIA'|Dataset=='NWCA'|Dataset=='VNHP', PctCov, PctCov_100))
 ```
 
 # Quality checks done by Kristen
@@ -1990,8 +2005,7 @@ nrow(DataBase)
 
 ```
 
-
-- weird commas where they shouldn't be
+-   weird commas where they shouldn't be
 
 ```{r}
 # Growth.Habit
@@ -2014,7 +2028,7 @@ unique(DataBase$Duration)
 nrow(DataBase)
 ```
 
-- checking for multiple duration and/or growth forms for a particular AcceptedTaxonName [Helen]
+-   checking for multiple duration and/or growth forms for a particular AcceptedTaxonName [Helen]
 
 ```{r}
 ## unique species
@@ -2085,7 +2099,7 @@ DataBase %>%
 nrow(DataBase)
 ```
 
--  RecordedStrata terminology
+-   RecordedStrata terminology
 
 ```{r}
 #checking which are the categories and by dataset
@@ -2143,7 +2157,7 @@ nrow(ResampledList)
 nrow(DataBase)
 ```
 
-- creating a Sampling method column.
+-   creating a Sampling method column.
 
 ```{r}
 
@@ -2194,6 +2208,7 @@ nrow(DataBase)
 ```
 
 Creates Relative cover column
+
 ```{r}
 # check number of observations I start with
 # dim(DataBase) 
@@ -2208,7 +2223,8 @@ Creates Relative cover column
 # dim(DataBase) 
 ```
 
-- checks if all recorded strata == Y have number of strata associated to them
+-   checks if all recorded strata == Y have number of strata associated to them
+
 ```{r}
 DataBase %>% 
   group_by(RecordedStrata) %>% 
@@ -2221,12 +2237,11 @@ DataBase %>%
 DataBase %>% 
   filter(RecordedStrata=="Y" & is.na(NumberOfStrata)) %>% 
   group_by(Dataset) %>% 
-  count()
-
+  count() # only NPS
 ```
 
-
 # Fixes reviewers comments Aug/Sep 2022
+
 ```{r}
 # R1: Column "SamplingMethod" in the plot table has duplicate labels for 'Circular plot / Circular plots' and 'Nested plot / Nested plots'
 
@@ -2237,6 +2252,7 @@ nrow(DataBase)
 ```
 
 # Checks whether a plot has only on Site associated to it
+
 ```{r}
 DataBase %>% select(Site, Plot) %>% distinct() %>% group_by(Plot) %>% summarise(n = n()) %>% filter(n>1) %>% nrow() # 249 plots have different site associated
 
@@ -2248,7 +2264,6 @@ DataBase <- DataBase %>% left_join(MultipleSites2, by="Plot") %>% mutate(Site=if
 nrow(DataBase)
 ```
 
-
 Importing ecoregions level1 (<https://www.epa.gov/eco-research/ecoregions-north-america>)
 
 ```{r}
@@ -2259,6 +2274,7 @@ glimpse(ecoreg1)
 ```
 
 Adding Ecoregion Level I as a column
+
 ```{r}
 
 DataBaseMissing <- DataBase %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, EcoRegionLevelI=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
@@ -2281,6 +2297,7 @@ nrow(DataBase)
 # Creating the FULL Database
 
 Full database with original Lat/Long info and rare species
+
 ```{r}
 FULLDatabase <- DataBase %>%
   select(one_of(DesiredColumns))
@@ -2288,6 +2305,7 @@ glimpse(FULLDatabase)
 ```
 
 # Cheking differences in number of plots, resampled plots and observations since the last version
+
 ```{r}
 # imports last version
 FULLDatabase_05272022 <- readRDS("/home/shares/neon-inv/data_paper/final_data/archived/FULLDatabase_05272022.rds")
@@ -2343,12 +2361,11 @@ FULLDatabase_05272022 %>%
 
 ```
 
-
 ## Exporting the FULL Database
 
 ```{r echo=TRUE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09202022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09202022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09212022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09212022.csv")
 ```
 
 # Creating Database
@@ -2580,7 +2597,8 @@ ListRareSpecies <- finalsAIMrareSpp %>%
 glimpse(SPCISDatabase)
 ```
 
-- creates the two files as Bethany suggested
+-   creates the two files as Bethany suggested
+
 ```{r}
 SPCIS_plant_taxa <- SPCISDatabase %>% 
   select(Plot, Year, SpCode, AcceptedTaxonName, Original.TaxonName, 
@@ -2622,7 +2640,8 @@ results2 = setdiff(SPCISrecreated, SPCISDatabase) # elements in SPCISDatabase NO
 nrow(SPCISDatabase) == nrow(SPCISrecreated)
 ```
 
-## getting NWCA unique species names (Accepted and Original) and finding discrepancies ##
+## getting NWCA unique species names (Accepted and Original) and finding discrepancies
+
 ```{r eval=FALSE, include=FALSE}
 
 # NWCAspplist <- SPCISrecreated %>% filter(Dataset == "NWCA") %>% select(AcceptedTaxonName, Original.TaxonName) %>% distinct() %>% 
@@ -2638,14 +2657,13 @@ nrow(SPCISDatabase) == nrow(SPCISrecreated)
 
 ```{r echo=TRUE}
 #plant data
-write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09202022.rds")
-write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09202022.csv")
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09212022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09212022.csv")
 
 #plot data
-write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09202022.rds")
-write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09202022.csv")
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09212022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09212022.csv")
 ```
-
 
 ```{r eval=FALSE, include=FALSE}
 # write_rds(SPCISDatabase, "/home/shares/neon-inv/data_paper/final_data/SPCISDatabase_0412022.rds")
@@ -2818,7 +2836,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset05272022.png", dpi=300)
+ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset09212022.png", dpi=300)
 ```
 
 ```{r}
@@ -2921,6 +2939,29 @@ rangecover<- SPCISDatabase %>%
 table(SPCISDatabase$Year)
 quantile(SPCISDatabase$Year, na.rm = T)
 
+## months
+table(SPCISDatabase$Month, useNA = "ifany")
+MissingMonth<-SPCISDatabase %>% 
+  filter(is.na(Month)) %>% 
+  count(Dataset, Site, Year)
+
+SPCISDatabase %>% #of obs missing per dataset
+  filter(is.na(Month)) %>% 
+  count(Dataset)
+
+SPCISDatabase %>% 
+  filter(is.na(Month)) %>% 
+  select(Plot) %>% 
+  distinct() %>% 
+  count()
+
+SPCISDatabase %>% 
+  filter(!is.na(Month)) %>% 
+  select(Plot) %>% 
+  distinct() %>% 
+  count()
+
+
 ## number of resampled plots
 SPCISDatabase %>%
   ungroup() %>%
@@ -2931,7 +2972,7 @@ SPCISDatabase %>%
   filter(n>1) %>% 
   nrow()
 
-## number of per plot per data set
+## number of times a plot was resampled per data set
 SPCISDatabase %>%
   ungroup() %>%
   select(Dataset,Plot, Year) %>%
@@ -3008,45 +3049,43 @@ Joining the ecoregion spatial information
 # write_csv(SPCIS_plotsEco, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plotsEco_05272022.csv")
 ```
 
-
 ```{r}
 
-FULLDatabaseMissing <- FULLDatabase %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, Ecoregion=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
-
-FULLDatabaseEco <- FULLDatabase %>% 
-  filter(FuzzedCoord != "Missing") %>% 
-  # getting all data as a sf object
-  st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
-  #sets the same projections
-  st_transform(crs = st_crs(ecoreg1)) %>%
-  #adds the corresponding ecorregions to each entry
-  st_join(ecoreg1) %>%
-  #drops the coordinates
-  st_drop_geometry() %>% 
-  rbind(FULLDatabaseMissing)
-
-#Full database with ecoregion level 1
-write_rds(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05272022.rds")
-write_csv(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05272022.csv")
+# FULLDatabaseMissing <- FULLDatabase %>% filter(FuzzedCoord == "Missing") %>% mutate(NA_L1CODE=NA, Ecoregion=NA, NA_L1KEY=NA, Shape_Leng=NA, Shape_Area=NA)
+# 
+# FULLDatabaseEco <- FULLDatabase %>% 
+#   filter(FuzzedCoord != "Missing") %>% 
+#   # getting all data as a sf object
+#   st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
+#   #sets the same projections
+#   st_transform(crs = st_crs(ecoreg1)) %>%
+#   #adds the corresponding ecorregions to each entry
+#   st_join(ecoreg1) %>%
+#   #drops the coordinates
+#   st_drop_geometry() %>% 
+#   rbind(FULLDatabaseMissing)
+# 
+# #Full database with ecoregion level 1
+# write_rds(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05272022.rds")
+# write_csv(FULLDatabaseEco, "/home/shares/neon-inv/data_paper/final_data/FULLDatabaseEco_05272022.csv")
 ```
-
 
 ```{r}
 SPCISDatabaseEco <- SPCISDatabase %>% 
   filter(FuzzedCoord != "Missing") %>% 
-  group_by(Dataset, Lat, Long, Plot, Year, NativeStatus) %>% 
+  group_by(Dataset, Lat, Long, Plot, Year, NativeStatus, EcoRegionLevelI) %>% 
   summarize(PctCov=sum(PctCov),
-            PctCov_100=sum(PctCov_100)) %>% 
-  # getting all data as a sf object
-  st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
-  #sets the same projections
-  st_transform(crs = st_crs(ecoreg1)) %>%
-  #adds the corresponding ecorregions to each entry
-  st_join(ecoreg1) %>%
-  #drops the coordinates
-  st_drop_geometry()
+            PctCov_100=sum(PctCov_100)) #%>% 
+  # # getting all data as a sf object
+  # st_as_sf(coords = c("Long", "Lat"), remove = FALSE, crs = 4326, agr = "constant") %>%
+  # #sets the same projections
+  # st_transform(crs = st_crs(ecoreg1)) %>%
+  # #adds the corresponding ecorregions to each entry
+  # st_join(ecoreg1) %>%
+  # #drops the coordinates
+  # st_drop_geometry()
 
-SPCISDatabaseEco %>% select(Ecoregion, Dataset) %>% distinct() %>% group_by(Ecoregion) %>% count() %>% filter(n>1)
+SPCISDatabaseEco %>% select(EcoRegionLevelI, Dataset) %>% distinct() %>% group_by(EcoRegionLevelI) %>% count() %>% filter(n>1)
 ```
 
 ## Graphs - Non-native cover
@@ -3056,19 +3095,19 @@ status <- "I"
 # cover <- "PctCov_100" #PctCov
 
 # All Ecoregions at once
-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                     !is.na(Ecoregion)) %>%  
-  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram() + 
-  scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
-  facet_grid(Ecoregion~Dataset, scales="free_y") + 
-  labs(y="Frequency", x = "Introduced Taxa Cover (%)") +
-  ggsave('figures/AllEcoregionsNN.png', dpi = 300)
-
-table(SPCISDatabaseEco$Ecoregion)
+# SPCISDatabase %>% filter(NativeStatus == status,
+#                      !is.na(EcoRegionLevelI)) %>%  
+#   ggplot(aes(PctCov, fill=Dataset), alpha=0.5) + geom_histogram() + 
+#   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
+#   facet_grid(EcoRegionLevelI~Dataset, scales="free_y") + 
+#   labs(y="Frequency", x = "Introduced Taxa Cover (%)") #+
+#   # ggsave('figures/AllEcoregionsNN.png', dpi = 300)
+# 
+# table(SPCISDatabase$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
 graph1I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "EASTERN TEMPERATE FORESTS"
+                    EcoRegionLevelI == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
@@ -3084,7 +3123,7 @@ graph1I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # GREAT PLAINS
 graph2I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "GREAT PLAINS"
+                    EcoRegionLevelI == "GREAT PLAINS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
@@ -3100,7 +3139,7 @@ graph2I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # MARINE WEST COAST FOREST
 graph3I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "MARINE WEST COAST FOREST"
+                    EcoRegionLevelI == "MARINE WEST COAST FOREST"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NPSc, NWCAc)) +
@@ -3116,7 +3155,7 @@ graph3I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # MEDITERRANEAN CALIFORNIA
 graph4I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "MEDITERRANEAN CALIFORNIA"
+                    EcoRegionLevelI == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
@@ -3132,7 +3171,7 @@ graph4I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # NORTH AMERICAN DESERTS
 graph5I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "NORTH AMERICAN DESERTS"
+                    EcoRegionLevelI == "NORTH AMERICAN DESERTS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
@@ -3148,7 +3187,7 @@ graph5I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # NORTHERN FORESTS
 graph6I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "NORTHERN FORESTS"
+                    EcoRegionLevelI == "NORTHERN FORESTS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NEONc, NPSc, NWCAc)) +
@@ -3165,7 +3204,7 @@ graph6I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # NORTHWESTERN FORESTED MOUNTAINS
 graph7I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
+                    EcoRegionLevelI == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
@@ -3182,7 +3221,7 @@ graph7I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # SOUTHERN SEMIARID HIGHLANDS
 graph8I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
+                    EcoRegionLevelI == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
@@ -3200,7 +3239,7 @@ graph8I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # TEMPERATE SIERRAS
 graph9I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "TEMPERATE SIERRAS"
+                    EcoRegionLevelI == "TEMPERATE SIERRAS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NPSc, NWCAc)) +
@@ -3218,9 +3257,6 @@ graph9I<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 # TUNDRA --> only has NEON as dataset and no invasives - it doesn't work
 ```
 
-
-
-
 ## Graphs - Native cover
 
 ```{r}
@@ -3228,19 +3264,19 @@ status <- "N"
 # cover <- "PctCov_100" #PctCov
 
 # All Ecoregions at once
-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                     !is.na(Ecoregion)) %>%  
-  ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram() + 
-  scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
-  facet_grid(Ecoregion~Dataset, scales="free_y") + 
-  labs(y="Frequency", x = "Native Taxa Cover (%)") +
-  ggsave('figures/AllEcoregionsN.png', dpi = 300)
-
-table(SPCISDatabaseEco$Ecoregion)
+# SPCISDatabase %>% filter(NativeStatus == status,
+#                      !is.na(EcoRegionLevelI)) %>%  
+#   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram() + 
+#   scale_fill_manual(values=c(AIMc, CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
+#   facet_grid(EcoRegionLevelI~Dataset, scales="free_y") + 
+#   labs(y="Frequency", x = "Native Taxa Cover (%)") +
+#   ggsave('figures/AllEcoregionsN.png', dpi = 300)
+# 
+# table(SPCISDatabase$Ecoregion)
 
 # EASTERN TEMPERATE FORESTS
 graph1N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "EASTERN TEMPERATE FORESTS"
+                    EcoRegionLevelI == "EASTERN TEMPERATE FORESTS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(CVSc, FIAc, IL_CTAPc, NEONc, NPSc, NWCAc, VNHPc, WNHPc)) +
@@ -3259,7 +3295,7 @@ graph1N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # GREAT PLAINS
 graph2N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "GREAT PLAINS"
+                    EcoRegionLevelI == "GREAT PLAINS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
@@ -3277,7 +3313,7 @@ graph2N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # MARINE WEST COAST FOREST
 graph3N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "MARINE WEST COAST FOREST"
+                    EcoRegionLevelI == "MARINE WEST COAST FOREST"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NPSc, NWCAc)) +
@@ -3296,7 +3332,7 @@ graph3N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # MEDITERRANEAN CALIFORNIA
 graph4N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "MEDITERRANEAN CALIFORNIA"
+                    EcoRegionLevelI == "MEDITERRANEAN CALIFORNIA"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
@@ -3314,7 +3350,7 @@ graph4N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # NORTH AMERICAN DESERTS
 graph5N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "NORTH AMERICAN DESERTS"
+                    EcoRegionLevelI == "NORTH AMERICAN DESERTS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
@@ -3333,7 +3369,7 @@ graph5N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # NORTHERN FORESTS
 graph6N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "NORTHERN FORESTS"
+                    EcoRegionLevelI == "NORTHERN FORESTS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(FIAc, NEONc, NPSc, NWCAc)) +
@@ -3352,7 +3388,7 @@ graph6N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # NORTHWESTERN FORESTED MOUNTAINS
 graph7N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "NORTHWESTERN FORESTED MOUNTAINS"
+                    EcoRegionLevelI == "NORTHWESTERN FORESTED MOUNTAINS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, FIAc, NEONc, NPSc, NWCAc)) +
@@ -3371,7 +3407,7 @@ graph7N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # SOUTHERN SEMIARID HIGHLANDS
 graph8N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "SOUTHERN SEMIARID HIGHLANDS"
+                    EcoRegionLevelI == "SOUTHERN SEMIARID HIGHLANDS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NEONc, NPSc, NWCAc)) +
@@ -3391,7 +3427,7 @@ graph8N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 # TEMPERATE SIERRAS
 graph9N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
-                    Ecoregion == "TEMPERATE SIERRAS"
+                    EcoRegionLevelI == "TEMPERATE SIERRAS"
                      ) %>%  
   ggplot(aes(PctCov_100, fill=Dataset), alpha=0.5) + geom_histogram(binwidth = 10) + 
   scale_fill_manual(values=c(AIMc, NPSc, NWCAc)) +
@@ -3423,7 +3459,6 @@ graph9N<-SPCISDatabaseEco %>% filter(NativeStatus == status,
 
 ```
 
-
 ```{r}
 ##arranging the graphs
 library(cowplot)
@@ -3434,7 +3469,7 @@ all1<-plot_grid(graph1I, graph1N, eco1,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco1_2-05272022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco1_2-09212022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3445,7 +3480,7 @@ all1<-plot_grid(graph3I, graph3N, eco3,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco3_4-05272022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco3_4-09212022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3456,7 +3491,7 @@ all1<-plot_grid(graph5I, graph5N, eco5,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco5_6-05272022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco5_6-09212022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3467,7 +3502,7 @@ all1<-plot_grid(graph7I, graph7N, eco7,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco7_8-05272022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco7_8-09212022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3478,7 +3513,7 @@ all1<-plot_grid(graph9I, graph9N, eco9,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco9-05272022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco9-09212022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
