@@ -16,6 +16,7 @@ editor_options:
 ---
 
 This code was adapted from Helen's code when assembling the database for the NCEAS sub-groups to use.
+Time to run it all: ~15min
 
 ```{r packages and working directory, echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse) 
@@ -630,6 +631,19 @@ NPS <- NPS %>%
 setdiff(DesiredColumns, names(NPS))
 setdiff(names(NPS), DesiredColumns)
 glimpse(NPS)
+```
+
+Creating file with old and new NPS codes
+```{r}
+NPScodes <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/NPS_DataPaper_27July2021.csv", 
+                na = c('', 'NA'))
+glimpse(NPScodes)
+
+NPScodes <- NPScodes %>% 
+  select(Site, Plot, UniqueID) %>% distinct() %>% 
+  mutate(New.PlotID=ifelse(Site=="ALFL" | Site=="GLAC" | Site=="NERI" | Site== "GARI", Plot,paste0(Site,".",Plot))) %>%
+  select(-Site, -Plot)
+write.csv(NPScodes, "/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_NPS/NPScodes.csv", row.names = F)
 ```
 
 ## CVS & WVNHP
@@ -1290,11 +1304,21 @@ IL_CTAP <- read.csv("/home/shares/neon-inv/data_paper/data_by_dataset/IL_CTAP_Da
 glimpse(IL_CTAP)
 ```
 
+Imports file to fix month issues
+```{r}
+CTAPdateProblems_fromLais_R <- read_csv("/home/shares/neon-inv/data_paper/code_by_dataset/extra_csv_CTAP/CTAPdateProblems_fromLais.R.csv") %>% 
+  filter(SPCIS_status=="no") %>%  select(-...1, -n_obs, -SPCIS_status, -comment)
+glimpse(CTAPdateProblems_fromLais_R)
+```
+
+
 Data wrangling and column selection
 
 ```{r}
 IL_CTAP <- IL_CTAP %>%
-  mutate(FuzzedCoord = "Y",
+  left_join(CTAPdateProblems_fromLais_R) %>% 
+  mutate(PMonth = ifelse(is.na(NEW_MONTH), PMonth, NEW_MONTH),
+         FuzzedCoord = "Y",
          Original.Lat = Lat,
          Original.Long = Long,
          Lat = round(Lat, 2),
@@ -2368,8 +2392,8 @@ FULLDatabase_05272022 %>%
 ## Exporting the FULL Database
 
 ```{r echo=TRUE}
-write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09212022.rds")
-write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09212022.csv")
+write_rds(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09232022.rds")
+write_csv(FULLDatabase, "/home/shares/neon-inv/data_paper/final_data/FULLDatabase_09232022.csv")
 ```
 
 # Creating Database
@@ -2661,12 +2685,12 @@ nrow(SPCISDatabase) == nrow(SPCISrecreated)
 
 ```{r echo=TRUE}
 #plant data
-write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09212022.rds")
-write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09212022.csv")
+write_rds(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09232022.rds")
+write_csv(SPCIS_plant_taxa, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plant_taxa_09232022.csv")
 
 #plot data
-write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09212022.rds")
-write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09212022.csv")
+write_rds(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09232022.rds")
+write_csv(SPCIS_plots, "/home/shares/neon-inv/data_paper/final_data/SPCIS_plots_09232022.csv")
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -2840,7 +2864,7 @@ ggplot(data=xx, aes(x=Dataset, y=n, fill=status)) +
                                   panel.grid = element_blank(),
                                   text=element_text(size=15, color="black"),
                                   legend.spacing.y = unit(0, 'pt'))
-ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset09212022.png", dpi=300)
+ggsave("/home/shares/neon-inv/data_paper/figures/GraphInvadedPlotsperDataset09232022.png", dpi=300)
 ```
 
 ```{r}
@@ -3593,7 +3617,7 @@ all1<-plot_grid(graph1I, graph1N, eco1,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco1_2-09212022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco1_2-09232022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3604,7 +3628,7 @@ all1<-plot_grid(graph3I, graph3N, eco3,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco3_4-09212022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco3_4-09232022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3615,7 +3639,7 @@ all1<-plot_grid(graph5I, graph5N, eco5,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco5_6-09212022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco5_6-09232022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3626,7 +3650,7 @@ all1<-plot_grid(graph7I, graph7N, eco7,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco7_8-09212022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco7_8-09232022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
@@ -3637,7 +3661,7 @@ all1<-plot_grid(graph9I, graph9N, eco9,
           )
 
 
-png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco9-09212022.png', width = 1920,height = 1080)
+png('/home/shares/neon-inv/data_paper/figures/ecoregionsNN/graphcombinedEco9-09232022.png', width = 1920,height = 1080)
 print(all1)
 dev.off()
 
